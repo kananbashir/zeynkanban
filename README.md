@@ -7,8 +7,8 @@ A website for planning Zeyn Media's customers, content and tasks. It replaces th
 | Stage | What | Status |
 |---|---|---|
 | 1 | Foundation: login with 8-character codes, roles, page frame, Azerbaijani and English | Done |
-| 2 | Settings: users, statuses, task types, content types, holidays and events | Next |
-| 3 | Customers, content IDs, contract renewal | |
+| 2 | Settings: users, statuses, task types, content types, holidays and events | Done |
+| 3 | Customers, content IDs, contract renewal | Next |
 | 4 | Tasks, managing board, task form, archiving | |
 | 5 | Month planner | |
 | 6 | Dashboard | |
@@ -45,6 +45,22 @@ A person who opens a page their role may not see is sent back to their own first
 - After 8 wrong codes from the same address within 15 minutes, logging in from that address is paused for 15 minutes.
 - "Keep me logged in on this device" keeps a person logged in for 30 days. Without it, the login ends when the browser closes, or after 12 hours.
 
+## Settings (admin only)
+
+- **Users, roles and codes**: add people, rename them, change their role, give them a new code, deactivate or reactivate them. A new code logs the person out everywhere and their old code stops working. A deactivated person is logged out at once and can't log in; their tasks and history stay. Nobody can change their own role or deactivate themselves, so there is always at least one admin.
+- **Statuses**: rename, recolour, reorder by dragging, mark which ones count as finished, add and delete. New tasks start with the first status. At least one status must count as finished. A deleted status is only marked as deleted, so tasks that used it can show "Deleted status (its name)" and stay finished if it counted as finished.
+- **Task types**: rename, reorder by dragging, add and delete (deleted ones are kept the same way). "Post publishing" is the type the month planner uses, so it can be renamed but not deleted.
+- **Content types**: a short code (it goes inside content IDs, as in `thrive-vid-nd26-1`) and a name. Archived, never deleted.
+- **Holidays and special events**: date, name, holiday or special event, and whether it repeats every year.
+
+A new installation starts with four statuses (To do, In progress, Ready for review, Done), five task types and two content types (`vid`, `gpost`). All can be changed.
+
+## First start on a new server
+
+The first time the site is opened on an empty database, it shows a one-time setup page where you create the first admin and receive their access code. Once that admin exists, the setup page closes for good and everyone else is added from Settings.
+
+When hosted on Vercel, the `vercel-build` command applies pending database changes before each build, so the database stays in step with the code.
+
 ## Running it on your own computer
 
 You only need this if you want to try the site locally. You need [Node.js](https://nodejs.org) (version 22 or newer) and a PostgreSQL database (a free one from Supabase or Neon works).
@@ -63,19 +79,13 @@ You only need this if you want to try the site locally. You need [Node.js](https
    npm run db:migrate
    ```
 
-5. Create the first admin. The command prints the access code once, so write it down:
-
-   ```bash
-   npm run user:create -- "Your Name" admin
-   ```
-
-6. Start the site:
+5. Start the site:
 
    ```bash
    npm run dev
    ```
 
-7. Open http://localhost:3000 and log in with the code from step 5.
+6. Open http://localhost:3000. On an empty database you'll see the setup page: create the first admin there and write down the code it shows. (Alternatively, `npm run user:create -- "Your Name" admin` does the same from the terminal.)
 
 ## Commands
 

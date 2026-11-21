@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { redirect } from "next/navigation";
 import { LanguageSwitch } from "@/components/language-switch";
+import { db } from "@/db";
+import { users } from "@/db/schema";
 import { getDictionary } from "@/i18n/server";
 import { homeFor } from "@/lib/roles";
 import { getCurrentUser } from "@/lib/session";
@@ -15,6 +17,8 @@ const SAMPLE_CARDS = [
 export default async function LoginPage() {
   const user = await getCurrentUser();
   if (user) redirect(homeFor(user.role));
+  // A fresh installation has nobody to log in yet: create the first admin instead.
+  if ((await db.$count(users)) === 0) redirect("/setup");
   const { locale, t } = await getDictionary();
 
   return (

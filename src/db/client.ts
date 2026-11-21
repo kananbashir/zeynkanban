@@ -6,7 +6,7 @@ import * as schema from "./schema";
 export function connect(url = process.env.DATABASE_URL) {
   if (!url) throw new Error("DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.");
   // prepare:false keeps this compatible with pooled connections (Supabase, Neon).
-  const sql = postgres(url, { max: 5, prepare: false });
+  const sql = postgres(url, { max: 5, prepare: false, onnotice: () => {} });
   return { sql, db: drizzle(sql, { schema }) };
 }
 

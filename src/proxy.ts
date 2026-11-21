@@ -5,7 +5,8 @@ import type { NextRequest } from "next/server";
 // The real check (is the session valid, is the person active, what is their role) happens on the server in each page.
 export function proxy(request: NextRequest) {
   const hasSession = request.cookies.has("zk_session");
-  if (!hasSession && request.nextUrl.pathname !== "/login") {
+  const open = request.nextUrl.pathname === "/login" || request.nextUrl.pathname === "/setup";
+  if (!hasSession && !open) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
   return NextResponse.next();

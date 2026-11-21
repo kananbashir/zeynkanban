@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, gt, lt } from "drizzle-orm";
+import { and, eq, gt, lt, ne } from "drizzle-orm";
 import { cookies } from "next/headers";
 import { cache } from "react";
 import { db } from "@/db";
@@ -40,6 +40,15 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     .limit(1);
   return rows[0] ?? null;
 });
+
+/** Ends every session of a person, except the one making the request (so an admin renewing their own code stays logged in here). */
+export async function endSessionsOf(userId: string) {
+  const token = (await cookies()).get(COOKIE)?.value;
+  const keep = token ? hashToken(token) : null;
+  await db
+    .delete(sessions)
+    .where(keep ? and(eq(sessions.userId, userId), ne(sessions.tokenHash, keep)) : eq(sessions.userId, userId));
+}
 
 export async function destroySession() {
   const store = await cookies();
