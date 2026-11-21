@@ -12,7 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "user:create": "tsx scripts/create-user.ts",
-    "package": "node scripts/package.mjs"
+    "package": "STANDALONE=1 next build && node scripts/package.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -21,25 +21,25 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@fontsource-variable/inter": "^5.3.0",
     "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@tailwindcss/turbopack": "4.3.3",
+    "@types/node": "^22.20.5",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "drizzle-orm": "^0.45.4",
     "mysql2": "^3.24.6",
     "next": "16.4.6",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "tailwindcss": "4.3.3",
+    "typescript": "^5"
   },
   "devDependencies": {
-    "@tailwindcss/turbopack": "4.3.3",
-    "@types/node": "^22.20.5",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "dotenv": "^18.0.10",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9",
     "eslint-config-next": "16.4.6",
-    "tailwindcss": "4.3.3",
     "tsx": "^4.23.15",
-    "typescript": "^5",
     "vitest": "^5.1.1"
   },
   "engines": {
