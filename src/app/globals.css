@@ -1,0 +1,67 @@
+@import "tailwindcss";
+
+/* Design tokens, taken from the approved designs. */
+@theme {
+  --color-sage: #c9dfd8;
+  --color-mint: #edf6f4;
+  --color-mint-soft: #f4f9f8;
+  --color-teal: #0b7f7b;
+  --color-teal-deep: #0a5e5b;
+  --color-teal-tint: #d9f0ee;
+  --color-forest: #003f37;
+  --color-sun: #f8c843;
+  --color-sun-tint: #fff3cc;
+  --color-sun-ink: #5c4300;
+  --color-ink: #18232f;
+  --color-ink-soft: #414b59;
+  --color-muted: #5b6775;
+  --color-icon: #4a5563;
+  --color-line: #e3ecea;
+  --color-line-strong: #c9d8d5;
+  --color-danger: #b3261e;
+  --color-neutral-card: #e9edf0;
+
+  /* Pastel card colours */
+  --color-pastel-pink: #f9d5f0;
+  --color-pastel-peach: #f8dfc4;
+  --color-pastel-blue: #c6e9f7;
+  --color-pastel-lavender: #d2cbf6;
+
+  /* Status dot colours (checked to stay distinguishable for colour-blind readers) */
+  --color-status-purple: #b04fb8;
+  --color-status-blue: #2a7de1;
+  --color-status-amber: #c47a00;
+  --color-status-teal: #0c9b8d;
+
+  --font-sans: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, Menlo, Consolas, monospace;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  background: var(--color-sage);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+button,
+a {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-teal);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
