@@ -154,7 +154,7 @@ async function liveTaskTypes() {
   return db
     .select({ id: taskTypes.id, isPublishing: taskTypes.isPublishing })
     .from(taskTypes)
-    .where(isNull(taskTypes.deletedAt))
+    .where(and(isNull(taskTypes.deletedAt), eq(taskTypes.oneOff, false)))
     .orderBy(asc(taskTypes.position));
 }
 

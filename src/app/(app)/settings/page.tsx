@@ -1,4 +1,4 @@
-import { asc, desc, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/db";
 import { contents, contentTypes, specialDays, statuses, taskTypes, users } from "@/db/schema";
@@ -22,7 +22,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const counts = await Promise.all([
     db.$count(users, undefined),
     db.$count(statuses, isNull(statuses.deletedAt)),
-    db.$count(taskTypes, isNull(taskTypes.deletedAt)),
+    db.$count(taskTypes, and(isNull(taskTypes.deletedAt), eq(taskTypes.oneOff, false))),
     db.$count(contentTypes, undefined),
     db.$count(specialDays, undefined),
   ]);
@@ -45,7 +45,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     const list = await db
       .select({ id: taskTypes.id, name: taskTypes.name, isPublishing: taskTypes.isPublishing })
       .from(taskTypes)
-      .where(isNull(taskTypes.deletedAt))
+      .where(and(isNull(taskTypes.deletedAt), eq(taskTypes.oneOff, false)))
       .orderBy(asc(taskTypes.position), asc(taskTypes.createdAt));
     content = <TaskTypesSection types={list} t={t.settings} errors={t.errors} />;
   } else if (section === "content") {

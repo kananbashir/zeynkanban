@@ -6,7 +6,10 @@ import { Toast, useToast } from "@/components/toast";
 import { btn, card, field, row, rowOff } from "@/components/ui";
 import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
+import { setTaskArchived } from "@/app/actions/tasks";
 import { suggestContentId } from "@/lib/content-rules";
+import { shortDate } from "@/lib/format-date";
+import type { TaskView } from "@/lib/tasks";
 import { addContent, renameContent, setContentArchived } from "../actions";
 
 type Period = { id: string; label: string; code: string };
@@ -19,7 +22,10 @@ export function ContentsTab({
   periods,
   contents,
   types,
+  tasks,
+  publishDates,
   canArchive,
+  taskT,
   t,
   errors,
 }: {
@@ -28,7 +34,10 @@ export function ContentsTab({
   periods: Period[];
   contents: Content[];
   types: ContentType[];
+  tasks: TaskView[];
+  publishDates: Record<string, string>;
   canArchive: boolean;
+  taskT: Dictionary["tasks"];
   t: Dictionary["customers"]["contents"];
   errors: Dictionary["errors"];
 }) {
@@ -42,6 +51,7 @@ export function ContentsTab({
   const [formError, setFormError] = useState<string | null>(null);
   // IDs saved from this form, counted for the next suggestion even before the page has refreshed.
   const [justAdded, setJustAdded] = useState<string[]>([]);
+  const [expanded, setExpanded] = useState<string[]>([]);
 
   const periodById = useMemo(() => new Map(periods.map((p) => [p.id, p])), [periods]);
   const type = types.find((x) => x.id === typeId);
@@ -70,25 +80,69 @@ export function ContentsTab({
 
   const seg = (on: boolean) => (on ? "bg-white text-ink shadow-[0_1px_3px_rgba(24,35,47,0.14)]" : "text-ink-soft");
 
-  const contentRow = (item: Content) => (
-    <div key={item.id} data-row className={`flex flex-wrap items-center gap-x-3.5 gap-y-1.5 ${item.archived ? rowOff : row}`}>
-      <div className="min-w-0 flex-[1_1_240px]">
-        {item.archived ? (
-          <span className="px-2.5 font-mono text-[13px] font-medium">{item.code}</span>
-        ) : (
-          <InlineText mono value={item.code} label={t.editId} onSave={(next) => run(() => renameContent(item.id, next))} />
+  const contentRow = (item: Content) => {
+    const own = tasks.filter((x) => x.contentId === item.id);
+    const live = own.filter((x) => !x.archived);
+    const done = live.filter((x) => x.finished).length;
+    const open = expanded.includes(item.id);
+    const publish = publishDates[item.id];
+    return (
+      <div key={item.id} data-row className={`flex flex-col gap-2 ${item.archived ? rowOff : row}`}>
+        <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5">
+          <button
+            type="button"
+            aria-expanded={open}
+            aria-label={fill(taskT.contents.showTasks, { code: item.code })}
+            onClick={() => setExpanded((list) => (open ? list.filter((x) => x !== item.id) : [...list, item.id]))}
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-icon"
+          >
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d={open ? "m6 9 6 6 6-6" : "m9 18 6-6-6-6"} /></svg>
+          </button>
+          <div className="min-w-0 flex-[1_1_200px]">
+            {item.archived ? (
+              <span className="px-2.5 font-mono text-[13px] font-medium">{item.code}</span>
+            ) : (
+              <InlineText mono value={item.code} label={t.editId} onSave={(next) => run(() => renameContent(item.id, next))} />
+            )}
+          </div>
+          <span className="whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-xs font-semibold">{item.typeName}</span>
+          <span className="whitespace-nowrap text-[13px] text-ink-soft">{publish ? fill(taskT.form.publishes, { date: shortDate(publish, taskT) }) : taskT.form.noPublish}</span>
+          <span className="flex items-center gap-2 whitespace-nowrap text-[13px] text-ink-soft tabular-nums">
+            {live.length > 0 && (
+              <span className="flex h-1.5 w-16 overflow-hidden rounded-full bg-[#cfe7e4]"><span className="bg-teal" style={{ width: `${Math.round((done / live.length) * 100)}%` }} /></span>
+            )}
+            {live.length ? fill(taskT.contents.progress, { done, total: live.length }) : t.noTasks}
+          </span>
+          {canArchive && (
+            <button type="button" className={`${btn.soft} ml-auto`} disabled={pending} onClick={() => run(() => setContentArchived(item.id, !item.archived))}>
+              {item.archived ? t.restore : t.archive}
+            </button>
+          )}
+        </div>
+        {open && (
+          <div className="flex flex-col rounded-2xl bg-white px-3.5 py-1.5">
+            {own.map((x, i) => (
+              <div key={x.id} className={`flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5 text-[13px] text-ink-soft ${i ? "border-t border-line" : ""}`}>
+                <span className="flex-[1_1_150px] text-sm font-semibold text-ink">{x.typeDeleted ? fill(taskT.deletedType, { name: x.typeName }) : x.typeName}</span>
+                <span className="flex flex-[1_1_150px] items-center gap-2">{x.assigneeName ?? taskT.noAssignee}</span>
+                <span className="whitespace-nowrap">{shortDate(x.dueDate, taskT)}</span>
+                <span className="flex min-w-[130px] items-center gap-1.5 whitespace-nowrap font-semibold text-ink">
+                  <span className="size-[9px] rounded-full" style={{ background: x.archived ? "#6b7785" : x.statusColor }} />
+                  {x.archived ? taskT.contents.archivedTask : x.statusDeleted ? fill(taskT.deletedStatus, { name: x.statusName }) : x.statusName}
+                </span>
+                {x.archived && canArchive && (
+                  <button type="button" className={btn.mint} disabled={pending} onClick={() => run(() => setTaskArchived(x.id, false))}>
+                    {taskT.form.restore}
+                  </button>
+                )}
+              </div>
+            ))}
+            {own.length === 0 && <p className="py-3 text-[13px] text-muted">{t.noTasks}</p>}
+          </div>
         )}
       </div>
-      <span className="whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-xs font-semibold">{item.typeName}</span>
-      <span className="whitespace-nowrap text-[13px] text-ink-soft">{item.contractId ? periodById.get(item.contractId)?.label : ""}</span>
-      <span className="whitespace-nowrap text-[13px] text-muted">{t.noTasks}</span>
-      {canArchive && (
-        <button type="button" className={`${btn.soft} ml-auto`} disabled={pending} onClick={() => run(() => setContentArchived(item.id, !item.archived))}>
-          {item.archived ? t.restore : t.archive}
-        </button>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="flex flex-col gap-5">

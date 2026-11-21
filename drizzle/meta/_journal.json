@@ -22,6 +22,20 @@
       "when": 1795273629679,
       "tag": "0002_customers",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1795277744610,
+      "tag": "0003_tasks",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1795277816457,
+      "tag": "0004_one_off_task_types",
+      "breakpoints": true
     }
   ]
 }

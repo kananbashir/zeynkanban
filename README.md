@@ -9,8 +9,8 @@ A website for planning Zeyn Media's customers, content and tasks. It replaces th
 | 1 | Foundation: login with 8-character codes, roles, page frame, Azerbaijani and English | Done |
 | 2 | Settings: users, statuses, task types, content types, holidays and events | Done |
 | 3 | Customers, content IDs, contract renewal | Done |
-| 4 | Tasks, managing board, task form, archiving | Next |
-| 5 | Month planner | |
+| 4 | Tasks, managing board, task form, archiving | Done |
+| 5 | Month planner | Next |
 | 6 | Dashboard | |
 | 7 | My tasks and personal tasks | |
 | 8 | Notifications, including phone push | |
@@ -62,6 +62,16 @@ A new installation starts with four statuses (To do, In progress, Ready for revi
 - **Contracts**: renewing adds a new period and keeps the old ones as history. The default renewal starts the month after the current contract and lasts as long.
 - **Content IDs** (admin and manager add and rename; only admin archives) follow the scheme `[short name]-[type code]-[period]-[number]`, e.g. `thrive-vid-nd26-1`. The period uses English month initials and the year, both years when it crosses the new year: `nd26`, `dj2627`, `n26` for a single month. The next free number is suggested and can be overwritten; an ID can't be used twice.
 - Once content IDs use a content type, its code is locked in Settings.
+
+## Tasks and the managing board
+
+- Every task belongs to a content ID. It has a type, an assignee, a date, an optional description and note, and a status; new tasks start with the first status.
+- **A task without an assignee is a draft**: it shows in the customer's Drafts box only, never on the managing board.
+- **Day views** (managing board, customer Tasks tab): unfinished tasks show on their due day; on today's view, unfinished tasks from earlier days also show as overdue; finished tasks show on the day they were finished. "Today" is taken in Baku time (`APP_TIME_ZONE`).
+- **Managing board** (admin, manager): calendar, day summary, filters by customer and assignee, search, and status changes from each card. "Open task" opens the task form on the customer's page.
+- **Task form** (customer page, yellow button): type (or "Other…", optionally saved to the list), content ID with its publish date, assignee with their load that day, description, note, and a calendar showing how many tasks each day already has, with holidays marked and that day's tasks grouped by person.
+- Tasks are archived, never deleted (admin only), and can be restored from the Contents tab, where each content ID shows its publish date, progress and tasks.
+- A task whose status or type was deleted in Settings shows "Deleted status (name)" or "Deleted task type (name)".
 
 ## First start on a new server
 

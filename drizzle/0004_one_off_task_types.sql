@@ -1,0 +1,1 @@
+ALTER TABLE `task_types` ADD `one_off` boolean DEFAULT false NOT NULL;

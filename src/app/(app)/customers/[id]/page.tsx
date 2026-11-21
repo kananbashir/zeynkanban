@@ -8,6 +8,9 @@ import { fill } from "@/i18n/format";
 import { requireRole } from "@/lib/auth";
 import { formatPeriod, parseMonth, periodCode } from "@/lib/content-rules";
 import { activeContentTypes, contentsOf, contractsOf } from "@/lib/customers";
+import { isIsoDateString, monthGrid, monthOf, todayIso } from "@/lib/dates";
+import { activePeople, allSpecialDays, countsByDay, dayTasks, draftsOf, listedTaskTypes, liveStatuses, taskById, tasksOfCustomer } from "@/lib/tasks";
+import { TasksTab } from "./tasks-tab";
 import { ContentsTab } from "./contents-tab";
 import { InfoTab } from "./info-tab";
 import { RestoreCustomer } from "./restore-customer";
@@ -15,17 +18,28 @@ import { RestoreCustomer } from "./restore-customer";
 const TABS = ["tasks", "contents", "info"] as const;
 type Tab = (typeof TABS)[number];
 
-export default async function CustomerPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string }> }) {
+export default async function CustomerPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ tab?: string; date?: string; m?: string; edit?: string }>;
+}) {
   const user = await requireRole("admin", "manager");
   const { id } = await params;
-  const requested = (await searchParams).tab;
-  const tab: Tab = (TABS as readonly string[]).includes(requested ?? "") ? (requested as Tab) : "contents";
+  const query = await searchParams;
+  const requested = query.tab;
+  const tab: Tab = (TABS as readonly string[]).includes(requested ?? "") ? (requested as Tab) : "tasks";
   const { t } = await getDictionary();
   const c = t.customers;
 
   const [customer] = await db.select().from(customers).where(eq(customers.id, id));
   if (!customer) notFound();
-  const [contractRows, contentRows, types] = await Promise.all([contractsOf(id), contentsOf(id), activeContentTypes()]);
+  const [contractRows, contentRows, types, customerTasks] = await Promise.all([contractsOf(id), contentsOf(id), activeContentTypes(), tasksOfCustomer(id)]);
+
+  // Publish date of each content ID: the date of its (unarchived) publishing task.
+  const publishDate = new Map<string, string>();
+  for (const task of customerTasks) if (task.isPublishing && !task.archived && !publishDate.has(task.contentId)) publishDate.set(task.contentId, task.dueDate);
 
   const periods = contractRows.map((row) => {
     const start = parseMonth(row.startMonth)!;
@@ -35,6 +49,46 @@ export default async function CustomerPage({ params, searchParams }: { params: P
   const current = periods[0];
   const activeCount = contentRows.filter((x) => !x.archived).length;
   const admin = user.role === "admin";
+
+  async function tasksTab() {
+    const today = todayIso();
+    const date = isIsoDateString(query.date) ? query.date : today;
+    const shown = query.m && /^\d{4}-\d{2}$/.test(query.m) ? { year: Number(query.m.slice(0, 4)), month: Number(query.m.slice(5)) } : monthOf(date);
+    const grid = monthGrid(shown.year, shown.month);
+    const [day, drafts, counts, statuses, specialDays, taskTypes, people, editing] = await Promise.all([
+      dayTasks(date, today, { customerId: id }),
+      draftsOf(id),
+      countsByDay(grid[0].iso, grid[grid.length - 1].iso, { customerId: id }),
+      liveStatuses(),
+      allSpecialDays(),
+      listedTaskTypes(),
+      activePeople(),
+      query.edit ? taskById(query.edit) : Promise.resolve(null),
+    ]);
+    return (
+      <TasksTab
+        key={`${date}-${query.edit ?? ""}`}
+        customerId={id}
+        customerName={customer.name}
+        date={date}
+        today={today}
+        shownMonth={shown}
+        day={day}
+        drafts={drafts}
+        counts={counts}
+        statuses={statuses}
+        specialDays={specialDays}
+        contents={contentRows.filter((x) => !x.archived).map((x) => ({ id: x.id, code: x.code, typeName: x.typeName, publishDate: publishDate.get(x.id) ?? null }))}
+        types={taskTypes}
+        people={people}
+        editTask={editing && editing.customerId === id ? editing : null}
+        canArchive={admin}
+        t={t.tasks}
+        months={c.months}
+        errors={t.errors}
+      />
+    );
+  }
 
   return (
     <main className="flex flex-col gap-5">
@@ -76,7 +130,7 @@ export default async function CustomerPage({ params, searchParams }: { params: P
         </div>
       )}
 
-      {tab === "tasks" && <section className="rounded-[28px] bg-white px-4 py-12 text-center text-sm text-muted md:px-6">{c.tasksSoon}</section>}
+      {tab === "tasks" && (await tasksTab())}
 
       {tab === "contents" && (
         <ContentsTab
@@ -85,7 +139,10 @@ export default async function CustomerPage({ params, searchParams }: { params: P
           periods={periods}
           contents={contentRows}
           types={types}
+          tasks={customerTasks}
+          publishDates={Object.fromEntries(publishDate)}
           canArchive={admin}
+          taskT={t.tasks}
           t={c.contents}
           errors={t.errors}
         />

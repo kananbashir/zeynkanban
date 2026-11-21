@@ -71,6 +71,8 @@ export const taskTypes = mysqlTable("task_types", {
   position: int("position").notNull().default(0),
   /** The type the month planner gives every task it creates ("Post publishing"). */
   isPublishing: boolean("is_publishing").notNull().default(false),
+  /** Typed once with "Other…" in the task form and not saved to the list: used by its task, hidden everywhere else. */
+  oneOff: boolean("one_off").notNull().default(false),
   deletedAt: datetime("deleted_at", { mode: "date", fsp: 3 }),
   createdAt: createdAt(),
 });
@@ -151,4 +153,44 @@ export const contents = mysqlTable(
     createdAt: createdAt(),
   },
   (t) => [index("contents_customer_idx").on(t.customerId, t.archived)],
+);
+
+/**
+ * Tasks. Every task belongs to a content ID (and so to a customer).
+ * A task without an assignee is a draft: it shows on the customer page only, never on the managing board.
+ * Archived, never deleted.
+ */
+export const tasks = mysqlTable(
+  "tasks",
+  {
+    id: id(),
+    customerId: varchar("customer_id", { length: 36 })
+      .notNull()
+      .references(() => customers.id),
+    contentId: varchar("content_id", { length: 36 })
+      .notNull()
+      .references(() => contents.id),
+    taskTypeId: varchar("task_type_id", { length: 36 })
+      .notNull()
+      .references(() => taskTypes.id),
+    statusId: varchar("status_id", { length: 36 })
+      .notNull()
+      .references(() => statuses.id),
+    assigneeId: varchar("assignee_id", { length: 36 }).references(() => users.id),
+    dueDate: date("due_date", { mode: "string" }).notNull(),
+    description: text("description"),
+    note: varchar("note", { length: 500 }).notNull().default(""),
+    archived: boolean("archived").notNull().default(false),
+    /** When the task last moved into a status that counts as finished (for "Finished today"). */
+    finishedAt: datetime("finished_at", { mode: "date", fsp: 3 }),
+    createdBy: varchar("created_by", { length: 36 }).references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: now("updated_at"),
+  },
+  (t) => [
+    index("tasks_due_idx").on(t.dueDate, t.archived),
+    index("tasks_customer_idx").on(t.customerId, t.dueDate),
+    index("tasks_content_idx").on(t.contentId),
+    index("tasks_assignee_idx").on(t.assigneeId, t.dueDate),
+  ],
 );
