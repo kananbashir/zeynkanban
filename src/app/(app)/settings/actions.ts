@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { contentTypes, DAY_KINDS, ROLES, specialDays, statuses, taskTypes, users, type DayKind, type Role } from "@/db/schema";
 import type { ErrorKey } from "@/i18n/dictionaries";
 import { requireRole } from "@/lib/auth";
+import { isContentTypeInUse } from "@/lib/customers";
 import { endSessionsOf } from "@/lib/session";
 import {
   cleanContentCode,
@@ -214,7 +215,7 @@ export async function setContentTypeCode(id: string, code: string): Promise<Resu
   await requireRole("admin");
   const cleanCode = cleanContentCode(code);
   if (!cleanCode) return fail("codeInvalid");
-  // From stage 3 on, a code that content IDs already use is locked here.
+  if (await isContentTypeInUse(id)) return fail("codeLocked"); // the code lives inside existing content IDs
   try {
     const rows = await db.update(contentTypes).set({ code: cleanCode }).where(eq(contentTypes.id, id));
     return found(rows) ? done() : fail("notFound");

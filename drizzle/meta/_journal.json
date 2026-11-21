@@ -15,6 +15,13 @@
       "when": 1795255928840,
       "tag": "0001_default_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1795273629679,
+      "tag": "0002_customers",
+      "breakpoints": true
     }
   ]
 }

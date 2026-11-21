@@ -9,7 +9,7 @@ import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import { addTaskType, deleteTaskType, renameTaskType, reorderTaskTypes } from "./actions";
 import { AddNameForm } from "./add-name-form";
-import { ConfirmBar } from "./confirm-bar";
+import { ConfirmBar } from "@/components/confirm-bar";
 import { SectionHeader } from "./section-header";
 import { useAction } from "./use-action";
 

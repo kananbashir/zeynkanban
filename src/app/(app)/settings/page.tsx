@@ -1,7 +1,7 @@
-import { asc, desc, isNull } from "drizzle-orm";
+import { asc, desc, isNull, sql } from "drizzle-orm";
 import Link from "next/link";
 import { db } from "@/db";
-import { contentTypes, specialDays, statuses, taskTypes, users } from "@/db/schema";
+import { contents, contentTypes, specialDays, statuses, taskTypes, users } from "@/db/schema";
 import { getDictionary } from "@/i18n/server";
 import { requireRole } from "@/lib/auth";
 import { ContentTypesSection } from "./content-types-section";
@@ -49,10 +49,18 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       .orderBy(asc(taskTypes.position), asc(taskTypes.createdAt));
     content = <TaskTypesSection types={list} t={t.settings} errors={t.errors} />;
   } else if (section === "content") {
-    const list = await db
-      .select({ id: contentTypes.id, code: contentTypes.code, name: contentTypes.name, archived: contentTypes.archived })
-      .from(contentTypes)
-      .orderBy(asc(contentTypes.archived), asc(contentTypes.createdAt));
+    const [types, usage] = await Promise.all([
+      db
+        .select({ id: contentTypes.id, code: contentTypes.code, name: contentTypes.name, archived: contentTypes.archived })
+        .from(contentTypes)
+        .orderBy(asc(contentTypes.archived), asc(contentTypes.createdAt)),
+      db
+        .select({ contentTypeId: contents.contentTypeId, used: sql<number>`count(*)`.mapWith(Number) })
+        .from(contents)
+        .groupBy(contents.contentTypeId),
+    ]);
+    const usedBy = new Map(usage.map((u) => [u.contentTypeId, u.used]));
+    const list = types.map((type) => ({ ...type, used: usedBy.get(type.id) ?? 0 }));
     content = <ContentTypesSection types={list} t={t.settings} errors={t.errors} />;
   } else {
     const list = await db

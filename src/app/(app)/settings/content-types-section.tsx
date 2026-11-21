@@ -5,12 +5,13 @@ import { InlineText } from "@/components/inline-text";
 import { Toast, useToast } from "@/components/toast";
 import { btn, card, field, row, rowOff } from "@/components/ui";
 import type { Dictionary } from "@/i18n/dictionaries";
+import { fill } from "@/i18n/format";
 import { addContentType, renameContentType, setContentTypeArchived, setContentTypeCode } from "./actions";
 import { SectionHeader } from "./section-header";
 import { useAction } from "./use-action";
 import { Plus } from "./users-section";
 
-type ContentType = { id: string; code: string; name: string; archived: boolean };
+type ContentType = { id: string; code: string; name: string; archived: boolean; used: number };
 
 export function ContentTypesSection({ types, t, errors }: { types: ContentType[]; t: Dictionary["settings"]; errors: Dictionary["errors"] }) {
   const { message, show } = useToast();
@@ -25,12 +26,19 @@ export function ContentTypesSection({ types, t, errors }: { types: ContentType[]
       <div className="flex flex-col gap-2.5">
         {types.map((type) => (
           <div key={type.id} data-row className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${type.archived ? rowOff : row}`}>
-            <div className="w-[120px] shrink-0 rounded-[10px] bg-white">
-              <InlineText mono value={type.code} label={c.code} onSave={(next) => run(() => setContentTypeCode(type.id, next))} />
-            </div>
+            {type.used > 0 ? (
+              <span title={errors.codeLocked} className="w-[120px] shrink-0 rounded-[10px] bg-white px-2.5 py-2 text-center font-mono text-[13px] font-medium">
+                {type.code}
+              </span>
+            ) : (
+              <div className="w-[120px] shrink-0 rounded-[10px] bg-white">
+                <InlineText mono value={type.code} label={c.code} onSave={(next) => run(() => setContentTypeCode(type.id, next))} />
+              </div>
+            )}
             <div className="min-w-0 flex-[1_1_200px]">
               <InlineText value={type.name} label={c.name} onSave={(next) => run(() => renameContentType(type.id, next))} />
             </div>
+            <span className="whitespace-nowrap text-[13px] text-ink-soft">{type.used > 0 ? fill(c.used, { count: type.used }) : c.unused}</span>
             {type.archived && <span className="text-xs font-semibold">{c.archived}</span>}
             <button type="button" className={btn.soft} disabled={pending} onClick={() => run(() => setContentTypeArchived(type.id, !type.archived))}>
               {type.archived ? c.restore : c.archive}

@@ -8,8 +8,8 @@ A website for planning Zeyn Media's customers, content and tasks. It replaces th
 |---|---|---|
 | 1 | Foundation: login with 8-character codes, roles, page frame, Azerbaijani and English | Done |
 | 2 | Settings: users, statuses, task types, content types, holidays and events | Done |
-| 3 | Customers, content IDs, contract renewal | Next |
-| 4 | Tasks, managing board, task form, archiving | |
+| 3 | Customers, content IDs, contract renewal | Done |
+| 4 | Tasks, managing board, task form, archiving | Next |
 | 5 | Month planner | |
 | 6 | Dashboard | |
 | 7 | My tasks and personal tasks | |
@@ -55,6 +55,13 @@ A person who opens a page their role may not see is sent back to their own first
 - **Holidays and special events**: date, name, holiday or special event, and whether it repeats every year.
 
 A new installation starts with four statuses (To do, In progress, Ready for review, Done), five task types and two content types (`vid`, `gpost`). All can be changed.
+
+## Customers and content IDs
+
+- **Customers** (admin adds, edits, renews and archives; managers can view): company name, a short name that starts every content ID, contact details, notes and a contract period. Archived customers leave the list but keep everything.
+- **Contracts**: renewing adds a new period and keeps the old ones as history. The default renewal starts the month after the current contract and lasts as long.
+- **Content IDs** (admin and manager add and rename; only admin archives) follow the scheme `[short name]-[type code]-[period]-[number]`, e.g. `thrive-vid-nd26-1`. The period uses English month initials and the year, both years when it crosses the new year: `nd26`, `dj2627`, `n26` for a single month. The next free number is suggested and can be overwritten; an ID can't be used twice.
+- Once content IDs use a content type, its code is locked in Settings.
 
 ## First start on a new server
 

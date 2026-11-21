@@ -10,7 +10,7 @@ import { fill } from "@/i18n/format";
 import { COLOR_NAMES, STATUS_COLORS } from "@/lib/settings-rules";
 import { addStatus, deleteStatus, renameStatus, reorderStatuses, setStatusColor, setStatusFinished } from "./actions";
 import { AddNameForm } from "./add-name-form";
-import { ConfirmBar } from "./confirm-bar";
+import { ConfirmBar } from "@/components/confirm-bar";
 import { SectionHeader } from "./section-header";
 import { useAction } from "./use-action";
 
