@@ -50,5 +50,7 @@ execSync("npm install --package-lock-only --ignore-scripts --no-audit --no-fund"
 const commit = execSync("git rev-parse --short HEAD").toString().trim();
 writeFileSync(`${out}/VERSION.txt`, `zeynkanban ${commit} built ${new Date().toISOString()}\nStart file: server.js\n`);
 // Files at the top level of the zip (no wrapping folder), so the hosting finds server.js directly.
-execSync(`cd ${out} && zip -qr ../zeynkanban.zip .`);
+// node_modules is left out: the hosting's install step (npm ci) recreates it from package-lock.json,
+// and leaving it out keeps the upload small (a few MB instead of ~26 MB and thousands of files).
+execSync(`cd ${out} && zip -qr ../zeynkanban.zip . -x 'node_modules/*'`);
 console.log(`Ready: release/zeynkanban.zip (${commit})`);
