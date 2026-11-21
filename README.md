@@ -113,6 +113,7 @@ Open http://localhost:3000. The first time, the setup page creates your admin an
 | `npm run test` | Runs the automatic checks |
 | `npm run lint` and `npm run typecheck` | Check the code for mistakes |
 | `npm run db:generate` | After changing `src/db/schema.ts`, writes the matching database change into `drizzle/` |
+| `npm run local` | Everything for running locally in one go: installs what's needed, updates the database, starts the site |
 | `npm run setup:local` | First-time setup on your own computer (settings file, database, tables) |
 | `npm run db:migrate` | Applies pending database changes |
 | `npm run user:create -- "Name" role` | Creates a person (`admin`, `manager` or `employee`) and prints their code |

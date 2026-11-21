@@ -13,7 +13,8 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "user:create": "tsx scripts/create-user.ts",
     "package": "STANDALONE=1 next build && node scripts/package.mjs",
-    "setup:local": "tsx scripts/setup-local.ts"
+    "setup:local": "tsx scripts/setup-local.ts",
+    "local": "npm install --no-audit --no-fund && tsx scripts/setup-local.ts && next dev"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
