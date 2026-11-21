@@ -21,7 +21,8 @@ Until its stage is built, a page shows "This page is being built".
 ## How it is put together
 
 - **The site**: [Next.js](https://nextjs.org) with TypeScript. Pages live in `src/app`.
-- **The data**: a PostgreSQL database. Its structure is described in `src/db/schema.ts`, and each change to that structure is saved as a file in `drizzle/`.
+- **The data**: a MySQL (or MariaDB) database, as offered by the hosting. Its structure is described in `src/db/schema.ts`, and each change to that structure is saved as a file in `drizzle/`.
+- **Hosting**: the Node.js app feature of the Turhost cPanel account, on `projects.zeynmedia.az`.
 - **Interface text**: both languages live in `src/i18n/dictionaries.ts`.
 - **Design**: colours and fonts are defined once in `src/app/globals.css`.
 
@@ -59,11 +60,11 @@ A new installation starts with four statuses (To do, In progress, Ready for revi
 
 The first time the site is opened on an empty database, it shows a one-time setup page where you create the first admin and receive their access code. Once that admin exists, the setup page closes for good and everyone else is added from Settings.
 
-When hosted on Vercel, the `vercel-build` command applies pending database changes before each build, so the database stays in step with the code.
+Pending database changes are applied automatically each time the app starts (see `src/instrumentation.ts`), so the hosting never needs a command line. Set `SKIP_MIGRATIONS=1` to turn this off.
 
 ## Running it on your own computer
 
-You only need this if you want to try the site locally. You need [Node.js](https://nodejs.org) (version 22 or newer) and a PostgreSQL database (a free one from Supabase or Neon works).
+You only need this if you want to try the site locally. You need [Node.js](https://nodejs.org) (version 22 or newer) and a MySQL or MariaDB database.
 
 1. Download the code and open a terminal in its folder.
 2. Install what the site needs:

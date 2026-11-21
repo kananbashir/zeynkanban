@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, gt, lt, sql } from "drizzle-orm";
+import { and, eq, gt, lt } from "drizzle-orm";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
@@ -26,10 +26,10 @@ export async function login(_previous: LoginState, formData: FormData): Promise<
 
   // Slow down guessing: after several wrong codes from one address, refuse for a while.
   const since = new Date(Date.now() - WINDOW_MS);
-  const [{ failed }] = await db
-    .select({ failed: sql<number>`count(*)::int` })
-    .from(loginAttempts)
-    .where(and(eq(loginAttempts.ip, ip), eq(loginAttempts.success, false), gt(loginAttempts.createdAt, since)));
+  const failed = await db.$count(
+    loginAttempts,
+    and(eq(loginAttempts.ip, ip), eq(loginAttempts.success, false), gt(loginAttempts.createdAt, since)),
+  );
   if (failed >= MAX_FAILED) return { error: "tooMany" };
 
   const user = isWellFormedCode(code)

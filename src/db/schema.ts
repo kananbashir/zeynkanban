@@ -1,43 +1,50 @@
-import { bigserial, boolean, date, index, integer, pgEnum, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { randomUUID } from "node:crypto";
+import { sql } from "drizzle-orm";
+import { bigint, boolean, date, datetime, index, int, mysqlEnum, mysqlTable, varchar } from "drizzle-orm/mysql-core";
 
-export const roleEnum = pgEnum("role", ["admin", "manager", "employee"]);
-export type Role = (typeof roleEnum.enumValues)[number];
+// MySQL has no UUID type, so ids are UUID strings created by the app.
+const id = () => varchar("id", { length: 36 }).primaryKey().$defaultFn(() => randomUUID());
+const now = (name: string) => datetime(name, { mode: "date", fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`);
+const createdAt = () => now("created_at");
+
+export const ROLES = ["admin", "manager", "employee"] as const;
+export type Role = (typeof ROLES)[number];
 
 /** People who can log in. A person is deactivated, never deleted, so their history stays. */
-export const users = pgTable("users", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  role: roleEnum("role").notNull().default("employee"),
+export const users = mysqlTable("users", {
+  id: id(),
+  name: varchar("name", { length: 120 }).notNull(),
+  role: mysqlEnum("role", ROLES).notNull().default("employee"),
   /** HMAC of the access code. The code itself is never stored. */
-  codeHash: text("code_hash").notNull().unique(),
+  codeHash: varchar("code_hash", { length: 64 }).notNull().unique(),
   active: boolean("active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: createdAt(),
+  updatedAt: now("updated_at"),
 });
 
 /** One row per logged-in browser. Only a hash of the cookie value is stored. */
-export const sessions = pgTable(
+export const sessions = mysqlTable(
   "sessions",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
-    tokenHash: text("token_hash").notNull().unique(),
-    userId: uuid("user_id")
+    id: id(),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+    userId: varchar("user_id", { length: 36 })
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+    expiresAt: datetime("expires_at", { mode: "date", fsp: 3 }).notNull(),
   },
   (t) => [index("sessions_user_idx").on(t.userId)],
 );
 
 /** Login attempts, used to slow down code guessing. */
-export const loginAttempts = pgTable(
+export const loginAttempts = mysqlTable(
   "login_attempts",
   {
-    id: bigserial("id", { mode: "number" }).primaryKey(),
-    ip: text("ip").notNull(),
+    id: bigint("id", { mode: "number", unsigned: true }).autoincrement().primaryKey(),
+    ip: varchar("ip", { length: 64 }).notNull(),
     success: boolean("success").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
   },
   (t) => [index("login_attempts_ip_idx").on(t.ip, t.createdAt)],
 );
@@ -47,45 +54,45 @@ export const loginAttempts = pgTable(
  * Deleting a status only marks it deleted, so tasks that used it can still show
  * "Deleted status (its name)" and keep counting as finished if it did.
  */
-export const statuses = pgTable("statuses", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  color: text("color").notNull(),
+export const statuses = mysqlTable("statuses", {
+  id: id(),
+  name: varchar("name", { length: 120 }).notNull(),
+  color: varchar("color", { length: 7 }).notNull(),
   isFinished: boolean("is_finished").notNull().default(false),
-  position: integer("position").notNull().default(0),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  position: int("position").notNull().default(0),
+  deletedAt: datetime("deleted_at", { mode: "date", fsp: 3 }),
+  createdAt: createdAt(),
 });
 
 /** Task types, the header of every task. Deleted ones are only marked, as with statuses. */
-export const taskTypes = pgTable("task_types", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  name: text("name").notNull(),
-  position: integer("position").notNull().default(0),
+export const taskTypes = mysqlTable("task_types", {
+  id: id(),
+  name: varchar("name", { length: 120 }).notNull(),
+  position: int("position").notNull().default(0),
   /** The type the month planner gives every task it creates ("Post publishing"). */
   isPublishing: boolean("is_publishing").notNull().default(false),
-  deletedAt: timestamp("deleted_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  deletedAt: datetime("deleted_at", { mode: "date", fsp: 3 }),
+  createdAt: createdAt(),
 });
 
 /** Content types. The code goes inside content IDs (thrive-vid-nd26-1), so types are archived, never deleted. */
-export const contentTypes = pgTable("content_types", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  code: text("code").notNull().unique(),
-  name: text("name").notNull(),
+export const contentTypes = mysqlTable("content_types", {
+  id: id(),
+  code: varchar("code", { length: 10 }).notNull().unique(),
+  name: varchar("name", { length: 120 }).notNull(),
   archived: boolean("archived").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: createdAt(),
 });
 
-export const dayKindEnum = pgEnum("day_kind", ["holiday", "event"]);
-export type DayKind = (typeof dayKindEnum.enumValues)[number];
+export const DAY_KINDS = ["holiday", "event"] as const;
+export type DayKind = (typeof DAY_KINDS)[number];
 
 /** Holidays and special events, marked on every calendar. A yearly one repeats on the same day each year. */
-export const specialDays = pgTable("special_days", {
-  id: uuid("id").primaryKey().defaultRandom(),
+export const specialDays = mysqlTable("special_days", {
+  id: id(),
   date: date("date", { mode: "string" }).notNull(),
-  name: text("name").notNull(),
-  kind: dayKindEnum("kind").notNull().default("holiday"),
+  name: varchar("name", { length: 120 }).notNull(),
+  kind: mysqlEnum("kind", DAY_KINDS).notNull().default("holiday"),
   yearly: boolean("yearly").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  createdAt: createdAt(),
 });

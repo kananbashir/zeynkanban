@@ -18,10 +18,10 @@ async function main() {
   const { connect } = await import("../src/db/client");
   const { users } = await import("../src/db/schema");
   const { generateCode, hashCode } = await import("../src/lib/codes");
-  const { sql, db } = connect();
+  const { pool, db } = connect();
   const code = generateCode();
   await db.insert(users).values({ name, role: role as "admin" | "manager" | "employee", codeHash: hashCode(code) });
-  await sql.end();
+  await pool.end();
   console.log(`\nCreated ${role}: ${name}`);
   console.log(`Access code: ${code}`);
   console.log("Write it down now. It is not stored and cannot be shown again.\n");

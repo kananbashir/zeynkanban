@@ -1,26 +1,19 @@
 {
   "version": "7",
-  "dialect": "postgresql",
+  "dialect": "mysql",
   "entries": [
     {
       "idx": 0,
-      "version": "7",
-      "when": 1795252038434,
-      "tag": "0000_moaning_lyja",
+      "version": "5",
+      "when": 1795255928071,
+      "tag": "0000_initial",
       "breakpoints": true
     },
     {
       "idx": 1,
-      "version": "7",
-      "when": 1795252975405,
-      "tag": "0001_settings",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1795252976049,
-      "tag": "0002_default_settings",
+      "version": "5",
+      "when": 1795255928840,
+      "tag": "0001_default_settings",
       "breakpoints": true
     }
   ]

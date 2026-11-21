@@ -3,12 +3,10 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 async function main() {
-  const { migrate } = await import("drizzle-orm/postgres-js/migrator");
-  const { connect } = await import("../src/db/client");
-  const { sql, db } = connect();
-  await migrate(db, { migrationsFolder: "./drizzle" });
-  await sql.end();
+  const { runMigrations } = await import("../src/db/migrate");
+  await runMigrations();
   console.log("Database is up to date.");
+  process.exit(0);
 }
 
 main().catch((error) => {

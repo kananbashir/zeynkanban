@@ -3,7 +3,7 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
-import { contentTypes, roleEnum, specialDays, statuses, taskTypes, users, dayKindEnum, type DayKind, type Role } from "@/db/schema";
+import { contentTypes, DAY_KINDS, ROLES, specialDays, statuses, taskTypes, users, type DayKind, type Role } from "@/db/schema";
 import type { ErrorKey } from "@/i18n/dictionaries";
 import { requireRole } from "@/lib/auth";
 import { endSessionsOf } from "@/lib/session";
@@ -17,7 +17,7 @@ import {
   statusDeleteProblem,
   unfinishProblem,
 } from "@/lib/settings-rules";
-import { insertUserWithCode, isUniqueViolation, replaceCode } from "@/lib/users";
+import { found, insertUserWithCode, isUniqueViolation, replaceCode } from "@/lib/users";
 
 export type Result = { ok: true } | { ok: false; error: ErrorKey };
 const OK: Result = { ok: true };
@@ -28,8 +28,8 @@ function done(): Result {
   return OK;
 }
 
-const isRole = (value: unknown): value is Role => (roleEnum.enumValues as readonly string[]).includes(String(value));
-const isDayKind = (value: unknown): value is DayKind => (dayKindEnum.enumValues as readonly string[]).includes(String(value));
+const isRole = (value: unknown): value is Role => (ROLES as readonly string[]).includes(String(value));
+const isDayKind = (value: unknown): value is DayKind => (DAY_KINDS as readonly string[]).includes(String(value));
 
 /* ---------- Users ---------- */
 
@@ -47,23 +47,23 @@ export async function renameUser(id: string, name: string): Promise<Result> {
   await requireRole("admin");
   const clean = cleanName(name);
   if (!clean.ok) return fail(clean.error);
-  const rows = await db.update(users).set({ name: clean.value, updatedAt: new Date() }).where(eq(users.id, id)).returning({ id: users.id });
-  return rows.length ? done() : fail("notFound");
+  const rows = await db.update(users).set({ name: clean.value, updatedAt: new Date() }).where(eq(users.id, id));
+  return found(rows) ? done() : fail("notFound");
 }
 
 export async function setUserRole(id: string, role: string): Promise<Result> {
   const me = await requireRole("admin");
   if (id === me.id) return fail("self"); // keeps at least one admin: the one making changes
   if (!isRole(role)) return fail("generic");
-  const rows = await db.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, id)).returning({ id: users.id });
-  return rows.length ? done() : fail("notFound");
+  const rows = await db.update(users).set({ role, updatedAt: new Date() }).where(eq(users.id, id));
+  return found(rows) ? done() : fail("notFound");
 }
 
 export async function setUserActive(id: string, active: boolean): Promise<Result> {
   const me = await requireRole("admin");
   if (id === me.id) return fail("self");
-  const rows = await db.update(users).set({ active: !!active, updatedAt: new Date() }).where(eq(users.id, id)).returning({ id: users.id });
-  if (!rows.length) return fail("notFound");
+  const rows = await db.update(users).set({ active: !!active, updatedAt: new Date() }).where(eq(users.id, id));
+  if (!found(rows)) return fail("notFound");
   if (!active) await endSessionsOf(id); // logged out everywhere at once
   return done();
 }
@@ -71,8 +71,8 @@ export async function setUserActive(id: string, active: boolean): Promise<Result
 export async function newUserCode(id: string): Promise<Result & { code?: string }> {
   await requireRole("admin");
   const code = await replaceCode(id, async (codeHash) => {
-    const rows = await db.update(users).set({ codeHash, updatedAt: new Date() }).where(eq(users.id, id)).returning({ id: users.id });
-    return rows.length > 0;
+    const rows = await db.update(users).set({ codeHash, updatedAt: new Date() }).where(eq(users.id, id));
+    return found(rows);
   });
   if (!code) return fail("notFound");
   await endSessionsOf(id); // the old code, and everyone logged in with it, stops working
@@ -107,15 +107,15 @@ export async function renameStatus(id: string, name: string): Promise<Result> {
   await requireRole("admin");
   const clean = cleanName(name);
   if (!clean.ok) return fail(clean.error);
-  const rows = await db.update(statuses).set({ name: clean.value }).where(and(eq(statuses.id, id), isNull(statuses.deletedAt))).returning({ id: statuses.id });
-  return rows.length ? done() : fail("notFound");
+  const rows = await db.update(statuses).set({ name: clean.value }).where(and(eq(statuses.id, id), isNull(statuses.deletedAt)));
+  return found(rows) ? done() : fail("notFound");
 }
 
 export async function setStatusColor(id: string, color: string): Promise<Result> {
   await requireRole("admin");
   if (!isStatusColor(color)) return fail("generic");
-  const rows = await db.update(statuses).set({ color }).where(and(eq(statuses.id, id), isNull(statuses.deletedAt))).returning({ id: statuses.id });
-  return rows.length ? done() : fail("notFound");
+  const rows = await db.update(statuses).set({ color }).where(and(eq(statuses.id, id), isNull(statuses.deletedAt)));
+  return found(rows) ? done() : fail("notFound");
 }
 
 export async function setStatusFinished(id: string, finished: boolean): Promise<Result> {
@@ -124,8 +124,8 @@ export async function setStatusFinished(id: string, finished: boolean): Promise<
     const problem = unfinishProblem(await liveStatuses(), id);
     if (problem) return fail(problem);
   }
-  const rows = await db.update(statuses).set({ isFinished: !!finished }).where(and(eq(statuses.id, id), isNull(statuses.deletedAt))).returning({ id: statuses.id });
-  return rows.length ? done() : fail("notFound");
+  const rows = await db.update(statuses).set({ isFinished: !!finished }).where(and(eq(statuses.id, id), isNull(statuses.deletedAt)));
+  return found(rows) ? done() : fail("notFound");
 }
 
 export async function reorderStatuses(ids: string[]): Promise<Result> {
@@ -143,8 +143,8 @@ export async function deleteStatus(id: string): Promise<Result> {
   const problem = statusDeleteProblem(await liveStatuses(), id);
   if (problem) return fail(problem);
   // Only marked as deleted: tasks that use it keep showing its name and whether it counted as finished.
-  const rows = await db.update(statuses).set({ deletedAt: new Date() }).where(and(eq(statuses.id, id), isNull(statuses.deletedAt))).returning({ id: statuses.id });
-  return rows.length ? done() : fail("notFound");
+  const rows = await db.update(statuses).set({ deletedAt: new Date() }).where(and(eq(statuses.id, id), isNull(statuses.deletedAt)));
+  return found(rows) ? done() : fail("notFound");
 }
 
 /* ---------- Task types ---------- */
@@ -170,8 +170,8 @@ export async function renameTaskType(id: string, name: string): Promise<Result> 
   await requireRole("admin");
   const clean = cleanName(name);
   if (!clean.ok) return fail(clean.error);
-  const rows = await db.update(taskTypes).set({ name: clean.value }).where(and(eq(taskTypes.id, id), isNull(taskTypes.deletedAt))).returning({ id: taskTypes.id });
-  return rows.length ? done() : fail("notFound");
+  const rows = await db.update(taskTypes).set({ name: clean.value }).where(and(eq(taskTypes.id, id), isNull(taskTypes.deletedAt)));
+  return found(rows) ? done() : fail("notFound");
 }
 
 export async function reorderTaskTypes(ids: string[]): Promise<Result> {
@@ -216,8 +216,8 @@ export async function setContentTypeCode(id: string, code: string): Promise<Resu
   if (!cleanCode) return fail("codeInvalid");
   // From stage 3 on, a code that content IDs already use is locked here.
   try {
-    const rows = await db.update(contentTypes).set({ code: cleanCode }).where(eq(contentTypes.id, id)).returning({ id: contentTypes.id });
-    return rows.length ? done() : fail("notFound");
+    const rows = await db.update(contentTypes).set({ code: cleanCode }).where(eq(contentTypes.id, id));
+    return found(rows) ? done() : fail("notFound");
   } catch (error) {
     if (isUniqueViolation(error)) return fail("codeTaken");
     throw error;
@@ -228,14 +228,14 @@ export async function renameContentType(id: string, name: string): Promise<Resul
   await requireRole("admin");
   const clean = cleanName(name);
   if (!clean.ok) return fail(clean.error);
-  const rows = await db.update(contentTypes).set({ name: clean.value }).where(eq(contentTypes.id, id)).returning({ id: contentTypes.id });
-  return rows.length ? done() : fail("notFound");
+  const rows = await db.update(contentTypes).set({ name: clean.value }).where(eq(contentTypes.id, id));
+  return found(rows) ? done() : fail("notFound");
 }
 
 export async function setContentTypeArchived(id: string, archived: boolean): Promise<Result> {
   await requireRole("admin");
-  const rows = await db.update(contentTypes).set({ archived: !!archived }).where(eq(contentTypes.id, id)).returning({ id: contentTypes.id });
-  return rows.length ? done() : fail("notFound");
+  const rows = await db.update(contentTypes).set({ archived: !!archived }).where(eq(contentTypes.id, id));
+  return found(rows) ? done() : fail("notFound");
 }
 
 /* ---------- Holidays and special events ---------- */
@@ -271,8 +271,8 @@ export async function updateSpecialDay(
   }
   if (patch.yearly !== undefined) set.yearly = !!patch.yearly;
   if (!Object.keys(set).length) return OK;
-  const rows = await db.update(specialDays).set(set).where(eq(specialDays.id, id)).returning({ id: specialDays.id });
-  return rows.length ? done() : fail("notFound");
+  const rows = await db.update(specialDays).set(set).where(eq(specialDays.id, id));
+  return found(rows) ? done() : fail("notFound");
 }
 
 export async function deleteSpecialDay(id: string): Promise<Result> {
