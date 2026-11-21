@@ -20,5 +20,6 @@ writeFileSync(
 );
 const commit = execSync("git rev-parse --short HEAD").toString().trim();
 writeFileSync(`${out}/VERSION.txt`, `zeynkanban ${commit} built ${new Date().toISOString()}\nStart file: server.js\n`);
-execSync(`cd release && zip -qr zeynkanban.zip zeynkanban`);
+// Files at the top level of the zip (no wrapping folder), so the hosting finds server.js directly.
+execSync(`cd ${out} && zip -qr ../zeynkanban.zip .`);
 console.log(`Ready: release/zeynkanban.zip (${commit})`);
