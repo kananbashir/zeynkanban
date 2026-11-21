@@ -71,29 +71,28 @@ Pending database changes are applied automatically each time the app starts (see
 
 ## Running it on your own computer
 
-You only need this if you want to try the site locally. You need [Node.js](https://nodejs.org) (version 22 or newer) and a MySQL or MariaDB database.
+You need two free programs, installed once:
 
-1. Download the code and open a terminal in its folder.
-2. Install what the site needs:
+- **Node.js 22** (the "LTS" installer from [nodejs.org](https://nodejs.org)).
+- **MySQL**. On a Mac the simplest is [DBngin](https://dbngin.com): create a MySQL 8 service and press Start. On Windows, use the MySQL installer from [dev.mysql.com](https://dev.mysql.com/downloads/installer/) and note the root password you choose.
 
-   ```bash
-   npm install
-   ```
+Then, in a terminal opened in the project folder:
 
-3. Copy `.env.example` to a new file named `.env.local`, then fill in the two values it describes: the database address and a long random secret.
-4. Create the tables in the database:
+```bash
+npm install
+```
 
-   ```bash
-   npm run db:migrate
-   ```
+```bash
+npm run setup:local
+```
 
-5. Start the site:
+```bash
+npm run dev
+```
 
-   ```bash
-   npm run dev
-   ```
+Open http://localhost:3000. The first time, the setup page creates your admin and shows your access code.
 
-6. Open http://localhost:3000. On an empty database you'll see the setup page: create the first admin there and write down the code it shows. (Alternatively, `npm run user:create -- "Your Name" admin` does the same from the terminal.)
+`npm run setup:local` creates `.env.local` for a MySQL user `root` with no password (DBngin's default), creates the database and its tables. If your `root` has a password, put it after `DB_PASSWORD=` in `.env.local` and run the command again. It's safe to run any time, for example after downloading a newer version.
 
 ## Commands
 
@@ -104,6 +103,7 @@ You only need this if you want to try the site locally. You need [Node.js](https
 | `npm run test` | Runs the automatic checks |
 | `npm run lint` and `npm run typecheck` | Check the code for mistakes |
 | `npm run db:generate` | After changing `src/db/schema.ts`, writes the matching database change into `drizzle/` |
+| `npm run setup:local` | First-time setup on your own computer (settings file, database, tables) |
 | `npm run db:migrate` | Applies pending database changes |
 | `npm run user:create -- "Name" role` | Creates a person (`admin`, `manager` or `employee`) and prints their code |
 
