@@ -99,3 +99,15 @@ You only need this if you want to try the site locally. You need [Node.js](https
 | `npm run db:generate` | After changing `src/db/schema.ts`, writes the matching database change into `drizzle/` |
 | `npm run db:migrate` | Applies pending database changes |
 | `npm run user:create -- "Name" role` | Creates a person (`admin`, `manager` or `employee`) and prints their code |
+
+## Installing on the hosting (Turhost cPanel)
+
+The hosting runs a ready-made package; it never installs or builds anything itself.
+
+1. Build the package: `npm run build`, then `npm run package`. The result is `release/zeynkanban.zip`.
+2. In cPanel, use **Deploy a Node.js App** on the `projects.zeynmedia.az` subdomain, upload the zip, and choose Node.js 20 or newer. The start file is `server.js`.
+3. Set these environment variables for the app:
+   - `DB_HOST` (usually `localhost`), `DB_NAME`, `DB_USER`, `DB_PASSWORD`: the MySQL database created in the hosting panel.
+   - `AUTH_SECRET`: a random string of at least 32 characters. Changing it later makes every existing access code stop working.
+   - `NODE_ENV`: `production`.
+4. Start the app and open the address. The database tables are created on the first start, and the setup page asks for the first admin.

@@ -2,11 +2,25 @@ import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import * as schema from "./schema";
 
-/** Opens a database connection. Used by the app (through ./index) and by the command-line scripts. */
+/**
+ * Opens a database connection. Used by the app (through ./index) and by the command-line scripts.
+ * Takes either DATABASE_URL, or the separate DB_HOST, DB_NAME, DB_USER and DB_PASSWORD settings
+ * (easier on hosting panels, since passwords with symbols then need no special encoding).
+ */
 export function connect(url = process.env.DATABASE_URL) {
-  if (!url) throw new Error("DATABASE_URL is not set. Copy .env.example to .env.local and fill it in.");
+  const separate = process.env.DB_NAME && process.env.DB_USER;
+  if (!url && !separate) throw new Error("No database settings. Set DATABASE_URL, or DB_HOST, DB_NAME, DB_USER and DB_PASSWORD.");
+  const target = url
+    ? { uri: url }
+    : {
+        host: process.env.DB_HOST || "localhost",
+        port: Number(process.env.DB_PORT || 3306),
+        database: process.env.DB_NAME,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+      };
   const pool = mysql.createPool({
-    uri: url,
+    ...target,
     connectionLimit: 5,
     timezone: "Z", // store and read times as UTC
     charset: "utf8mb4", // Azerbaijani letters and every other character
