@@ -1,0 +1,325 @@
+"use client";
+
+import { usePathname, useRouter } from "next/navigation";
+import { useOptimistic, useRef, useState, useTransition } from "react";
+import { addPersonalTask, deletePersonalTask, setPersonalDone } from "@/app/actions/personal";
+import { MiniCalendar } from "@/components/mini-calendar";
+import { SlideByDate, useFlip } from "@/components/motion";
+import { TaskCard, type StatusOption } from "@/components/task-card";
+import { Toast, useToast } from "@/components/toast";
+import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
+import { fill } from "@/i18n/format";
+import { addDays, shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
+import { dayLabel, longDate, shortDate } from "@/lib/format-date";
+import type { PersonalTask } from "@/lib/personal";
+import type { Section } from "@/lib/task-rules";
+import type { DayTasks } from "@/lib/tasks";
+
+type T = Dictionary["myTasks"];
+type TaskT = Dictionary["tasks"];
+
+const icon = (d: string, size = 20) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+    <path d={d} />
+  </svg>
+);
+
+export function MyTasksView({
+  date,
+  today,
+  shownMonth,
+  day,
+  counts,
+  statuses,
+  specialDays,
+  personal,
+  canOpenTasks,
+  t,
+  taskT,
+  months,
+  errors,
+}: {
+  date: string;
+  today: string;
+  shownMonth: { year: number; month: number };
+  day: DayTasks;
+  counts: Record<string, number>;
+  statuses: StatusOption[];
+  specialDays: SpecialDay[];
+  personal: PersonalTask[];
+  canOpenTasks: boolean;
+  t: T;
+  taskT: TaskT;
+  months: readonly string[];
+  errors: Dictionary["errors"];
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { message, show } = useToast();
+  const [sideOpen, setSideOpen] = useState(false);
+  const fmt = { ...taskT, months };
+  const isToday = date === today;
+  const events = specialDaysOn(date, specialDays);
+  const list = useRef<HTMLDivElement>(null);
+  useFlip(list);
+  const onError = (key: string) => show(errors[key as ErrorKey] ?? errors.generic, "error");
+
+  const go = (params: { date?: string; m?: string }) => {
+    const search = new URLSearchParams({ date: params.date ?? date });
+    if (params.m) search.set("m", params.m);
+    router.push(`${pathname}?${search}`, { scroll: false });
+  };
+
+  const sections: { key: Section; label: string; color: string; hint?: string }[] = [
+    { key: "overdue", label: taskT.sections.overdue, color: "text-danger", hint: taskT.overdueHint },
+    { key: "due", label: isToday ? taskT.sections.due : taskT.sections.dueOn, color: "text-ink" },
+    { key: "finished", label: isToday ? taskT.sections.finished : taskT.sections.finishedOn, color: "text-teal-deep" },
+  ];
+  const visible = sections.filter((s) => day[s.key].length > 0);
+  const total = day.overdue.length + day.due.length + day.finished.length;
+
+  return (
+    <div className="flex flex-wrap items-start gap-6">
+      <aside className={`${sideOpen ? "flex" : "hidden"} min-w-0 flex-[1_1_300px] flex-col gap-5 lg:flex lg:max-w-[340px]`}>
+        <section aria-label={t.calendar} className="rounded-[28px] bg-white px-5 pb-[18px] pt-[22px]">
+          <MiniCalendar
+            year={shownMonth.year}
+            month={shownMonth.month}
+            selected={date}
+            today={today}
+            counts={counts}
+            specialDays={specialDays}
+            months={months}
+            weekdaysShort={taskT.weekdaysShort}
+            prevLabel={taskT.prevMonth}
+            nextLabel={taskT.nextMonth}
+            onPick={(iso) => go({ date: iso })}
+            onMonth={(delta) => {
+              const m = shiftMonth(shownMonth.year, shownMonth.month, delta);
+              go({ m: `${m.year}-${String(m.month).padStart(2, "0")}` });
+            }}
+          />
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted">
+            <span className="flex items-center gap-1.5"><span className="size-[5px] rounded-full bg-teal" />{t.legendMine}</span>
+            <span className="flex items-center gap-1.5"><span className="h-1 w-2.5 rounded-sm bg-[#b87a00]" />{t.legendEvent}</span>
+          </div>
+        </section>
+
+        <section aria-label={fill(t.summary, { date: shortDate(date, taskT) })} className="flex flex-col gap-3.5 rounded-[28px] bg-teal p-[22px] text-white">
+          <div className="flex flex-col gap-1">
+            <span className="text-[13px] text-teal-tint">{fill(t.summary, { date: shortDate(date, taskT) })}</span>
+            <span key={total} className="zk-fade-up text-[26px] font-semibold">{total === 1 ? taskT.task1 : fill(taskT.tasksN, { n: total })}</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            {([[day.overdue.length, t.overdue], [day.due.length, t.open], [day.finished.length, t.finished]] as const).map(([n, label]) => (
+              <div key={label} className="flex flex-col gap-0.5">
+                <span key={n} className="zk-fade-up text-xl font-semibold">{n}</span>
+                <span className="text-xs text-teal-tint">{label}</span>
+              </div>
+            ))}
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-teal-deep">
+            <div className="h-2 rounded-full bg-sun transition-[width] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]" style={{ width: `${total ? Math.round((day.finished.length / total) * 100) : 0}%` }} />
+          </div>
+        </section>
+      </aside>
+
+      <main className="flex min-w-0 flex-[999_1_520px] flex-col gap-5">
+        <header className="flex flex-wrap items-center gap-x-[18px] gap-y-2.5 rounded-[28px] bg-white px-3.5 py-3 sm:px-[22px] sm:py-[18px]">
+          <div className="flex min-w-0 items-center gap-1">
+            <button type="button" aria-label={taskT.prevDay} onClick={() => go({ date: addDays(date, -1) })} className="-ml-2.5 flex size-11 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
+              {icon("m15 18-6-6 6-6")}
+            </button>
+            <h1 className="min-w-0 overflow-hidden whitespace-nowrap text-[19px] font-semibold sm:text-[26px]">
+              <SlideByDate date={date}>
+                <span className="hidden sm:inline">{longDate(date, fmt)}</span>
+                <span className="sm:hidden">{dayLabel(date, fmt, Number(today.slice(0, 4)))}</span>
+              </SlideByDate>
+            </h1>
+            <button type="button" aria-label={taskT.nextDay} onClick={() => go({ date: addDays(date, 1) })} className="flex size-11 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
+              {icon("m9 18 6-6-6-6")}
+            </button>
+            {isToday ? (
+              <span className="shrink-0 rounded-full bg-teal-tint px-3 py-1.5 text-[13px] font-semibold text-teal-deep">{taskT.today}</span>
+            ) : (
+              <button type="button" onClick={() => go({ date: today })} className="zk-pop min-h-11 shrink-0 whitespace-nowrap rounded-full bg-sun px-4 text-sm font-semibold text-ink">{taskT.goToday}</button>
+            )}
+          </div>
+          {events.map((e) => (
+            <span key={e.name} className="flex items-center gap-1.5 rounded-full bg-sun-tint px-3 py-1.5 text-[13px] font-semibold text-sun-ink">
+              {icon("M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7", 16)}
+              {e.name}
+            </span>
+          ))}
+          <button type="button" onClick={() => setSideOpen((v) => !v)} aria-expanded={sideOpen} className="ml-auto flex min-h-11 items-center gap-2 rounded-full bg-mint px-3.5 text-[13px] font-semibold lg:hidden">
+            {icon("M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M3 10h18", 16)}
+            {t.calendar}
+          </button>
+        </header>
+
+        <div ref={list} className="flex flex-col gap-[26px] rounded-[28px] bg-white p-4 sm:p-[22px]">
+          {visible.map((section) => (
+            <section key={section.key} className="flex flex-col gap-3">
+              <div data-flip={`heading-${section.key}`} className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                <h2 className={`text-base font-semibold ${section.color}`}>{section.label}</h2>
+                <span className="text-[13px] text-muted">
+                  {day[section.key].length}
+                  {section.hint ? ` · ${section.hint}` : ""}
+                </span>
+              </div>
+              {day[section.key].map((task) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  statuses={statuses}
+                  canChangeStatus
+                  today={today}
+                  t={taskT}
+                  showAssignee={false}
+                  editHref={canOpenTasks ? `/customers/${task.customerId}?tab=tasks&date=${task.dueDate}&edit=${task.id}` : undefined}
+                  onError={onError}
+                />
+              ))}
+            </section>
+          ))}
+          {visible.length === 0 && (
+            <div className="flex flex-col items-center gap-1.5 px-4 py-9 text-center">
+              <span className="flex size-14 items-center justify-center rounded-full bg-mint text-teal-deep">{icon("M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M8.5 12l2.5 2.5 4.5-5")}</span>
+              <span className="text-lg font-semibold">{t.emptyTitle}</span>
+              <span className="text-sm text-muted">{t.emptyHint}</span>
+            </div>
+          )}
+        </div>
+
+        <PersonalTasks key={date} date={date} items={personal} t={t} taskT={taskT} errors={errors} onError={onError} onAdded={() => show(t.added)} />
+      </main>
+      <Toast message={message} />
+    </div>
+  );
+}
+
+function PersonalTasks({
+  date,
+  items,
+  t,
+  taskT,
+  errors,
+  onError,
+  onAdded,
+}: {
+  date: string;
+  items: PersonalTask[];
+  t: T;
+  taskT: TaskT;
+  errors: Dictionary["errors"];
+  onError: (key: string) => void;
+  onAdded: () => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState("");
+  const [note, setNote] = useState("");
+  const [problem, setProblem] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const box = useRef<HTMLDivElement>(null);
+  useFlip(box);
+
+  const save = () =>
+    startTransition(async () => {
+      const result = await addPersonalTask({ date, title, note });
+      if (!result.ok) return setProblem(result.error);
+      setTitle("");
+      setNote("");
+      setProblem(null);
+      setAdding(false);
+      onAdded();
+    });
+  const field = "h-12 rounded-2xl border-[1.5px] border-line-strong bg-white px-3.5 text-[15px] font-normal";
+
+  return (
+    <section aria-label={t.personal} className="flex flex-col gap-4 rounded-[28px] bg-white p-4 sm:p-[22px]">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex flex-[1_1_240px] flex-col gap-1">
+          <h2 className="text-base font-semibold">{t.personal}</h2>
+          <span className="flex items-center gap-1.5 text-[13px] text-ink-soft">
+            {icon("M7 11h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2zM8 11V7a4 4 0 0 1 8 0v4", 16)}
+            {t.personalHint}
+          </span>
+        </div>
+        <button type="button" aria-expanded={adding} onClick={() => setAdding((v) => !v)} className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full bg-sun px-4 text-sm font-semibold">
+          {icon(adding ? "M6 6l12 12M18 6 6 18" : "M12 5v14M5 12h14", 16)}
+          {t.add}
+        </button>
+      </div>
+
+      {adding && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            save();
+          }}
+          className="zk-fade-up flex flex-col gap-3 rounded-[22px] bg-mint p-4"
+        >
+          <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+            {t.what}
+            <input autoFocus autoComplete="off" maxLength={200} value={title} onChange={(e) => { setTitle(e.target.value); setProblem(null); }} className={field} />
+          </label>
+          <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+            {t.note}
+            <input autoComplete="off" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} className={field} />
+          </label>
+          <p role={problem ? "alert" : undefined} className={`text-[13px] ${problem ? "text-danger" : "text-ink-soft"}`}>
+            {problem ? (errors[problem as ErrorKey] ?? errors.generic) : fill(t.addsTo, { date: shortDate(date, taskT) })}
+          </p>
+          <div className="flex flex-wrap gap-2.5">
+            <button type="submit" disabled={pending} className="min-h-11 rounded-full bg-sun px-5 text-sm font-semibold">{t.save}</button>
+            <button type="button" onClick={() => { setAdding(false); setProblem(null); }} className="min-h-11 rounded-full bg-white px-5 text-sm font-semibold">{t.cancel}</button>
+          </div>
+        </form>
+      )}
+
+      <div ref={box} className="flex flex-col gap-2">
+        {items.map((p) => (
+          <PersonalRow key={p.id} item={p} date={date} t={t} taskT={taskT} onError={onError} />
+        ))}
+        {items.length === 0 && <p className="text-sm text-muted">{t.none}</p>}
+      </div>
+    </section>
+  );
+}
+
+function PersonalRow({ item, date, t, taskT, onError }: { item: PersonalTask; date: string; t: T; taskT: TaskT; onError: (key: string) => void }) {
+  const [isDone, setDone] = useOptimistic(item.done);
+  const [, startTransition] = useTransition();
+  const toggle = () =>
+    startTransition(async () => {
+      setDone(!isDone);
+      const result = await setPersonalDone(item.id, !isDone);
+      if (!result.ok) onError(result.error);
+    });
+  const remove = () =>
+    startTransition(async () => {
+      const result = await deletePersonalTask(item.id);
+      if (!result.ok) onError(result.error);
+    });
+  const sub = [item.note, item.dueDate < date ? fill(t.from, { date: shortDate(item.dueDate, taskT) }) : ""].filter(Boolean).join(" · ");
+  return (
+    <div data-flip={item.id} className={`flex min-h-[52px] items-center gap-1 rounded-[18px] border-[1.5px] border-dashed border-[#6b7785] pr-1.5 transition-colors duration-300 ${isDone ? "bg-[#f0f5f3]" : "bg-white"}`}>
+      <button type="button" aria-pressed={isDone} onClick={toggle} className="flex min-h-[50px] min-w-0 flex-1 items-center gap-3 py-2.5 pl-3.5 text-left">
+        <span className={`flex size-6 shrink-0 items-center justify-center rounded-lg border-[1.5px] text-white transition-colors duration-200 ${isDone ? "border-teal bg-teal" : "border-[#6b7785] bg-white"}`}>
+          {isDone && (
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="zk-pop">
+              <path d="m5 12 5 5L20 7" />
+            </svg>
+          )}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span className={`text-[15px] font-semibold decoration-[1.5px] transition-colors ${isDone ? "text-ink-soft line-through" : ""}`}>{item.title}</span>
+          {sub && <span className="text-[13px] text-ink-soft">{sub}</span>}
+        </span>
+      </button>
+      <button type="button" aria-label={fill(t.remove, { title: item.title })} title={fill(t.remove, { title: item.title })} onClick={remove} className="flex size-10 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
+        {icon("M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6", 18)}
+      </button>
+    </div>
+  );
+}

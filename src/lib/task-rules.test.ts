@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, daysBetween, monthGrid, specialDaysOn, weekdayIndex, dateInZone, isIsoDateString } from "./dates";
-import { cardBackground, FINISHED_BACKGROUND, sectionFor } from "./task-rules";
+import { cardBackground, FINISHED_BACKGROUND, personalShownOn, sectionFor } from "./task-rules";
 
 const today = "2026-11-20";
 
@@ -53,5 +53,18 @@ describe("dates", () => {
   it("validates dates", () => {
     expect(isIsoDateString("2026-02-29")).toBe(false);
     expect(isIsoDateString("2028-02-29")).toBe(true);
+  });
+});
+
+describe("personalShownOn", () => {
+  const today = "2026-11-22";
+  it("shows on its own day", () => {
+    expect(personalShownOn({ dueDate: "2026-11-25", done: false }, "2026-11-25", today)).toBe(true);
+    expect(personalShownOn({ dueDate: "2026-11-25", done: false }, "2026-11-24", today)).toBe(false);
+  });
+  it("carries unfinished earlier ones into today only", () => {
+    expect(personalShownOn({ dueDate: "2026-11-18", done: false }, today, today)).toBe(true);
+    expect(personalShownOn({ dueDate: "2026-11-18", done: true }, today, today)).toBe(false);
+    expect(personalShownOn({ dueDate: "2026-11-18", done: false }, "2026-11-21", today)).toBe(false);
   });
 });

@@ -3,6 +3,11 @@
 export type DayTask = { dueDate: string; finished: boolean; finishedOn: string | null };
 export type Section = "overdue" | "due" | "finished";
 
+/** A personal task shows on its own day; on today's view, unfinished ones from earlier days show too. */
+export function personalShownOn(task: { dueDate: string; done: boolean }, viewDate: string, today: string): boolean {
+  return task.dueDate === viewDate || (viewDate === today && task.dueDate < today && !task.done);
+}
+
 /**
  * On the day being viewed:
  * - finished tasks show on the day they were finished;

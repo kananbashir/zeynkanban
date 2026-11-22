@@ -38,6 +38,7 @@ export function TaskCard({
   today,
   t,
   showCustomer = true,
+  showAssignee = true,
   editHref,
   onEdit,
   onError,
@@ -48,6 +49,7 @@ export function TaskCard({
   today: string;
   t: Dictionary["tasks"];
   showCustomer?: boolean;
+  showAssignee?: boolean;
   editHref?: string;
   onEdit?: () => void;
   onError?: (message: string) => void;
@@ -140,7 +142,7 @@ export function TaskCard({
       <h3 className="text-[17px] font-semibold sm:text-xl">{typeLabel}</h3>
       {task.description && <p className="max-w-[70ch] whitespace-pre-line text-sm leading-normal text-[#2b3644]">{task.description}</p>}
       <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1.5 border-t border-ink/12 pt-2 text-[13px] text-ink-soft">
-        <span className="flex items-center gap-2">
+        {showAssignee && <span className="flex items-center gap-2">
           {task.assigneeId ? (
             <>
               <span className="flex size-7 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: avatarColor(task.assigneeId) }}>
@@ -151,7 +153,7 @@ export function TaskCard({
           ) : (
             <span className="font-medium">{t.noAssignee}</span>
           )}
-        </span>
+        </span>}
         <span className="flex items-center gap-1.5">
           <Icon d={CAL} />
           {fill(status.finished ? t.wasDue : t.due, { date: shortDate(task.dueDate, t) })}

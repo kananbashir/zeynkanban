@@ -194,3 +194,24 @@ export const tasks = mysqlTable(
     index("tasks_assignee_idx").on(t.assigneeId, t.dueDate),
   ],
 );
+
+/**
+ * Personal tasks: private to-dos of one person. Kept in their own table so that no other page,
+ * count or chart can ever include them; only the owner's My tasks page reads it.
+ */
+export const personalTasks = mysqlTable(
+  "personal_tasks",
+  {
+    id: id(),
+    ownerId: varchar("owner_id", { length: 36 })
+      .notNull()
+      .references(() => users.id),
+    title: varchar("title", { length: 200 }).notNull(),
+    note: varchar("note", { length: 500 }).notNull().default(""),
+    dueDate: date("due_date", { mode: "string" }).notNull(),
+    done: boolean("done").notNull().default(false),
+    createdAt: createdAt(),
+    updatedAt: now("updated_at"),
+  },
+  (t) => [index("personal_owner_idx").on(t.ownerId, t.dueDate)],
+);

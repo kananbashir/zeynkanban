@@ -12,8 +12,8 @@ A website for planning Zeyn Media's customers, content and tasks. It replaces th
 | 4 | Tasks, managing board, task form, archiving | Done |
 | 5 | Month planner | Done |
 | 6 | Dashboard | Done |
-| 7 | My tasks and personal tasks | Next |
-| 8 | Notifications, including phone push | |
+| 7 | My tasks and personal tasks | Done |
+| 8 | Notifications, including phone push | Next |
 | 9 | Going live on a zeynmedia.az subdomain | |
 
 Until its stage is built, a page shows "This page is being built".
@@ -93,6 +93,14 @@ The first page for admins and managers. It shows counts and charts for a month (
 - **Team workload**, **Customers**, **Tasks by status** and **Content types**: how the period's tasks split up, each bar showing finished and open.
 
 Every task with an assignee counts on its due date; archived tasks don't count. Drafts appear only in their own total, just as the managing board leaves them out.
+
+## My tasks and personal tasks
+
+Everyone has a My tasks page; it is the first page for employees, and the only one besides logging out.
+
+- **Assigned tasks**: only the tasks assigned to you, in the same day view as the managing board (overdue on today's view, due, finished), with a calendar and a summary of your day. You can change the status of your own tasks, including straight to a finished status such as Done. Employees can't edit tasks; admins and managers get "Open task" as on the board.
+- **Personal tasks**: private to-dos with a title and an optional note, added to the day you are looking at. Tick to mark done, or delete. Unfinished ones from earlier days also show on today, marked "From [date]".
+- Personal tasks are kept in their own table (`personal_tasks`) and are read only by their owner's My tasks page, so nobody else sees them in the site, admins included, and they never count on the dashboard, the board or anyone's workload. Like everything else, they are stored in the database, so whoever manages the hosting database can technically read it.
 
 ## First start on a new server
 

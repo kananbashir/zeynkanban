@@ -36,6 +36,13 @@
       "when": 1795277816457,
       "tag": "0004_one_off_task_types",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1795341084185,
+      "tag": "0005_personal_tasks",
+      "breakpoints": true
     }
   ]
 }
