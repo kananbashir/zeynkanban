@@ -129,6 +129,12 @@ export async function setStatusFinished(id: string, finished: boolean): Promise<
   return found(rows) ? done() : fail("notFound");
 }
 
+export async function setStatusReview(id: string, on: boolean): Promise<Result> {
+  await requireRole("admin");
+  const rows = await db.update(statuses).set({ notifyReview: !!on }).where(and(eq(statuses.id, id), isNull(statuses.deletedAt)));
+  return found(rows) ? done() : fail("notFound");
+}
+
 export async function reorderStatuses(ids: string[]): Promise<Result> {
   await requireRole("admin");
   const live = await liveStatuses();

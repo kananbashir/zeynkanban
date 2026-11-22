@@ -43,6 +43,13 @@
       "when": 1795341084185,
       "tag": "0005_personal_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1795341847049,
+      "tag": "0006_notifications",
+      "breakpoints": true
     }
   ]
 }

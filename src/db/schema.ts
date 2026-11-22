@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
-import { bigint, boolean, date, datetime, index, int, mysqlEnum, mysqlTable, text, varchar } from "drizzle-orm/mysql-core";
+import { bigint, boolean, date, datetime, index, int, mysqlEnum, mysqlTable, text, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 // MySQL has no UUID type, so ids are UUID strings created by the app.
 const id = () => varchar("id", { length: 36 }).primaryKey().$defaultFn(() => randomUUID());
@@ -59,6 +59,8 @@ export const statuses = mysqlTable("statuses", {
   name: varchar("name", { length: 120 }).notNull(),
   color: varchar("color", { length: 7 }).notNull(),
   isFinished: boolean("is_finished").notNull().default(false),
+  /** Moving a task into this status tells admins and managers it is ready for review. */
+  notifyReview: boolean("notify_review").notNull().default(false),
   position: int("position").notNull().default(0),
   deletedAt: datetime("deleted_at", { mode: "date", fsp: 3 }),
   createdAt: createdAt(),
@@ -215,3 +217,64 @@ export const personalTasks = mysqlTable(
   },
   (t) => [index("personal_owner_idx").on(t.ownerId, t.dueDate)],
 );
+
+export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary"] as const;
+export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
+
+/**
+ * One notification for one person. `data` holds what is needed to write the text later
+ * (names, codes, dates), so it can be shown in either language.
+ */
+export const notifications = mysqlTable(
+  "notifications",
+  {
+    id: id(),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id),
+    kind: mysqlEnum("kind", NOTIFICATION_KINDS).notNull(),
+    taskId: varchar("task_id", { length: 36 }),
+    data: text("data").notNull(),
+    readAt: datetime("read_at", { mode: "date", fsp: 3 }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("notifications_user_idx").on(t.userId, t.createdAt)],
+);
+
+/** What each person wants to be told about. A missing row means everything is on. */
+export const notificationPrefs = mysqlTable("notification_prefs", {
+  userId: varchar("user_id", { length: 36 })
+    .primaryKey()
+    .references(() => users.id),
+  assigned: boolean("assigned").notNull().default(true),
+  changed: boolean("changed").notNull().default(true),
+  summary: boolean("summary").notNull().default(true),
+  review: boolean("review").notNull().default(true),
+  overdue: boolean("overdue").notNull().default(true),
+});
+
+/** A browser or phone that accepted push notifications. */
+export const pushSubscriptions = mysqlTable(
+  "push_subscriptions",
+  {
+    id: id(),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id),
+    endpointHash: varchar("endpoint_hash", { length: 64 }).notNull(),
+    endpoint: text("endpoint").notNull(),
+    p256dh: varchar("p256dh", { length: 255 }).notNull(),
+    auth: varchar("auth", { length: 255 }).notNull(),
+    /** The language the site was in when push was turned on; pushes are written in it. */
+    locale: varchar("locale", { length: 5 }).notNull().default("az"),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex("push_endpoint_idx").on(t.endpointHash), index("push_user_idx").on(t.userId)],
+);
+
+/** Small values the app keeps for itself: generated push keys, and which daily jobs already ran. */
+export const appValues = mysqlTable("app_values", {
+  key: varchar("key", { length: 80 }).primaryKey(),
+  value: text("value").notNull(),
+  createdAt: createdAt(),
+});

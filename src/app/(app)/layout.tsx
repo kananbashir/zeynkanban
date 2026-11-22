@@ -1,12 +1,18 @@
+import { after } from "next/server";
+import { unreadCount } from "@/app/actions/notifications";
 import { Rail } from "@/components/rail";
 import { TopBar } from "@/components/top-bar";
 import { getDictionary } from "@/i18n/server";
 import { requireUser } from "@/lib/auth";
+import { runDailyJobs } from "@/lib/daily";
 import { navFor } from "@/lib/roles";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
   const { locale, t } = await getDictionary();
+  // The 09:00 job also starts from here, in case the hosting put the server to sleep overnight.
+  after(() => runDailyJobs().catch((error) => console.error("daily jobs", error)));
+  const unread = await unreadCount();
   const items = navFor(user.role).map((item) => ({ key: item.key, href: item.href, label: t.nav[item.key] }));
 
   return (
@@ -19,7 +25,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             roleLabel={t.roles[user.role]}
             locale={locale}
             languageLabel={t.common.language}
-            notificationsLabel={t.common.notifications}
+            unread={unread}
+            notificationsT={t.notifications}
           />
           {children}
         </div>

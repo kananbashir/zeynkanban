@@ -13,8 +13,8 @@ A website for planning Zeyn Media's customers, content and tasks. It replaces th
 | 5 | Month planner | Done |
 | 6 | Dashboard | Done |
 | 7 | My tasks and personal tasks | Done |
-| 8 | Notifications, including phone push | Next |
-| 9 | Going live on a zeynmedia.az subdomain | |
+| 8 | Notifications, including phone push | Done |
+| 9 | Going live on a zeynmedia.az subdomain | Next |
 
 Until its stage is built, a page shows "This page is being built".
 
@@ -101,6 +101,27 @@ Everyone has a My tasks page; it is the first page for employees, and the only o
 - **Assigned tasks**: only the tasks assigned to you, in the same day view as the managing board (overdue on today's view, due, finished), with a calendar and a summary of your day. You can change the status of your own tasks, including straight to a finished status such as Done. Employees can't edit tasks; admins and managers get "Open task" as on the board.
 - **Personal tasks**: private to-dos with a title and an optional note, added to the day you are looking at. Tick to mark done, or delete. Unfinished ones from earlier days also show on today, marked "From [date]".
 - Personal tasks are kept in their own table (`personal_tasks`) and are read only by their owner's My tasks page, so nobody else sees them in the site, admins included, and they never count on the dashboard, the board or anyone's workload. Like everything else, they are stored in the database, so whoever manages the hosting database can technically read it.
+
+## Notifications
+
+The bell in the top bar shows how many notifications are unread; it checks again every minute and whenever the page comes back into view. The panel lists them by Today and Earlier, with All / Unread and "Mark all as read". Tapping one marks it read and opens the task (the task form for admins and managers, the task's day in My tasks for employees).
+
+| Notification | Who gets it |
+|---|---|
+| New task assigned to you | The assignee, when a task is created for them or given to them |
+| A task was given to someone else | The previous assignee |
+| A task of yours changed | The assignee, when the date, description or note changes |
+| Ready for review | Admins and managers, when a task moves into a status marked "Sends ‘Ready for review’" (Settings → Statuses) |
+| A task became overdue | Admins and managers, at 09:00, for tasks that passed their date unfinished (more than 3 become one notification) |
+| Morning summary | Everyone at 09:00: the day's tasks, overdue and drafts (employees: their own; skipped when they have nothing) |
+
+Nobody is notified about their own changes. Each person chooses what they want in the panel's settings, and can turn on **phone notifications on this device**. On an iPhone (iOS 16.4 or newer) the site must first be added to the home screen and opened from there. Phone notifications need the site on HTTPS (or `localhost` when testing on your own computer).
+
+How it works:
+
+- Notifications are stored per person in the database (`notifications`) and written out in the language the site is shown in. They are kept for 90 days.
+- Phone notifications use Web Push. The signing keys are created on first use and kept in the database (`app_values`), so nothing needs setting up on the hosting; `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` can be set instead. Devices that no longer accept pushes are forgotten automatically.
+- The 09:00 work runs once a day (Baku time): from a timer while the server is running, and also on the first page visit after 09:00 in case the hosting put the server to sleep overnight. A database row claims each day, so it never runs twice. Set `SKIP_DAILY_JOBS=1` to turn the timer off.
 
 ## First start on a new server
 

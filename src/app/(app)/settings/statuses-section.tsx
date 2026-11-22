@@ -8,13 +8,13 @@ import { btn, card, row } from "@/components/ui";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import { COLOR_NAMES, STATUS_COLORS } from "@/lib/settings-rules";
-import { addStatus, deleteStatus, renameStatus, reorderStatuses, setStatusColor, setStatusFinished } from "./actions";
+import { addStatus, deleteStatus, renameStatus, reorderStatuses, setStatusColor, setStatusFinished, setStatusReview } from "./actions";
 import { AddNameForm } from "./add-name-form";
 import { ConfirmBar } from "@/components/confirm-bar";
 import { SectionHeader } from "./section-header";
 import { useAction } from "./use-action";
 
-type Status = { id: string; name: string; color: string; isFinished: boolean };
+type Status = { id: string; name: string; color: string; isFinished: boolean; notifyReview: boolean };
 
 export function StatusesSection({ statuses, t, errors }: { statuses: Status[]; t: Dictionary["settings"]; errors: Dictionary["errors"] }) {
   const { message, show } = useToast();
@@ -66,6 +66,16 @@ export function StatusesSection({ statuses, t, errors }: { statuses: Status[]; t
                   onChange={(e) => run(() => setStatusFinished(status.id, e.target.checked))}
                 />
                 {s.finished}
+              </label>
+              <label className="flex min-h-10 cursor-pointer items-center gap-2 whitespace-nowrap text-sm">
+                <input
+                  type="checkbox"
+                  className="size-5 accent-teal"
+                  checked={status.notifyReview}
+                  disabled={pending}
+                  onChange={(e) => run(() => setStatusReview(status.id, e.target.checked))}
+                />
+                {s.review}
               </label>
               <button type="button" className={btn.soft} onClick={() => setConfirming(status.id)}>
                 {t.delete}

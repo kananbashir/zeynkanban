@@ -1,6 +1,6 @@
-import type { Locale } from "@/i18n/dictionaries";
-import { Icon } from "./icons";
+import type { Dictionary, Locale } from "@/i18n/dictionaries";
 import { LanguageSwitch } from "./language-switch";
+import { NotificationBell } from "./notification-bell";
 
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -15,26 +15,20 @@ export function TopBar({
   roleLabel,
   locale,
   languageLabel,
-  notificationsLabel,
+  unread,
+  notificationsT,
 }: {
   name: string;
   roleLabel: string;
   locale: Locale;
   languageLabel: string;
-  notificationsLabel: string;
+  unread: number;
+  notificationsT: Dictionary["notifications"];
 }) {
   return (
     <div className="flex flex-wrap items-center justify-end gap-2.5">
       <LanguageSwitch locale={locale} label={languageLabel} />
-      <button
-        type="button"
-        disabled
-        aria-label={notificationsLabel}
-        title={notificationsLabel}
-        className="flex size-[52px] cursor-not-allowed items-center justify-center rounded-full bg-white text-icon"
-      >
-        <Icon name="bell" />
-      </button>
+      <NotificationBell initialUnread={unread} locale={locale} t={notificationsT} />
       <div className="flex h-[52px] items-center gap-2.5 rounded-full bg-white py-1.5 pl-1.5 pr-4">
         <span className="flex size-10 items-center justify-center rounded-full bg-teal text-[13px] font-semibold text-white">{initials(name)}</span>
         <span className="flex flex-col leading-tight">

@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { db } from "@/db";
 import { contents, statuses, taskTypes, tasks, users } from "@/db/schema";
 import type { ErrorKey } from "@/i18n/dictionaries";
@@ -10,9 +11,15 @@ import { requireRole, requireUser } from "@/lib/auth";
 import { isIsoDateString } from "@/lib/dates";
 import { cleanName } from "@/lib/settings-rules";
 import { countsByDay, wholeDay, type TaskView } from "@/lib/tasks";
+import { deliverPush, notify, staffIds, taskRef } from "@/lib/notify";
 import { found } from "@/lib/users";
 
 export type Result = { ok: true; id?: string } | { ok: false; error: ErrorKey };
+
+/** Phone pushes go out after the page has answered, so saving never waits for them. */
+function push(rows: Awaited<ReturnType<typeof notify>>) {
+  if (rows.length) after(() => deliverPush(rows).catch((error) => console.error("push", error)));
+}
 const fail = (error: ErrorKey): Result => ({ ok: false, error });
 
 function refresh(): Result {
@@ -89,16 +96,24 @@ export async function createTask(input: TaskInput): Promise<Result> {
     finishedAt: first.isFinished ? new Date() : null,
     createdBy: me.id,
   });
+  if (input.assigneeId && input.assigneeId !== me.id) {
+    const ref = await taskRef(id);
+    if (ref) push(await notify([input.assigneeId], "assigned", { kind: "assigned", by: me.name, ...ref }, id));
+  }
   refresh();
   return { ok: true, id };
 }
 
 export async function updateTask(id: string, input: TaskInput): Promise<Result> {
-  await requireRole("admin", "manager");
+  const me = await requireRole("admin", "manager");
   const problem = await validate(input);
   if (problem) return fail(problem);
   const type = await resolveType(input);
   if (!type.ok) return fail(type.error);
+  const [before] = await db
+    .select({ assigneeId: tasks.assigneeId, dueDate: tasks.dueDate, description: tasks.description, note: tasks.note })
+    .from(tasks)
+    .where(eq(tasks.id, id));
   const result = await db
     .update(tasks)
     .set({
@@ -111,23 +126,49 @@ export async function updateTask(id: string, input: TaskInput): Promise<Result> 
       updatedAt: new Date(),
     })
     .where(and(eq(tasks.id, id), eq(tasks.customerId, input.customerId)));
-  return found(result) ? refresh() : fail("notFound");
+  if (!found(result)) return fail("notFound");
+  if (before) await notifyChanges(id, before, me);
+  return refresh();
+}
+
+/** Tells the people concerned what an edit changed for them. Nobody is told about their own edits. */
+async function notifyChanges(id: string, before: { assigneeId: string | null; dueDate: string; description: string | null; note: string }, me: { id: string; name: string }) {
+  const ref = await taskRef(id);
+  if (!ref) return;
+  const rows = [];
+  if (before.assigneeId !== ref.assigneeId) {
+    if (ref.assigneeId && ref.assigneeId !== me.id) rows.push(...(await notify([ref.assigneeId], "assigned", { kind: "assigned", by: me.name, ...ref }, id)));
+    if (before.assigneeId && before.assigneeId !== me.id) rows.push(...(await notify([before.assigneeId], "moved", { kind: "moved", to: ref.assigneeName, ...ref }, id)));
+  } else if (ref.assigneeId && ref.assigneeId !== me.id) {
+    const [current] = await db.select({ description: tasks.description, note: tasks.note }).from(tasks).where(eq(tasks.id, id));
+    const change = {
+      ...(before.dueDate !== ref.due ? { dateFrom: before.dueDate, dateTo: ref.due } : {}),
+      ...((before.description ?? "") !== (current?.description ?? "") ? { description: true } : {}),
+      ...(before.note !== (current?.note ?? "") ? { note: current?.note ?? "" } : {}),
+    };
+    if (Object.keys(change).length) rows.push(...(await notify([ref.assigneeId], "changed", { kind: "changed", ...change, ...ref }, id)));
+  }
+  push(rows);
 }
 
 /** Admins and managers can change any task's status; employees only their own. */
 export async function setTaskStatus(id: string, statusId: string): Promise<Result> {
   const me = await requireUser();
   const [task] = await db
-    .select({ assigneeId: tasks.assigneeId, wasFinished: statuses.isFinished, finishedAt: tasks.finishedAt })
+    .select({ assigneeId: tasks.assigneeId, wasFinished: statuses.isFinished, finishedAt: tasks.finishedAt, statusId: tasks.statusId })
     .from(tasks)
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
     .where(eq(tasks.id, id));
   if (!task) return fail("notFound");
   if (me.role === "employee" && task.assigneeId !== me.id) return fail("notAllowed");
-  const [status] = await db.select({ isFinished: statuses.isFinished }).from(statuses).where(and(eq(statuses.id, statusId), isNull(statuses.deletedAt)));
+  const [status] = await db.select({ isFinished: statuses.isFinished, notifyReview: statuses.notifyReview }).from(statuses).where(and(eq(statuses.id, statusId), isNull(statuses.deletedAt)));
   if (!status) return fail("notFound");
   const finishedAt = status.isFinished ? (task.wasFinished && task.finishedAt ? task.finishedAt : new Date()) : null;
   await db.update(tasks).set({ statusId, finishedAt, updatedAt: new Date() }).where(eq(tasks.id, id));
+  if (status.notifyReview && task.statusId !== statusId) {
+    const ref = await taskRef(id);
+    if (ref) push(await notify(await staffIds(me.id), "review", { kind: "review", by: me.name, ...ref }, id));
+  }
   return refresh();
 }
 

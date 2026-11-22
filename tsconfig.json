@@ -41,6 +41,7 @@
     "release",
     "scripts",
     "drizzle.config.ts",
+    "vitest.config.ts",
     "**/*.test.ts"
   ]
 }
