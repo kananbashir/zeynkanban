@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { and, asc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
@@ -54,21 +55,23 @@ export async function loadTaskNotes(taskId: string): Promise<{ ok: true; notes: 
 }
 
 /** Adds a note (at most 10 per task) and tells the assignee and the admins and managers. */
-export async function addTaskNote(taskId: string, body: string): Promise<{ ok: true } | Fail> {
+export async function addTaskNote(taskId: string, body: string): Promise<{ ok: true; note: TaskNote } | Fail> {
   const me = await requireUser();
   const text = cleanNote(body);
   if (!text) return { ok: false, error: "noteEmpty" };
   const task = await taskFor(taskId);
   if (!task || !canUseNotes(me, task)) return { ok: false, error: "notAllowed" };
+  const noteId = randomUUID();
   const added = await db.transaction(async (tx) => {
     // Lock the task row so two notes sent at the same moment can't pass the limit together.
     await tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.id, taskId)).for("update");
     const [{ n }] = await tx.select({ n: sql<number>`count(*)`.mapWith(Number) }).from(taskNotes).where(eq(taskNotes.taskId, taskId));
     if (n >= MAX_NOTES) return false;
-    await tx.insert(taskNotes).values({ taskId, userId: me.id, body: text });
+    await tx.insert(taskNotes).values({ id: noteId, taskId, userId: me.id, body: text });
     return true;
   });
   if (!added) return { ok: false, error: "noteLimit" };
+  const note: TaskNote = { id: noteId, author: me.name, authorId: me.id, body: text, when: clock(new Date()), mine: true, canDelete: true };
   const ref = await taskRef(taskId);
   if (ref) {
     const people = [...(await staffIds(me.id)), ...(task.assigneeId && task.assigneeId !== me.id ? [task.assigneeId] : [])];
@@ -76,7 +79,7 @@ export async function addTaskNote(taskId: string, body: string): Promise<{ ok: t
     if (rows.length) after(() => deliverPush(rows).catch((error) => console.error("push", error)));
   }
   revalidatePath("/", "layout");
-  return { ok: true };
+  return { ok: true, note };
 }
 
 /** The author can delete their own note; an admin can delete any. */

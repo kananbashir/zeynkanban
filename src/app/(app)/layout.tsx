@@ -1,6 +1,9 @@
 import { after } from "next/server";
 import { unreadCount } from "@/app/actions/notifications";
+import { Suspense } from "react";
+import { MeProvider } from "@/components/me";
 import { Rail } from "@/components/rail";
+import { TaskPeek } from "@/components/task-peek";
 import { TopBar } from "@/components/top-bar";
 import { getDictionary } from "@/i18n/server";
 import { requireUser } from "@/lib/auth";
@@ -30,7 +33,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             unread={unread}
             notificationsT={t.notifications}
           />
-          {children}
+          <MeProvider me={{ id: user.id, name: user.name }}>
+            {children}
+            <Suspense fallback={null}>
+              <TaskPeek t={t.tasks} errors={t.errors} />
+            </Suspense>
+          </MeProvider>
         </div>
       </div>
     </div>

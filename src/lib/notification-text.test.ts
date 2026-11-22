@@ -9,10 +9,13 @@ const text = (d: Parameters<typeof notificationText>[0], staff = false) => notif
 describe("notificationText", () => {
   it("assigned, due today", () => {
     const x = text({ kind: "assigned", by: "Aysel", ...ref });
-    expect([x.title, x.a, x.b, x.href]).toEqual(["New task assigned to you", "Video edit · thrive-vid-nd26-3 · Thrive", "By Aysel · due today", "/my-tasks?date=2026-11-22"]);
+    expect([x.title, x.a, x.b, x.href, x.taskId, x.notes]).toEqual(["New task assigned to you", "Video edit · thrive-vid-nd26-3 · Thrive", "By Aysel · due today", "/my-tasks?task=t1", "t1", false]);
   });
-  it("staff links open the task form", () => {
-    expect(text({ kind: "review", by: "Murad", ...ref }, true).href).toBe("/customers/c1?tab=tasks&date=2026-11-22&edit=t1");
+  it("task notifications open the task window; notes open its notes", () => {
+    expect(text({ kind: "review", by: "Murad", ...ref }, true).href).toBe("/board?task=t1");
+    const note = text({ kind: "note", by: "Murad", body: "Done", ...ref }, true);
+    expect([note.href, note.notes]).toEqual(["/board?task=t1&notes=1", true]);
+    expect(text({ kind: "moved", to: "Tural", ...ref }).taskId).toBeUndefined(); // an employee no longer has it
   });
   it("lists what changed", () => {
     expect(text({ kind: "changed", dateFrom: "2026-11-19", dateTo: "2026-11-20", note: "Shoot before 10:00", ...ref }).b).toBe("Deadline moved from 19 Nov to 20 Nov · Note: “Shoot before 10:00”");

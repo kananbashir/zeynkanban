@@ -67,6 +67,7 @@ export const en = {
     notAllowed: "You can only change your own tasks.",
     personalTitle: "Write what you need to do.",
     noteEmpty: "Write the note first.",
+    taskGone: "This task can’t be shown. It may have been given to someone else.",
     noteLimit: "This task already has 10 notes, the most a task can have.",
   },
   setup: {
@@ -425,6 +426,7 @@ export const en = {
     emptyFilteredHint: "Try another filter, or clear the filters to see the whole day.",
     calendarTasks: "Tasks due",
     calendarEvent: "Holiday or special event",
+    peek: { title: "Task", showDay: "Show this day in My tasks" },
     notes: {
       button: "Notes",
       title: "Notes",
@@ -649,6 +651,7 @@ export const az: Dictionary = {
     notAllowed: "Yalnız öz tapşırıqlarınızı dəyişə bilərsiniz.",
     personalTitle: "Nə etməli olduğunuzu yazın.",
     noteEmpty: "Əvvəlcə qeydi yazın.",
+    taskGone: "Bu tapşırığı göstərmək mümkün deyil. Ola bilsin, başqasına verilib.",
     noteLimit: "Bu tapşırığın artıq 10 qeydi var, bu ən çox ola biləndir.",
   },
   setup: {
@@ -1007,6 +1010,7 @@ export const az: Dictionary = {
     emptyFilteredHint: "Başqa filtr seçin və ya bütün günü görmək üçün filtrləri təmizləyin.",
     calendarTasks: "Tapşırıqlar",
     calendarEvent: "Bayram və ya xüsusi gün",
+    peek: { title: "Tapşırıq", showDay: "Bu günü Tapşırıqlarımda göstər" },
     notes: {
       button: "Qeydlər",
       title: "Qeydlər",

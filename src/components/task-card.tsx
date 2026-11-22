@@ -11,6 +11,8 @@ import { shortDate } from "@/lib/format-date";
 import { MAX_NOTES, NOTE_LENGTH } from "@/lib/note-rules";
 import { ARCHIVED_BACKGROUND, cardBackground } from "@/lib/task-rules";
 import type { TaskView } from "@/lib/tasks";
+import { useMe } from "./me";
+import { Collapse } from "./motion";
 import { initials } from "./top-bar";
 
 export type StatusOption = { id: string; name: string; color: string; isFinished: boolean };
@@ -44,6 +46,8 @@ export function TaskCard({
   editHref,
   onEdit,
   onError,
+  onChanged,
+  notesInitiallyOpen = false,
 }: {
   task: TaskView;
   statuses: StatusOption[];
@@ -55,10 +59,71 @@ export function TaskCard({
   editHref?: string;
   onEdit?: () => void;
   onError?: (message: string) => void;
+  /** Called after the status was saved, before the new status stops being "optimistic". */
+  onChanged?: () => Promise<void> | void;
+  notesInitiallyOpen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // Notes: loaded the first time they are opened (before opening, so nothing jumps), then kept and
+  // refreshed whenever the task's note count changes, e.g. after someone else adds one.
   const [notesOpen, setNotesOpen] = useState(false);
-  const [notesCount, setNotesCount] = useState(task.notesCount);
+  const [notes, setNotes] = useState<ShownNote[] | null>(null);
+  const [loadingNotes, setLoadingNotes] = useState(notesInitiallyOpen);
+  const [seenCount, setSeenCount] = useState(task.notesCount);
+  if (seenCount !== task.notesCount) {
+    setSeenCount(task.notesCount);
+    if (!notesOpen) setNotes(null); // closed: load fresh next time it opens
+  }
+  const fetchNotes = async () => {
+    const result = await loadTaskNotes(task.id);
+    if (!result.ok) {
+      onError?.(result.error);
+      return false;
+    }
+    setNotes((shown) => mergeNotes(shown, result.notes));
+    return true;
+  };
+  const toggleNotes = async () => {
+    if (notesOpen) return setNotesOpen(false);
+    if (notes) {
+      setNotesOpen(true);
+      fetchNotes();
+      return;
+    }
+    setLoadingNotes(true);
+    const loaded = await fetchNotes();
+    setLoadingNotes(false);
+    if (loaded) setNotesOpen(true);
+  };
+  // Open: someone else added or deleted a note, so show the current list.
+  useEffect(() => {
+    if (!notesOpen) return;
+    let alive = true;
+    loadTaskNotes(task.id).then((result) => {
+      if (alive && result.ok) setNotes((shown) => mergeNotes(shown, result.notes));
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task.notesCount]);
+  // Opened from a note notification: show the notes straight away.
+  useEffect(() => {
+    if (!notesInitiallyOpen) return;
+    let alive = true;
+    loadTaskNotes(task.id).then((result) => {
+      if (!alive) return;
+      setLoadingNotes(false);
+      if (!result.ok) return onError?.(result.error);
+      setNotes(mergeNotes(null, result.notes));
+      setNotesOpen(true);
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const notesCount = notes ? notes.filter((x) => !x.leaving).length : task.notesCount;
   const [, startTransition] = useTransition();
   // The new status shows at once; the card moves to its new group when the page refreshes.
   const [statusId, setStatusId] = useOptimistic(task.statusId);
@@ -78,6 +143,7 @@ export function TaskCard({
       setStatusId(next);
       const result = await setTaskStatus(task.id, next);
       if (!result.ok) onError?.(result.error);
+      else await onChanged?.();
     });
   }
 
@@ -171,10 +237,15 @@ export function TaskCard({
         <button
           type="button"
           aria-expanded={notesOpen}
-          onClick={() => setNotesOpen((v) => !v)}
+          aria-busy={loadingNotes}
+          onClick={toggleNotes}
           className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold transition-colors sm:min-h-10 ${notesOpen ? "bg-white text-ink" : "text-ink hover:bg-white/60"} ml-auto`}
         >
-          <Icon d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM8 9h8M8 13h5" />
+          {loadingNotes ? (
+            <span className="size-4 shrink-0 animate-spin rounded-full border-2 border-ink/20 border-t-ink" aria-hidden="true" />
+          ) : (
+            <Icon d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM8 9h8M8 13h5" />
+          )}
           {t.notes.button}
           {notesCount > 0 && <span key={notesCount} className="zk-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-bold tabular-nums">{notesCount}</span>}
         </button>
@@ -188,114 +259,149 @@ export function TaskCard({
           </button>
         ) : null}
       </div>
-      {notesOpen && <NotesPanel taskId={task.id} t={t} onCount={setNotesCount} onError={onError} />}
+      <Collapse open={notesOpen && !!notes} className="-mt-1 sm:-mt-1.5">
+        {notes && (
+          <div className="pt-1">
+            <NotesPanel notes={notes} setNotes={setNotes} taskId={task.id} t={t} onError={onError} />
+          </div>
+        )}
+      </Collapse>
     </article>
   );
 }
 
-/** The notes of a task: read, add (up to 10 per task), delete your own. Loaded when opened. */
-function NotesPanel({ taskId, t, onCount, onError }: { taskId: string; t: Dictionary["tasks"]; onCount: (n: number) => void; onError?: (message: string) => void }) {
+type ShownNote = TaskNote & { key: string; pending?: boolean; leaving?: boolean; appear?: boolean };
+
+const bakuClock = () => new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Baku", hour: "2-digit", minute: "2-digit", hour12: false }).format(new Date());
+
+/**
+ * Brings the list in line with the server without disturbing what is on screen: notes already shown
+ * keep their place, a note still being sent is matched to its saved copy, notes on their way out
+ * finish folding away, and notes someone else just added slide in.
+ */
+function mergeNotes(shown: ShownNote[] | null, fresh: TaskNote[]): ShownNote[] {
+  const used = new Set<string>();
+  const out: ShownNote[] = fresh.map((n) => {
+    const same = shown?.find((s) => s.id === n.id) ?? shown?.find((s) => s.pending && s.mine && n.mine && s.body === n.body && !used.has(s.key));
+    if (same) used.add(same.key);
+    return { ...n, key: same?.key ?? n.id, appear: !!shown && !same, leaving: same?.leaving };
+  });
+  shown?.forEach((s, i) => {
+    if (!used.has(s.key) && (s.leaving || s.pending)) out.splice(Math.min(i, out.length), 0, s);
+  });
+  return out;
+}
+
+/** The notes of a task: read, add (up to 10 per task), delete your own. */
+function NotesPanel({
+  notes,
+  setNotes,
+  taskId,
+  t,
+  onError,
+}: {
+  notes: ShownNote[];
+  setNotes: (update: (list: ShownNote[] | null) => ShownNote[] | null) => void;
+  taskId: string;
+  t: Dictionary["tasks"];
+  onError?: (message: string) => void;
+}) {
   const n = t.notes;
-  const [notes, setNotes] = useState<TaskNote[] | null>(null);
+  const me = useMe();
   const [text, setText] = useState("");
-  const [pending, startTransition] = useTransition();
+  const visible = notes.filter((x) => !x.leaving);
+  const full = visible.length >= MAX_NOTES;
 
-  const reload = async () => {
-    const result = await loadTaskNotes(taskId);
-    if (!result.ok) return onError?.(result.error);
-    setNotes(result.notes);
-    onCount(result.notes.length);
+  // Shown at once and confirmed by the server; on failure it folds away again.
+  const add = async () => {
+    const body = text.trim();
+    if (!body || full) return;
+    const key = `new-${Date.now()}`;
+    setText("");
+    setNotes((list) => [...(list ?? []), { id: key, key, author: me?.name ?? "", authorId: me?.id ?? "", body, when: bakuClock(), mine: true, canDelete: true, pending: true, appear: true }]);
+    const result = await addTaskNote(taskId, body);
+    if (!result.ok) {
+      setNotes((list) => list?.map((x) => (x.key === key ? { ...x, leaving: true } : x)) ?? null);
+      setTimeout(() => setNotes((list) => list?.filter((x) => x.key !== key) ?? null), 330);
+      setText(body);
+      return onError?.(result.error);
+    }
+    setNotes((list) => list?.filter((x) => x.key === key || x.id !== result.note.id).map((x) => (x.key === key ? { ...result.note, key } : x)) ?? null);
   };
-  useEffect(() => {
-    let alive = true;
-    loadTaskNotes(taskId).then((result) => {
-      if (!alive) return;
-      if (!result.ok) return onError?.(result.error);
-      setNotes(result.notes);
-      onCount(result.notes.length);
-    });
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [taskId]);
 
-  const full = (notes?.length ?? 0) >= MAX_NOTES;
-  const add = () =>
-    startTransition(async () => {
-      const result = await addTaskNote(taskId, text);
-      if (!result.ok) return onError?.(result.error);
-      setText("");
-      await reload();
-    });
-  const remove = (id: string) =>
-    startTransition(async () => {
-      const result = await deleteTaskNote(id);
-      if (!result.ok) return onError?.(result.error);
-      await reload();
-    });
+  const remove = async (note: ShownNote) => {
+    setNotes((list) => list?.map((x) => (x.key === note.key ? { ...x, leaving: true } : x)) ?? null);
+    const [result] = await Promise.all([deleteTaskNote(note.id), new Promise((r) => setTimeout(r, 330))]);
+    if (!result.ok) {
+      setNotes((list) => list?.map((x) => (x.key === note.key ? { ...x, leaving: false } : x)) ?? null);
+      return onError?.(result.error);
+    }
+    setNotes((list) => list?.filter((x) => x.key !== note.key) ?? null);
+  };
 
   return (
-    <section aria-label={n.title} className="zk-fade-up flex flex-col gap-2.5 rounded-[18px] bg-white/80 p-3 sm:p-3.5">
-      {notes === null ? (
-        <div className="h-10 animate-pulse rounded-xl bg-mint/70" />
-      ) : notes.length === 0 ? (
-        <p className="text-[13px] text-muted">{n.empty}</p>
-      ) : (
-        <ul className="flex flex-col gap-2.5">
-          {notes.map((note) => (
-            <li key={note.id} className="zk-fade-up flex items-start gap-2.5">
-              <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: avatarColor(note.authorId) }}>
-                {initials(note.author)}
-              </span>
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
-                  <span className="font-semibold">{note.mine ? n.you : note.author}</span>
-                  <span className="text-xs text-muted">{note.when}</span>
+    <section aria-label={n.title} className="flex flex-col rounded-[18px] bg-white/80 p-3 sm:p-3.5">
+      <Collapse open={visible.length === 0}>
+        <p className="pb-2.5 text-[13px] text-muted">{n.empty}</p>
+      </Collapse>
+      <ul className="flex flex-col">
+        {notes.map((note) => (
+          <li key={note.key}>
+            <Collapse open={!note.leaving} appear={note.appear}>
+              <div className={`flex items-start gap-2.5 pb-2.5 transition-opacity duration-300 ${note.pending ? "opacity-60" : ""}`}>
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: note.authorId ? avatarColor(note.authorId) : "#6b7785" }}>
+                  {initials(note.author || "?")}
                 </span>
-                <p className="whitespace-pre-line text-sm leading-snug text-[#2b3644] [overflow-wrap:anywhere]">{note.body}</p>
+                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                  <span className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
+                    <span className="font-semibold">{note.mine ? n.you : note.author}</span>
+                    <span className="text-xs text-muted">{note.when}</span>
+                  </span>
+                  <p className="whitespace-pre-line text-sm leading-snug text-[#2b3644] [overflow-wrap:anywhere]">{note.body}</p>
+                </div>
+                {note.canDelete && !note.pending && (
+                  <button type="button" aria-label={n.remove} title={n.remove} disabled={note.leaving} onClick={() => remove(note)} className="flex size-8 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
+                    <Icon d="M6 6l12 12M18 6 6 18" size={14} />
+                  </button>
+                )}
               </div>
-              {note.canDelete && (
-                <button type="button" aria-label={n.remove} title={n.remove} disabled={pending} onClick={() => remove(note.id)} className="flex size-8 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
-                  <Icon d="M6 6l12 12M18 6 6 18" size={14} />
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      {notes !== null &&
-        (full ? (
-          <p className="rounded-xl bg-mint px-3 py-2 text-[13px] text-ink-soft">{n.full}</p>
-        ) : (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (text.trim()) add();
-            }}
-            className="flex flex-wrap items-end gap-2"
-          >
-            <textarea
-              aria-label={n.placeholder}
-              placeholder={n.placeholder}
-              value={text}
-              maxLength={NOTE_LENGTH}
-              rows={1}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  if (text.trim()) add();
-                }
-              }}
-              className="min-h-11 min-w-0 flex-[1_1_220px] resize-none rounded-[14px] border-[1.5px] border-line-strong bg-white px-3 py-2.5 text-sm"
-            />
-            <button type="submit" disabled={pending || !text.trim()} className="min-h-11 rounded-full bg-teal px-4 text-[13px] font-semibold text-white disabled:opacity-50">
-              {n.add}
-            </button>
-            <span className="basis-full text-right text-[11px] text-muted tabular-nums">{fill(n.count, { n: notes.length })}</span>
-          </form>
+            </Collapse>
+          </li>
         ))}
+      </ul>
+      <Collapse open={full}>
+        <p className="rounded-xl bg-mint px-3 py-2 text-[13px] text-ink-soft">{n.full}</p>
+      </Collapse>
+      <Collapse open={!full}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            add();
+          }}
+          className="flex flex-wrap items-end gap-2"
+        >
+          <textarea
+            aria-label={n.placeholder}
+            placeholder={n.placeholder}
+            value={text}
+            maxLength={NOTE_LENGTH}
+            rows={1}
+            disabled={full}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                add();
+              }
+            }}
+            className="min-h-11 min-w-0 flex-[1_1_220px] resize-none rounded-[14px] border-[1.5px] border-line-strong bg-white px-3 py-2.5 text-sm"
+          />
+          <button type="submit" disabled={!text.trim() || full} className="min-h-11 rounded-full bg-teal px-4 text-[13px] font-semibold text-white transition-opacity disabled:opacity-50">
+            {n.add}
+          </button>
+          <span className="basis-full text-right text-[11px] text-muted tabular-nums">{fill(n.count, { n: visible.length })}</span>
+        </form>
+      </Collapse>
     </section>
   );
 }

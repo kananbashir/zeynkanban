@@ -105,7 +105,7 @@ Everyone has a My tasks page; it is the first page for employees, and the only o
 
 ## Notifications
 
-The bell in the top bar shows how many notifications are unread; it checks again every minute and whenever the page comes back into view. The panel lists them by Today and Earlier, with All / Unread and "Mark all as read". Tapping one marks it read and opens the task (the task form for admins and managers, the task's day in My tasks for employees).
+The bell in the top bar shows how many notifications are unread; it checks again every 30 seconds and whenever the page comes back into view, and when something new has arrived the page refreshes its data, so cards and notes show the change without reloading. The panel lists them by Today and Earlier, with All / Unread and "Mark all as read". Tapping a task notification marks it read and shows the task in a window over the page you are on (with its notes open for a note); admins and managers can go on to edit it with "Open task". Closing the window leaves the page as it was. Any page can show a task this way with `?task=<id>` in the address, which is also where phone notifications lead.
 
 | Notification | Who gets it |
 |---|---|

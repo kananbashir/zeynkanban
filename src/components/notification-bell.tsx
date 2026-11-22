@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   loadNotifications,
   markAllRead,
@@ -76,23 +76,30 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
     setUnread(next.unread);
   }, []);
 
-  // Check for new notifications every minute and whenever the page comes back into view.
+  // Check for new notifications every 30 seconds and whenever the page comes back into view. When
+  // something new has arrived, the page refreshes its data too, so cards and notes show the change.
+  const lastCount = useRef(initialUnread);
   useEffect(() => {
     let alive = true;
     const check = () => {
       if (document.visibilityState !== "visible") return;
       unreadCount()
-        .then((n) => alive && setUnread(n))
+        .then((n) => {
+          if (!alive) return;
+          if (n > lastCount.current) router.refresh();
+          lastCount.current = n;
+          setUnread(n);
+        })
         .catch(() => {});
     };
-    const timer = setInterval(check, 60_000);
+    const timer = setInterval(check, 30_000);
     document.addEventListener("visibilitychange", check);
     return () => {
       alive = false;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", check);
     };
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const nav = navigator as Navigator & { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
@@ -154,15 +161,25 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
   function openItem(item: NotificationItem) {
     if (item.unread) {
       setUnread((n) => Math.max(0, n - 1));
+      lastCount.current = Math.max(0, lastCount.current - 1);
       setData((d) => d && { ...d, items: d.items.map((x) => (x.id === item.id ? { ...x, unread: false } : x)) });
       markRead(item.id).catch(() => {});
     }
     setOpen(false);
-    router.push(item.href);
+    if (item.taskId) {
+      // Show the task in a window over the page that is open, rather than leaving it.
+      const url = new URL(window.location.href);
+      url.searchParams.set("task", item.taskId);
+      url.searchParams.set("n", item.id);
+      if (item.notes) url.searchParams.set("notes", "1");
+      else url.searchParams.delete("notes");
+      router.push(`${url.pathname}${url.search}`, { scroll: false });
+    } else router.push(item.href);
   }
 
   function readAll() {
     setUnread(0);
+    lastCount.current = 0;
     setData((d) => d && { ...d, items: d.items.map((x) => ({ ...x, unread: false })) });
     markAllRead().catch(() => {});
   }

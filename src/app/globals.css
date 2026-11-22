@@ -108,3 +108,19 @@ select {
   background-size: 16px 16px;
   padding-right: 40px;
 }
+
+/* Collapse (motion.tsx): height opens and closes smoothly; also used for single notes coming and going. */
+.zk-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.22s ease;
+}
+.zk-collapse[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.zk-collapse > div {
+  min-height: 0;
+  overflow: hidden;
+}

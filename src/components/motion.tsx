@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -101,9 +101,36 @@ export function SlideByDate({ date, children, block = false }: { date: string; c
 /**
  * Animates the items inside a container (marked with data-flip="id") when they move:
  * a card that changes place glides from where it was; a new card fades in.
+ * Positions are also kept up to date when the layout changes by itself (e.g. a card's notes open),
+ * so only real moves animate, never a jump back to an old position.
  */
 export function useFlip(container: RefObject<HTMLElement | null>) {
   const previous = useRef(new Map<string, { x: number; y: number }>());
+
+  useEffect(() => {
+    const root = container.current;
+    if (!root) return;
+    let frame = 0;
+    const refresh = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const origin = root.getBoundingClientRect();
+        root.querySelectorAll<HTMLElement>("[data-flip]").forEach((node) => {
+          if (node.getAnimations().length) return; // mid-glide: its stored end position is already right
+          const rect = node.getBoundingClientRect();
+          previous.current.set(node.dataset.flip!, { x: rect.left - origin.left, y: rect.top - origin.top });
+        });
+      });
+    };
+    const observer = new ResizeObserver(refresh);
+    observer.observe(root);
+    root.querySelectorAll<HTMLElement>("[data-flip]").forEach((node) => observer.observe(node));
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  });
+
   useLayoutEffect(() => {
     const root = container.current;
     if (!root) return;
@@ -130,4 +157,32 @@ export function useFlip(container: RefObject<HTMLElement | null>) {
     });
     previous.current = next;
   });
+}
+
+/**
+ * Opens and closes its content by animating the height (and fading), instead of popping in and out.
+ * The content stays mounted while it closes, then is removed.
+ */
+export function Collapse({ open, children, className = "", appear = false }: { open: boolean; children: ReactNode; className?: string; appear?: boolean }) {
+  const [mounted, setMounted] = useState(open);
+  const [expanded, setExpanded] = useState(open && !appear);
+  if (open && !mounted) setMounted(true);
+  useEffect(() => {
+    if (open) {
+      const frame = requestAnimationFrame(() => setExpanded(true));
+      return () => cancelAnimationFrame(frame);
+    }
+    const frame = requestAnimationFrame(() => setExpanded(false));
+    const timer = setTimeout(() => setMounted(false), reducedMotion() ? 0 : 320);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+    };
+  }, [open]);
+  if (!mounted) return null;
+  return (
+    <div data-open={expanded} className={`zk-collapse ${className}`}>
+      <div>{children}</div>
+    </div>
+  );
 }

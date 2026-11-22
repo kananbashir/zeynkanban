@@ -19,7 +19,17 @@ export type NotificationData =
   | { kind: "overdueMany"; count: number }
   | { kind: "summary"; scope: "staff" | "own"; date: string; tasks: number; customers: number; overdue: number; drafts: number };
 
-export type NotificationText = { title: string; a: string; b: string; href: string; icon: IconKind };
+export type NotificationText = {
+  title: string;
+  a: string;
+  b: string;
+  /** Where a phone notification opens. */
+  href: string;
+  icon: IconKind;
+  /** In the site, a task notification opens the task window over the current page instead. */
+  taskId?: string;
+  notes?: boolean;
+};
 export type IconKind = "assigned" | "moved" | "changed" | "review" | "overdue" | "summary" | "status" | "reminder" | "note";
 
 type T = Dictionary["notifications"];
@@ -44,32 +54,37 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
   if (d.kind === "overdueMany") return { title: fill(t.kinds.overdueMany, { n: d.count }), a: t.overdueManyLine, b: "", href: "/board", icon: "overdue" };
 
   const a = `${d.type} · ${d.code} · ${d.customer}`;
-  const href = viewerIsStaff ? `/customers/${d.customerId}?tab=tasks&date=${d.due}&edit=${d.taskId}` : `/my-tasks?date=${d.due}`;
+  const home = viewerIsStaff ? "/board" : "/my-tasks";
+  const href = `${home}?task=${d.taskId}${d.kind === "note" ? "&notes=1" : ""}`;
+  const open = { taskId: d.taskId, notes: d.kind === "note" };
   const due = d.due === today ? t.dueToday : fill(t.dueOn, { date: date(d.due) });
   switch (d.kind) {
     case "assigned":
-      return { title: t.kinds.assigned, a, b: `${fill(t.by, { name: d.by })} · ${due}`, href, icon: "assigned" };
+      return { title: t.kinds.assigned, a, b: `${fill(t.by, { name: d.by })} · ${due}`, href, icon: "assigned", ...open };
     case "moved":
-      return { title: t.kinds.moved, a, b: d.to ? fill(t.nowWith, { name: d.to }) : t.nowDraft, href: viewerIsStaff ? href : "/my-tasks", icon: "moved" };
+      // An employee no longer has the task, so there is nothing of theirs to open.
+      return viewerIsStaff
+        ? { title: t.kinds.moved, a, b: d.to ? fill(t.nowWith, { name: d.to }) : t.nowDraft, href, icon: "moved", ...open }
+        : { title: t.kinds.moved, a, b: d.to ? fill(t.nowWith, { name: d.to }) : t.nowDraft, href: "/my-tasks", icon: "moved" };
     case "review":
-      return { title: t.kinds.review, a, b: fill(t.markedReady, { name: d.by }), href, icon: "review" };
+      return { title: t.kinds.review, a, b: fill(t.markedReady, { name: d.by }), href, icon: "review", ...open };
     case "overdue":
-      return { title: t.kinds.overdue, a, b: d.assignee ? fill(t.wasDueBy, { date: date(d.due), name: d.assignee }) : fill(t.wasDue, { date: date(d.due) }), href, icon: "overdue" };
+      return { title: t.kinds.overdue, a, b: d.assignee ? fill(t.wasDueBy, { date: date(d.due), name: d.assignee }) : fill(t.wasDue, { date: date(d.due) }), href, icon: "overdue", ...open };
     case "note":
-      return { title: t.kinds.note, a, b: fill(t.noteLine, { name: d.by, body: d.body }), href, icon: "note" };
+      return { title: t.kinds.note, a, b: fill(t.noteLine, { name: d.by, body: d.body }), href, icon: "note", ...open };
     case "status":
-      return { title: t.kinds.status, a, b: `${d.from} → ${d.to} · ${d.by}`, href, icon: "status" };
+      return { title: t.kinds.status, a, b: `${d.from} → ${d.to} · ${d.by}`, href, icon: "status", ...open };
     case "reminder": {
       const left = daysBetween(today, d.due);
       const b = left < 0 ? fill(t.wasDue, { date: date(d.due) }) : left === 0 ? t.remindToday : left === 1 ? t.remindTomorrow : fill(t.remindIn, { n: left, date: date(d.due) });
-      return { title: t.kinds.reminder, a, b, href, icon: "reminder" };
+      return { title: t.kinds.reminder, a, b, href, icon: "reminder", ...open };
     }
     case "changed": {
       const parts: string[] = [];
       if (d.dateFrom && d.dateTo) parts.push(fill(t.dateMoved, { from: date(d.dateFrom), to: date(d.dateTo) }));
       if (d.description) parts.push(t.descriptionChanged);
       if (d.note !== undefined) parts.push(d.note ? fill(t.noteChanged, { note: d.note }) : t.noteRemoved);
-      return { title: t.kinds.changed, a, b: parts.join(" · "), href, icon: "changed" };
+      return { title: t.kinds.changed, a, b: parts.join(" · "), href, icon: "changed", ...open };
     }
   }
 }
