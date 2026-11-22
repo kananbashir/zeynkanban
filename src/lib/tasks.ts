@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, eq, gte, inArray, isNull, lt, lte, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/mysql-core";
 import { db } from "@/db";
-import { contentTypes, contents, customers, specialDays, statuses, taskTypes, tasks, users } from "@/db/schema";
+import { contentTypes, contents, customers, specialDays, statuses, taskNotes, taskReminders, taskTypes, tasks, users } from "@/db/schema";
 import { addDays, dateInZone, type SpecialDay } from "./dates";
 import { sectionFor, type Section } from "./task-rules";
 
@@ -32,8 +32,10 @@ export type TaskView = {
   note: string;
   archived: boolean;
   finishedOn: string | null;
-  remindDays: number | null;
+  /** Days before the due date the assignee is reminded (e.g. [1, 3]); empty = no reminder. */
+  remindDays: number[];
   remindTime: string | null;
+  notesCount: number;
 };
 
 const assignee = alias(users, "assignee");
@@ -65,8 +67,9 @@ function select(where: SQL | undefined) {
       note: tasks.note,
       archived: tasks.archived,
       finishedAt: tasks.finishedAt,
-      remindDays: tasks.remindDays,
+      remindDays: sql<string | null>`(select group_concat(${taskReminders.daysBefore} order by ${taskReminders.daysBefore}) from ${taskReminders} where ${taskReminders.taskId} = ${tasks.id})`,
       remindTime: tasks.remindTime,
+      notesCount: sql<number>`(select count(*) from ${taskNotes} where ${taskNotes.taskId} = ${tasks.id})`.mapWith(Number),
       createdAt: tasks.createdAt,
     })
     .from(tasks)
@@ -108,8 +111,9 @@ function toView(row: Row): TaskView {
     note: row.note,
     archived: row.archived,
     finishedOn: row.finishedAt ? dateInZone(row.finishedAt) : null,
-    remindDays: row.remindDays,
+    remindDays: row.remindDays ? String(row.remindDays).split(",").map(Number) : [],
     remindTime: row.remindTime,
+    notesCount: row.notesCount,
   };
 }
 

@@ -13,6 +13,7 @@ import { fill } from "@/i18n/format";
 import { shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
 import type { PersonalTask } from "@/lib/personal";
+import { PERSONAL_REMINDERS } from "@/lib/reminder-rules";
 import type { Section } from "@/lib/task-rules";
 import type { DayTasks } from "@/lib/tasks";
 
@@ -203,6 +204,8 @@ function PersonalTasks({
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
+  const [time, setTime] = useState("");
+  const [reminders, setReminders] = useState<number[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const box = useRef<HTMLDivElement>(null);
@@ -210,15 +213,19 @@ function PersonalTasks({
 
   const save = () =>
     startTransition(async () => {
-      const result = await addPersonalTask({ date, title, note });
+      const result = await addPersonalTask({ date, title, note, time: time || null, reminders });
       if (!result.ok) return setProblem(result.error);
       setTitle("");
       setNote("");
+      setTime("");
+      setReminders([]);
       setProblem(null);
       setAdding(false);
       onAdded();
     });
   const field = "h-12 rounded-2xl border-[1.5px] border-line-strong bg-white px-3.5 text-[15px] font-normal";
+  const chip = (on: boolean) =>
+    `flex min-h-10 items-center gap-1.5 rounded-full border-2 px-3.5 text-[13px] font-semibold transition-colors duration-200 ${on ? "border-teal bg-teal-tint" : "border-transparent bg-white hover:bg-mint-soft"}`;
 
   return (
     <section aria-label={t.personal} className="flex flex-col gap-4 rounded-[28px] bg-white p-4 sm:p-[22px]">
@@ -248,10 +255,35 @@ function PersonalTasks({
             {t.what}
             <input autoFocus autoComplete="off" maxLength={200} value={title} onChange={(e) => { setTitle(e.target.value); setProblem(null); }} className={field} />
           </label>
-          <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
-            {t.note}
-            <input autoComplete="off" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} className={field} />
-          </label>
+          <div className="flex flex-wrap gap-3">
+            <label className="flex min-w-0 flex-[1_1_240px] flex-col gap-1.5 text-[13px] font-semibold">
+              {t.note}
+              <input autoComplete="off" maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} className={field} />
+            </label>
+            <label className="flex w-[150px] flex-col gap-1.5 text-[13px] font-semibold">
+              {t.time}
+              <input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={field} />
+            </label>
+          </div>
+          <div className="flex flex-col gap-2">
+            <span id="personal-remind" className="text-[13px] font-semibold">{t.remindMe}</span>
+            <div role="group" aria-labelledby="personal-remind" className="flex flex-wrap gap-2">
+              <button type="button" aria-pressed={!reminders.length} onClick={() => setReminders([])} className={chip(!reminders.length)}>
+                {t.remindNone}
+              </button>
+              {PERSONAL_REMINDERS.map((m) => {
+                const on = reminders.includes(m);
+                const label = m === 0 ? t.remindAt : m === 15 ? t.remind15 : m === 60 ? t.remind60 : t.remind1440;
+                return (
+                  <button key={m} type="button" aria-pressed={on} onClick={() => setReminders((list) => (on ? list.filter((x) => x !== m) : [...list, m]))} className={chip(on)}>
+                    {on && <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="zk-pop"><path d="m5 12 5 5L20 7" /></svg>}
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            {reminders.length > 0 && !time && <span className="text-xs text-ink-soft">{t.remindNoTime}</span>}
+          </div>
           <p role={problem ? "alert" : undefined} className={`text-[13px] ${problem ? "text-danger" : "text-ink-soft"}`}>
             {problem ? (errors[problem as ErrorKey] ?? errors.generic) : fill(t.addsTo, { date: shortDate(date, taskT) })}
           </p>
@@ -287,6 +319,16 @@ function PersonalRow({ item, date, t, taskT, onError }: { item: PersonalTask; da
       if (!result.ok) onError(result.error);
     });
   const sub = [item.note, item.dueDate < date ? fill(t.from, { date: shortDate(item.dueDate, taskT) }) : ""].filter(Boolean).join(" · ");
+  const timing = (item.time || item.reminders.length > 0) && (
+    <span className="flex shrink-0 items-center gap-1.5">
+      {item.time && <span className="rounded-full bg-mint px-2 py-0.5 text-xs font-semibold tabular-nums text-ink">{item.time}</span>}
+      {item.reminders.length > 0 && (
+        <span title={t.hasReminder} aria-label={t.hasReminder} className="flex size-6 items-center justify-center rounded-full bg-sun-tint text-sun-ink">
+          {icon("M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.94 1.94 0 0 0 3.4 0", 13)}
+        </span>
+      )}
+    </span>
+  );
   return (
     <div data-flip={item.id} className={`flex min-h-[52px] items-center gap-1 rounded-[18px] border-[1.5px] border-dashed border-[#6b7785] pr-1.5 transition-colors duration-300 ${isDone ? "bg-[#f0f5f3]" : "bg-white"}`}>
       <button type="button" aria-pressed={isDone} onClick={toggle} className="flex min-h-[50px] min-w-0 flex-1 items-center gap-3 py-2.5 pl-3.5 text-left">
@@ -301,6 +343,7 @@ function PersonalRow({ item, date, t, taskT, onError }: { item: PersonalTask; da
           <span className={`text-[15px] font-semibold decoration-[1.5px] transition-colors ${isDone ? "text-ink-soft line-through" : ""}`}>{item.title}</span>
           {sub && <span className="text-[13px] text-ink-soft">{sub}</span>}
         </span>
+        {timing}
       </button>
       <button type="button" aria-label={fill(t.remove, { title: item.title })} title={fill(t.remove, { title: item.title })} onClick={remove} className="flex size-10 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
         {icon("M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6", 18)}

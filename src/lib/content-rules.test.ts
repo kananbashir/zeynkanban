@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { compareCodes } from "./content-rules";
 import {
   cleanContentId,
   cleanShortName,
@@ -68,5 +69,12 @@ describe("short names and content IDs", () => {
     expect(suggestContentId("thrive", "gpost", "nd26", existing)).toBe("thrive-gpost-nd26-10");
     expect(suggestContentId("nar", "vid", "nd26", existing)).toBe("nar-vid-nd26-1");
     expect(suggestContentIds("thrive", "vid", "nd26", existing, 3)).toEqual(["thrive-vid-nd26-4", "thrive-vid-nd26-5", "thrive-vid-nd26-6"]);
+  });
+});
+
+describe("compareCodes", () => {
+  it("counts numbers naturally", () => {
+    const codes = ["aliday-gpost-nd26-11", "aliday-gpost-nd26-2", "aliday-gpost-nd26-1", "aliday-vid-nd26-3", "aliday-gpost-nd26-10"];
+    expect([...codes].sort(compareCodes)).toEqual(["aliday-gpost-nd26-1", "aliday-gpost-nd26-2", "aliday-gpost-nd26-10", "aliday-gpost-nd26-11", "aliday-vid-nd26-3"]);
   });
 });

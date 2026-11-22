@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { contentTypes, contents, contracts, customers } from "@/db/schema";
+import { compareCodes } from "./content-rules";
 
 export type ContractRow = { id: string; startMonth: string; endMonth: string };
 
@@ -22,8 +23,9 @@ export async function customerList(includeArchived: boolean) {
     .orderBy(asc(customers.archived), asc(customers.name));
 }
 
+/** A customer's content IDs: active ones first, then by ID in counting order (…-2 before …-10). */
 export async function contentsOf(customerId: string) {
-  return db
+  const rows = await db
     .select({
       id: contents.id,
       code: contents.code,
@@ -35,8 +37,8 @@ export async function contentsOf(customerId: string) {
     })
     .from(contents)
     .innerJoin(contentTypes, eq(contentTypes.id, contents.contentTypeId))
-    .where(eq(contents.customerId, customerId))
-    .orderBy(asc(contents.archived), asc(contentTypes.code), asc(contents.createdAt));
+    .where(eq(contents.customerId, customerId));
+  return rows.sort((a, b) => Number(a.archived) - Number(b.archived) || compareCodes(a.code, b.code));
 }
 
 export async function activeContentTypes() {

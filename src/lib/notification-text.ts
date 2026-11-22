@@ -14,11 +14,13 @@ export type NotificationData =
   | ({ kind: "overdue"; assignee: string | null } & TaskRef)
   | ({ kind: "status"; from: string; to: string; by: string } & TaskRef)
   | ({ kind: "reminder" } & TaskRef)
+  | ({ kind: "note"; by: string; body: string } & TaskRef)
+  | { kind: "personal"; title: string; due: string; time: string | null }
   | { kind: "overdueMany"; count: number }
   | { kind: "summary"; scope: "staff" | "own"; date: string; tasks: number; customers: number; overdue: number; drafts: number };
 
 export type NotificationText = { title: string; a: string; b: string; href: string; icon: IconKind };
-export type IconKind = "assigned" | "moved" | "changed" | "review" | "overdue" | "summary" | "status" | "reminder";
+export type IconKind = "assigned" | "moved" | "changed" | "review" | "overdue" | "summary" | "status" | "reminder" | "note";
 
 type T = Dictionary["notifications"];
 type TaskT = Pick<Dictionary["tasks"], "monthsShort" | "tasksN" | "task1">;
@@ -34,6 +36,11 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
     const b = d.scope === "staff" && d.drafts ? (d.drafts === 1 ? t.draft1 : fill(t.draftsN, { n: d.drafts })) : date(d.date);
     return { title: t.kinds.summary, a, b, href: viewerIsStaff ? "/board" : "/my-tasks", icon: "summary" };
   }
+  if (d.kind === "personal") {
+    const left = daysBetween(today, d.due);
+    const when = left === 0 ? (d.time ? fill(t.personalToday, { time: d.time }) : t.personalTodayNoTime) : left === 1 ? (d.time ? fill(t.personalTomorrow, { time: d.time }) : t.personalTomorrowNoTime) : d.time ? fill(t.personalOn, { date: date(d.due), time: d.time }) : date(d.due);
+    return { title: t.kinds.personal, a: d.title, b: when, href: `/my-tasks?date=${d.due}`, icon: "reminder" };
+  }
   if (d.kind === "overdueMany") return { title: fill(t.kinds.overdueMany, { n: d.count }), a: t.overdueManyLine, b: "", href: "/board", icon: "overdue" };
 
   const a = `${d.type} · ${d.code} · ${d.customer}`;
@@ -48,6 +55,8 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
       return { title: t.kinds.review, a, b: fill(t.markedReady, { name: d.by }), href, icon: "review" };
     case "overdue":
       return { title: t.kinds.overdue, a, b: d.assignee ? fill(t.wasDueBy, { date: date(d.due), name: d.assignee }) : fill(t.wasDue, { date: date(d.due) }), href, icon: "overdue" };
+    case "note":
+      return { title: t.kinds.note, a, b: fill(t.noteLine, { name: d.by, body: d.body }), href, icon: "note" };
     case "status":
       return { title: t.kinds.status, a, b: `${d.from} → ${d.to} · ${d.by}`, href, icon: "status" };
     case "reminder": {
@@ -88,7 +97,9 @@ export const PREF_OF = {
   summary: "summary",
   status: "status",
   reminder: "reminder",
+  note: "notes",
+  personal: "reminder",
 } as const;
 export type PrefKey = (typeof PREF_OF)[keyof typeof PREF_OF];
-export const STAFF_PREFS: PrefKey[] = ["assigned", "changed", "reminder", "summary", "review", "status", "overdue"];
-export const OWN_PREFS: PrefKey[] = ["assigned", "changed", "reminder", "summary"];
+export const STAFF_PREFS: PrefKey[] = ["assigned", "changed", "notes", "reminder", "summary", "review", "status", "overdue"];
+export const OWN_PREFS: PrefKey[] = ["assigned", "changed", "notes", "reminder", "summary"];

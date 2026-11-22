@@ -8,8 +8,8 @@ import { CloseButton, Dialog } from "@/components/dialog";
 import { SlideByDate, useFlip } from "@/components/motion";
 import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
-import { suggestContentIds } from "@/lib/content-rules";
-import { monthGrid, shiftMonth, specialDaysOn, weekdayIndex, type SpecialDay } from "@/lib/dates";
+import { compareCodes, suggestContentIds } from "@/lib/content-rules";
+import { addDays, firstOfMonth, monthGrid, shiftMonth, specialDaysOn, weekdayIndex, type SpecialDay } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
 import { rhythm, shortChip, spreadEvenly } from "@/lib/plan-rules";
 
@@ -88,7 +88,7 @@ export function PlanMonth({
   const [created, setCreated] = useState<PlanContent[]>([]);
   const known = new Set(contents.map((c) => c.id));
   const all = [...contents, ...created.filter((c) => !known.has(c.id))];
-  const items = all.filter((c) => !c.publishDate);
+  const items = all.filter((c) => !c.publishDate).sort((a, b) => compareCodes(a.code, b.code));
   const fixed = all.filter((c) => c.publishDate) as (PlanContent & { publishDate: string })[];
 
   const [staged, setStaged] = useState<Record<string, string>>({});
@@ -112,10 +112,25 @@ export function PlanMonth({
     setStaged(st);
     setSelected(id);
   };
+  // Spread evenly works between a first and a last day; they follow the month shown until changed.
+  const monthRange = (m: { year: number; month: number }) => {
+    const first = firstOfMonth(m.year, m.month);
+    const next = shiftMonth(m.year, m.month, 1);
+    const last = addDays(firstOfMonth(next.year, next.month), -1);
+    return { from: first < today ? (today <= last ? today : first) : first, to: last };
+  };
+  const [range, setRange] = useState(() => monthRange(month));
+  const changeMonth = (by: number) => {
+    const m = shiftMonth(month.year, month.month, by);
+    setMonth(m);
+    setRange(monthRange(m));
+  };
+  const rangeProblem = range.from > range.to ? p.rangeInvalid : range.to < today ? p.monthOver : null;
   const spread = () => {
     if (!items.length) return onMessage(p.noItems, "error");
-    const days = cells.filter((c) => c.inMonth && c.iso >= today).map((c) => c.iso);
-    if (!days.length) return onMessage(p.monthOver, "error");
+    if (rangeProblem) return onMessage(rangeProblem, "error");
+    const days: string[] = [];
+    for (let d = range.from < today ? today : range.from; d <= range.to; d = addDays(d, 1)) days.push(d);
     setStaged(spreadEvenly(days, fixed.map((c) => c.publishDate), items.map((c) => ({ id: c.id, kind: c.typeCode }))));
     setSelected(null);
   };
@@ -184,7 +199,10 @@ export function PlanMonth({
     const n = (counts[iso] ?? 0) + here.length;
     const events = specialDaysOn(iso, specialDays);
     const past = iso < today;
-    const look = past ? "bg-[#f4f9f8] border-transparent" : `${events.length ? "bg-sun-tint" : "bg-white"} ${iso === today ? "border-teal" : events.length ? "border-sun-tint" : "border-line"}`;
+    const inRange = !past && iso >= range.from && iso <= range.to;
+    const look = past
+      ? "bg-[#f4f9f8] border-transparent"
+      : `${events.length ? "bg-sun-tint" : inRange ? "bg-[#f4fbfa]" : "bg-white"} ${iso === today ? "border-teal" : events.length ? "border-sun-tint" : inRange ? "border-[#bfe3df]" : "border-line"}`;
     const dateText = shortDate(iso, fmt);
     const load = n > 0 && <span className="whitespace-nowrap text-[10px] font-semibold text-muted">{n === 1 ? t.task1 : fill(t.tasksN, { n })}</span>;
     const chips = (
@@ -318,17 +336,28 @@ export function PlanMonth({
         <div className="contents lg:flex lg:min-w-0 lg:flex-1 lg:flex-col lg:gap-4">
           <section className="order-2 flex min-w-0 flex-col gap-3 rounded-[20px] bg-white p-4 lg:order-none">
             <div className="flex items-center gap-1">
-              <button type="button" aria-label={t.prevMonth} onClick={() => setMonth(shiftMonth(month.year, month.month, -1))} className="-ml-2 flex size-11 items-center justify-center rounded-full text-icon hover:bg-mint">{icon("m15 18-6-6 6-6")}</button>
+              <button type="button" aria-label={t.prevMonth} onClick={() => changeMonth(-1)} className="-ml-2 flex size-11 items-center justify-center rounded-full text-icon hover:bg-mint">{icon("m15 18-6-6 6-6")}</button>
               <h3 className="min-w-[150px] overflow-hidden whitespace-nowrap text-center text-lg font-semibold">
                 <SlideByDate date={ym}>{months[month.month - 1]} {month.year}</SlideByDate>
               </h3>
-              <button type="button" aria-label={t.nextMonth} onClick={() => setMonth(shiftMonth(month.year, month.month, 1))} className="flex size-11 items-center justify-center rounded-full text-icon hover:bg-mint">{icon("m9 18 6-6-6-6")}</button>
+              <button type="button" aria-label={t.nextMonth} onClick={() => changeMonth(1)} className="flex size-11 items-center justify-center rounded-full text-icon hover:bg-mint">{icon("m9 18 6-6-6-6")}</button>
             </div>
-            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
-              <button type="button" onClick={spread} className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full bg-teal px-4 text-sm font-semibold text-white">
+            <div className="flex flex-wrap items-end gap-2.5 rounded-2xl bg-mint p-2.5">
+              <label className="flex flex-col gap-1 text-xs font-semibold text-ink-soft">
+                {p.rangeFrom}
+                <input type="date" value={range.from} min={today} onChange={(e) => e.target.value && setRange((r) => ({ ...r, from: e.target.value }))} className="h-11 rounded-xl border-[1.5px] border-line-strong bg-white px-2.5 text-sm font-medium text-ink" />
+              </label>
+              <label className="flex flex-col gap-1 text-xs font-semibold text-ink-soft">
+                {p.rangeTo}
+                <input type="date" value={range.to} min={range.from} onChange={(e) => e.target.value && setRange((r) => ({ ...r, to: e.target.value }))} className="h-11 rounded-xl border-[1.5px] border-line-strong bg-white px-2.5 text-sm font-medium text-ink" />
+              </label>
+              <button type="button" onClick={spread} disabled={!!rangeProblem} className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full bg-teal px-4 text-sm font-semibold text-white disabled:opacity-50">
                 {icon("M4 5v14M20 5v14M9 12h6M12 9l3 3-3 3M12 9l-3 3 3 3", 18)}
                 {p.spread}
               </button>
+              <span className={`basis-full text-xs ${rangeProblem ? "font-semibold text-danger" : "text-ink-soft"}`}>{rangeProblem ?? fill(p.rangeHint, { n: items.length })}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
               {stagedIds.length > 0 && (
                 <button type="button" onClick={() => { setStaged({}); setSelected(items[0]?.id ?? null); }} className="zk-pop min-h-11 whitespace-nowrap rounded-full bg-mint px-4 text-sm font-semibold">{p.clear}</button>
               )}

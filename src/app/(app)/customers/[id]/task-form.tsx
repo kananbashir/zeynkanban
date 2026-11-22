@@ -69,7 +69,7 @@ export function TaskForm({
   const [date, setDate] = useState(task?.dueDate ?? defaultDate);
   const [description, setDescription] = useState(task?.description ?? "");
   const [note, setNote] = useState(task?.note ?? "");
-  const [remindDays, setRemindDays] = useState<number | null>(task?.remindDays ?? null);
+  const [remindDays, setRemindDays] = useState<number[]>(task?.remindDays ?? []);
   const [remindTime, setRemindTime] = useState(task?.remindTime ?? DEFAULT_REMIND_TIME);
   const [shown, setShown] = useState(monthOf(task?.dueDate ?? defaultDate));
   const [counts, setCounts] = useState<Record<string, number>>({});
@@ -232,18 +232,31 @@ export function TaskForm({
             </section>
 
             <section className={card}>
-              <h3 id="task-reminder" className="text-[15px] font-semibold">{f.reminder}</h3>
+              <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+                <h3 id="task-reminder" className="text-[15px] font-semibold">{f.reminder}</h3>
+                <span className="text-xs text-muted">{f.reminderHint}</span>
+              </div>
               <div role="group" aria-labelledby="task-reminder" className="flex flex-wrap gap-2">
-                {[null, ...REMIND_DAYS].map((n) => {
-                  const on = remindDays === n;
+                <button type="button" aria-pressed={!remindDays.length} onClick={() => setRemindDays([])} className={`min-h-11 rounded-full border-2 px-4 text-sm font-semibold transition-colors duration-200 ${pick(!remindDays.length)}`}>
+                  {f.remindNever}
+                </button>
+                {REMIND_DAYS.map((n) => {
+                  const on = remindDays.includes(n);
                   return (
-                    <button key={n ?? 0} type="button" aria-pressed={on} onClick={() => setRemindDays(n)} className={`min-h-11 rounded-full border-2 px-4 text-sm font-semibold transition-colors duration-200 ${pick(on)}`}>
-                      {n === null ? f.remindNever : n === 1 ? f.remind1 : fill(f.remindN, { n })}
+                    <button
+                      key={n}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setRemindDays((list) => (on ? list.filter((x) => x !== n) : [...list, n].sort((a, b) => a - b)))}
+                      className={`flex min-h-11 items-center gap-1.5 rounded-full border-2 px-4 text-sm font-semibold transition-colors duration-200 ${pick(on)}`}
+                    >
+                      {on && <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="zk-pop"><path d="m5 12 5 5L20 7" /></svg>}
+                      {n === 1 ? f.remind1 : fill(f.remindN, { n })}
                     </button>
                   );
                 })}
               </div>
-              {remindDays !== null && (
+              {remindDays.length > 0 && (
                 <div className="zk-fade-up flex flex-wrap items-center gap-x-4 gap-y-2">
                   <label className="flex items-center gap-2.5 text-[13px] font-semibold">
                     {f.remindTime}
@@ -252,9 +265,17 @@ export function TaskForm({
                   <p className="min-w-0 flex-[1_1_220px] text-[13px] leading-snug text-ink-soft">
                     {!assigneeId
                       ? f.remindNoAssignee
-                      : reminderDate(date, remindDays) < today
+                      : remindDays.some((n) => reminderDate(date, n) < today) && remindDays.every((n) => reminderDate(date, n) <= today)
                         ? f.remindPassed
-                        : fill(f.remindHint, { name: people.find((p) => p.id === assigneeId)?.name ?? "", date: dayLabel(reminderDate(date, remindDays), fmt, currentYear), time: remindTime })}
+                        : fill(f.remindHint, {
+                            name: people.find((p) => p.id === assigneeId)?.name ?? "",
+                            date: [...remindDays]
+                              .sort((a, b) => b - a)
+                              .filter((n) => reminderDate(date, n) >= today)
+                              .map((n) => dayLabel(reminderDate(date, n), fmt, currentYear))
+                              .join(f.and),
+                            time: remindTime,
+                          })}
                   </p>
                 </div>
               )}

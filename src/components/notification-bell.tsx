@@ -31,6 +31,7 @@ const ICONS: Record<IconKind, string> = {
   moved: "M7 7h13l-3-3M17 17H4l3 3",
   status: "M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5",
   reminder: "M12 7v5l3 2M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0",
+  note: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM8 9h8M8 13h5",
 };
 const TINTS: Record<IconKind, [string, string]> = {
   assigned: ["#d9f0ee", "#0a5e5b"],
@@ -41,6 +42,7 @@ const TINTS: Record<IconKind, [string, string]> = {
   moved: ["#d2cbf6", "#18232f"],
   status: ["#edf6f4", "#0a5e5b"],
   reminder: ["#fff3cc", "#5c4300"],
+  note: ["#e9e4fb", "#3b2f8f"],
 };
 
 const svg = (d: string, size = 18) => (

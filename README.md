@@ -71,6 +71,7 @@ A new installation starts with four statuses (To do, In progress, Ready for revi
 - **Managing board** (admin, manager): calendar, day summary, filters by customer and assignee, search, and status changes from each card. "Open task" opens the task form on the customer's page.
 - **Task form** (customer page, yellow button): type (or "Other…", optionally saved to the list), content ID with its publish date, assignee with their load that day, description, note, and a calendar showing how many tasks each day already has, with holidays marked and that day's tasks grouped by person.
 - Tasks are archived, never deleted (admin only), and can be restored from the Contents tab, where each content ID shows its publish date, progress and tasks.
+- **Notes**: each task card has a Notes button. The assignee, admins and managers can read and add notes (up to 10 per task); everyone can delete their own, and admins can delete any. Content IDs are always listed in counting order (…-2 before …-10).
 - A task whose status or type was deleted in Settings shows "Deleted status (name)" or "Deleted task type (name)".
 
 ## Month planner
@@ -80,7 +81,7 @@ Opened from the customer page (yellow button → Plan month, or "Generate IDs an
 - **Content IDs to place**: the customer's content IDs that have no publish date yet. Pick one, then click a day; the next one is picked for you. Click a new chip on the calendar to take it off again.
 - **Generate IDs**: choose how many of each content type to create for the contract that covers the month shown. Numbers continue from the last ID of each type, and a preview shows the IDs before they are created.
 - **Calendar**: each day shows how many tasks it already has across all customers, holidays and special events, publications already planned (grey) and the new ones (teal). Past days can't be picked. On phones it becomes a list of the remaining days.
-- **Spread evenly** places every unplaced ID over the rest of the month, as far apart as possible, around the publications already planned, alternating content types. Weekends and holidays are not skipped.
+- **Spread evenly** places every unplaced ID between a chosen first and last day (by default, today or the start of the month shown, to its end), as far apart as possible, around the publications already planned, alternating content types. The chosen days are tinted on the calendar. Weekends and holidays are not skipped.
 - **Publishing rhythm**: the month's publishing days as a row of cards with the days between them; the longest gap is highlighted.
 - **Save** creates one "Post publishing" draft (no assignee, first status) per placed ID. Drafts stay off the managing board until someone is assigned, from the customer's Drafts box. A content ID that already has a publishing task is never given a second one.
 
@@ -99,7 +100,7 @@ Every task with an assignee counts on its due date; archived tasks don't count. 
 Everyone has a My tasks page; it is the first page for employees, and the only one besides logging out.
 
 - **Assigned tasks**: only the tasks assigned to you, in the same day view as the managing board (overdue on today's view, due, finished), with a calendar and a summary of your day. You can change the status of your own tasks, including straight to a finished status such as Done. Employees can't edit tasks; admins and managers get "Open task" as on the board.
-- **Personal tasks**: private to-dos with a title and an optional note, added to the day you are looking at. Tick to mark done, or delete. Unfinished ones from earlier days also show on today, marked "From [date]".
+- **Personal tasks**: private to-dos with a title, an optional note and an optional time, added to the day you are looking at. "Remind me" can be any of: at the time, 15 minutes, 1 hour or 1 day before (without a time, these count from 09:00 that day). Tick to mark done, or delete. Unfinished ones from earlier days also show on today, marked "From [date]".
 - Personal tasks are kept in their own table (`personal_tasks`) and are read only by their owner's My tasks page, so nobody else sees them in the site, admins included, and they never count on the dashboard, the board or anyone's workload. Like everything else, they are stored in the database, so whoever manages the hosting database can technically read it.
 
 ## Notifications
@@ -113,17 +114,20 @@ The bell in the top bar shows how many notifications are unread; it checks again
 | A task of yours changed | The assignee, when the date, description or note changes, or when someone else changes its status |
 | Status changed | Admins and managers, on every status change made by someone else (old status → new status, and who) |
 | Ready for review | Admins and managers, when a task moves into a status marked "Sends ‘Ready for review’" (Settings → Statuses); this replaces "Status changed" for that move |
-| Reminder | The assignee, when a task has a reminder set (see below) |
+| Reminder | The assignee, when a task has reminders set (see below) |
+| New note on a task | Admins and managers, and the assignee, when someone else adds a note to a task |
+| Personal reminder | Only the owner of a personal task with reminders |
 | A task became overdue | Admins and managers, at 09:00, for tasks that passed their date unfinished (more than 3 become one notification) |
 | Morning summary | Everyone at 09:00: the day's tasks, overdue and drafts (employees: their own; skipped when they have nothing) |
 
-**Task reminders**: the task form has "Reminder for the assignee": no reminder (the default), or 1, 3 or 5 days before the due date, at a chosen time (Baku time). The reminder goes to the assignee once. Changing the date or the reminder makes it due again; it isn't sent for finished or archived tasks, or once the due date has passed. If it is set after its moment has already passed, it goes out right away.
+**Task reminders**: the task form has "Reminders for the assignee": no reminder (the default), or any of 1, 3 and 5 days before the due date, at one chosen time (Baku time). Each reminder goes to the assignee once. Changing the due date or the time makes them all due again; adding or removing one leaves the others as they were. They aren't sent for finished or archived tasks, or once the due date has passed. A reminder whose moment has already passed when it is set goes out right away; if several are due at once, one notification covers them.
 
 Nobody is notified about their own changes. Each person chooses what they want in the panel's settings, and can turn on **phone notifications on this device**. On an iPhone (iOS 16.4 or newer) the site must first be added to the home screen and opened from there. Phone notifications need the site on HTTPS (or `localhost` when testing on your own computer).
 
 How it works:
 
 - Notifications are stored per person in the database (`notifications`) and written out in the language the site is shown in. They are kept for 90 days.
+- All times are stored in UTC: every database connection is set to UTC, whatever time zone the MySQL server itself uses, and shown in Baku time.
 - Phone notifications use Web Push. The signing keys are created on first use and kept in the database (`app_values`), so nothing needs setting up on the hosting; `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` can be set instead. Devices that no longer accept pushes are forgotten automatically.
 - The 09:00 work runs once a day (Baku time): from a timer while the server is running, and also on the first page visit after 09:00 in case the hosting put the server to sleep overnight. A database row claims each day, so it never runs twice. Set `SKIP_DAILY_JOBS=1` to turn the timer off.
 - Task reminders are checked about once a minute by the same timer, and on page visits. If the hosting has put the server to sleep, a reminder goes out when the server next wakes.

@@ -1,18 +1,18 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { db } from "@/db";
-import { contents, statuses, taskTypes, tasks, users } from "@/db/schema";
+import { contents, statuses, taskReminders, taskTypes, tasks, users } from "@/db/schema";
 import type { ErrorKey } from "@/i18n/dictionaries";
 import { requireRole, requireUser } from "@/lib/auth";
 import { isIsoDateString } from "@/lib/dates";
 import { cleanName } from "@/lib/settings-rules";
 import { countsByDay, wholeDay, type TaskView } from "@/lib/tasks";
 import { deliverPush, notify, staffIds, taskRef } from "@/lib/notify";
-import { cleanReminder } from "@/lib/reminder-rules";
+import { cleanReminders } from "@/lib/reminder-rules";
 import { found } from "@/lib/users";
 
 export type Result = { ok: true; id?: string } | { ok: false; error: ErrorKey };
@@ -40,8 +40,8 @@ export type TaskInput = {
   dueDate: string;
   description: string;
   note: string;
-  /** Remind the assignee this many days before the due date (1, 3 or 5), at remindTime ("HH:MM"). Null = no reminder. */
-  remindDays?: number | null;
+  /** Remind the assignee these many days before the due date (any of 1, 3, 5), at remindTime ("HH:MM"). Empty = no reminder. */
+  remindDays?: number[];
   remindTime?: string | null;
 };
 
@@ -87,7 +87,7 @@ export async function createTask(input: TaskInput): Promise<Result> {
   const [first] = await db.select({ id: statuses.id, isFinished: statuses.isFinished }).from(statuses).where(isNull(statuses.deletedAt)).orderBy(asc(statuses.position)).limit(1);
   if (!first) return fail("lastStatus");
   const id = randomUUID();
-  const reminder = cleanReminder(input.remindDays, input.remindTime);
+  const reminder = cleanReminders(input.remindDays, input.remindTime);
   await db.insert(tasks).values({
     id,
     customerId: input.customerId,
@@ -99,10 +99,10 @@ export async function createTask(input: TaskInput): Promise<Result> {
     description: text(input.description, 5000) || null,
     note: text(input.note, 500),
     finishedAt: first.isFinished ? new Date() : null,
-    remindDays: reminder.days,
     remindTime: reminder.time,
     createdBy: me.id,
   });
+  if (reminder.days.length) await db.insert(taskReminders).values(reminder.days.map((daysBefore) => ({ taskId: id, daysBefore })));
   if (input.assigneeId && input.assigneeId !== me.id) {
     const ref = await taskRef(id);
     if (ref) push(await notify([input.assigneeId], "assigned", { kind: "assigned", by: me.name, ...ref }, id));
@@ -118,12 +118,10 @@ export async function updateTask(id: string, input: TaskInput): Promise<Result> 
   const type = await resolveType(input);
   if (!type.ok) return fail(type.error);
   const [before] = await db
-    .select({ assigneeId: tasks.assigneeId, dueDate: tasks.dueDate, description: tasks.description, note: tasks.note, remindDays: tasks.remindDays, remindTime: tasks.remindTime })
+    .select({ assigneeId: tasks.assigneeId, dueDate: tasks.dueDate, description: tasks.description, note: tasks.note, remindTime: tasks.remindTime })
     .from(tasks)
     .where(eq(tasks.id, id));
-  const reminder = cleanReminder(input.remindDays, input.remindTime);
-  // A reminder goes out once; a new date or a new reminder makes it due again.
-  const remindAgain = !before || before.dueDate !== input.dueDate || before.remindDays !== reminder.days || before.remindTime !== reminder.time;
+  const reminder = cleanReminders(input.remindDays, input.remindTime);
   const result = await db
     .update(tasks)
     .set({
@@ -133,15 +131,27 @@ export async function updateTask(id: string, input: TaskInput): Promise<Result> 
       dueDate: input.dueDate,
       description: text(input.description, 5000) || null,
       note: text(input.note, 500),
-      remindDays: reminder.days,
       remindTime: reminder.time,
-      ...(remindAgain ? { remindedAt: null } : {}),
       updatedAt: new Date(),
     })
     .where(and(eq(tasks.id, id), eq(tasks.customerId, input.customerId)));
   if (!found(result)) return fail("notFound");
+  await saveReminders(id, reminder.days, !before || before.dueDate !== input.dueDate || before.remindTime !== reminder.time);
   if (before) await notifyChanges(id, before, me);
   return refresh();
+}
+
+/**
+ * Keeps the task's reminder rows in line with the form. Each reminder goes out once; reminders that
+ * stay keep that record, unless the due date or the time changed, which makes them all due again.
+ */
+async function saveReminders(taskId: string, days: number[], timingChanged: boolean) {
+  const current = (await db.select({ daysBefore: taskReminders.daysBefore }).from(taskReminders).where(eq(taskReminders.taskId, taskId))).map((r) => r.daysBefore);
+  const gone = current.filter((d) => !days.includes(d));
+  const added = days.filter((d) => !current.includes(d));
+  if (gone.length) await db.delete(taskReminders).where(and(eq(taskReminders.taskId, taskId), inArray(taskReminders.daysBefore, gone)));
+  if (added.length) await db.insert(taskReminders).values(added.map((daysBefore) => ({ taskId, daysBefore })));
+  if (timingChanged) await db.update(taskReminders).set({ sentAt: null }).where(eq(taskReminders.taskId, taskId));
 }
 
 /** Tells the people concerned what an edit changed for them. Nobody is told about their own edits. */

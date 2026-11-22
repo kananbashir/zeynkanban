@@ -26,6 +26,11 @@ export function connect(url = process.env.DATABASE_URL) {
     charset: "utf8mb4", // Azerbaijani letters and every other character
     dateStrings: ["DATE"], // calendar dates stay as "2026-11-08", never shifted by time zones
   });
+  // Times the database fills in itself (created_at) use the connection's clock. Make that UTC on every
+  // connection, so they match how the app reads them, whatever time zone the MySQL server is set to.
+  pool.pool.on("connection", (connection) => {
+    connection.query("SET time_zone = '+00:00'");
+  });
   return { pool, db: drizzle(pool, { schema, mode: "default" }) };
 }
 

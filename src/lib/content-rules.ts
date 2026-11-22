@@ -101,6 +101,11 @@ export function suggestContentIds(shortName: string, typeCode: string, period: s
 }
 
 /** "November – December 2026", "December 2026 – January 2027", "November 2026" in the given month names. */
+/** Orders content IDs the way people count: thrive-vid-nd26-2 before thrive-vid-nd26-10. */
+export function compareCodes(a: string, b: string): number {
+  return a.localeCompare(b, "en", { numeric: true, sensitivity: "base" });
+}
+
 export function formatPeriod(start: Month, end: Month, monthNames: readonly string[]): string {
   const name = (m: Month) => monthNames[m.month - 1];
   if (start.year === end.year && start.month === end.month) return `${name(start)} ${start.year}`;

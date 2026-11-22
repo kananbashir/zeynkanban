@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
-import { bigint, boolean, date, datetime, index, int, mysqlEnum, mysqlTable, text, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { bigint, boolean, date, datetime, index, int, mysqlEnum, mysqlTable, primaryKey, text, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 // MySQL has no UUID type, so ids are UUID strings created by the app.
 const id = () => varchar("id", { length: 36 }).primaryKey().$defaultFn(() => randomUUID());
@@ -185,11 +185,8 @@ export const tasks = mysqlTable(
     archived: boolean("archived").notNull().default(false),
     /** When the task last moved into a status that counts as finished (for "Finished today"). */
     finishedAt: datetime("finished_at", { mode: "date", fsp: 3 }),
-    /** Reminder for the assignee: this many days before the due date, at this time ("09:00", Baku). Null = no reminder. */
-    remindDays: int("remind_days"),
+    /** Time of day ("09:00", Baku) for the task's reminders (see taskReminders). */
     remindTime: varchar("remind_time", { length: 5 }),
-    /** Set once the reminder has gone out; cleared when the date or the reminder changes. */
-    remindedAt: datetime("reminded_at", { mode: "date", fsp: 3 }),
     createdBy: varchar("created_by", { length: 36 }).references(() => users.id),
     createdAt: createdAt(),
     updatedAt: now("updated_at"),
@@ -216,6 +213,8 @@ export const personalTasks = mysqlTable(
     title: varchar("title", { length: 200 }).notNull(),
     note: varchar("note", { length: 500 }).notNull().default(""),
     dueDate: date("due_date", { mode: "string" }).notNull(),
+    /** Optional time of day ("14:30", Baku). Reminders count back from it, or from 09:00 without one. */
+    time: varchar("time", { length: 5 }),
     done: boolean("done").notNull().default(false),
     createdAt: createdAt(),
     updatedAt: now("updated_at"),
@@ -223,7 +222,51 @@ export const personalTasks = mysqlTable(
   (t) => [index("personal_owner_idx").on(t.ownerId, t.dueDate)],
 );
 
-export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder"] as const;
+/** Reminders of a personal task: one row per "minutes before" (0 = at the time). */
+export const personalReminders = mysqlTable(
+  "personal_reminders",
+  {
+    personalTaskId: varchar("personal_task_id", { length: 36 })
+      .notNull()
+      .references(() => personalTasks.id, { onDelete: "cascade" }),
+    minutesBefore: int("minutes_before").notNull(),
+    sentAt: datetime("sent_at", { mode: "date", fsp: 3 }),
+  },
+  (t) => [primaryKey({ columns: [t.personalTaskId, t.minutesBefore] })],
+);
+
+/** Notes people add to a task (the assignee, admins, managers). At most 10 per task. */
+export const taskNotes = mysqlTable(
+  "task_notes",
+  {
+    id: id(),
+    taskId: varchar("task_id", { length: 36 })
+      .notNull()
+      .references(() => tasks.id),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id),
+    body: varchar("body", { length: 500 }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("task_notes_task_idx").on(t.taskId, t.createdAt)],
+);
+
+/** Reminders for a task's assignee: one row per "days before the due date". */
+export const taskReminders = mysqlTable(
+  "task_reminders",
+  {
+    taskId: varchar("task_id", { length: 36 })
+      .notNull()
+      .references(() => tasks.id),
+    daysBefore: int("days_before").notNull(),
+    /** Set once this reminder has gone out; cleared when the due date or the time changes. */
+    sentAt: datetime("sent_at", { mode: "date", fsp: 3 }),
+  },
+  (t) => [primaryKey({ columns: [t.taskId, t.daysBefore] })],
+);
+
+export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder", "note", "personal"] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 /**
@@ -258,6 +301,7 @@ export const notificationPrefs = mysqlTable("notification_prefs", {
   overdue: boolean("overdue").notNull().default(true),
   status: boolean("status").notNull().default(true),
   reminder: boolean("reminder").notNull().default(true),
+  notes: boolean("notes").notNull().default(true),
 });
 
 /** A browser or phone that accepted push notifications. */

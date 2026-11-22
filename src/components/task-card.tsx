@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useOptimistic, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useState, useTransition } from "react";
+import { addTaskNote, deleteTaskNote, loadTaskNotes, type TaskNote } from "@/app/actions/task-notes";
 import { setTaskStatus } from "@/app/actions/tasks";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import { daysBetween } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
+import { MAX_NOTES, NOTE_LENGTH } from "@/lib/note-rules";
 import { ARCHIVED_BACKGROUND, cardBackground } from "@/lib/task-rules";
 import type { TaskView } from "@/lib/tasks";
 import { initials } from "./top-bar";
@@ -55,6 +57,8 @@ export function TaskCard({
   onError?: (message: string) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesCount, setNotesCount] = useState(task.notesCount);
   const [, startTransition] = useTransition();
   // The new status shows at once; the card moves to its new group when the page refreshes.
   const [statusId, setStatusId] = useOptimistic(task.statusId);
@@ -164,16 +168,134 @@ export function TaskCard({
             {task.note}
           </span>
         )}
+        <button
+          type="button"
+          aria-expanded={notesOpen}
+          onClick={() => setNotesOpen((v) => !v)}
+          className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold transition-colors sm:min-h-10 ${notesOpen ? "bg-white text-ink" : "text-ink hover:bg-white/60"} ml-auto`}
+        >
+          <Icon d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM8 9h8M8 13h5" />
+          {t.notes.button}
+          {notesCount > 0 && <span key={notesCount} className="zk-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-bold tabular-nums">{notesCount}</span>}
+        </button>
         {editHref ? (
-          <Link href={editHref} className="ml-auto flex min-h-9 items-center gap-1.5 rounded-full py-0 pl-3 pr-1.5 text-[13px] font-semibold text-ink sm:min-h-11">
+          <Link href={editHref} className="flex min-h-9 items-center gap-1.5 rounded-full py-0 pl-3 pr-1.5 text-[13px] font-semibold text-ink sm:min-h-11">
             {editButton}
           </Link>
         ) : onEdit ? (
-          <button type="button" onClick={onEdit} className="ml-auto flex min-h-9 items-center gap-1.5 rounded-full pl-3 pr-1.5 text-[13px] font-semibold text-ink sm:min-h-11">
+          <button type="button" onClick={onEdit} className="flex min-h-9 items-center gap-1.5 rounded-full pl-3 pr-1.5 text-[13px] font-semibold text-ink sm:min-h-11">
             {editButton}
           </button>
         ) : null}
       </div>
+      {notesOpen && <NotesPanel taskId={task.id} t={t} onCount={setNotesCount} onError={onError} />}
     </article>
+  );
+}
+
+/** The notes of a task: read, add (up to 10 per task), delete your own. Loaded when opened. */
+function NotesPanel({ taskId, t, onCount, onError }: { taskId: string; t: Dictionary["tasks"]; onCount: (n: number) => void; onError?: (message: string) => void }) {
+  const n = t.notes;
+  const [notes, setNotes] = useState<TaskNote[] | null>(null);
+  const [text, setText] = useState("");
+  const [pending, startTransition] = useTransition();
+
+  const reload = async () => {
+    const result = await loadTaskNotes(taskId);
+    if (!result.ok) return onError?.(result.error);
+    setNotes(result.notes);
+    onCount(result.notes.length);
+  };
+  useEffect(() => {
+    let alive = true;
+    loadTaskNotes(taskId).then((result) => {
+      if (!alive) return;
+      if (!result.ok) return onError?.(result.error);
+      setNotes(result.notes);
+      onCount(result.notes.length);
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [taskId]);
+
+  const full = (notes?.length ?? 0) >= MAX_NOTES;
+  const add = () =>
+    startTransition(async () => {
+      const result = await addTaskNote(taskId, text);
+      if (!result.ok) return onError?.(result.error);
+      setText("");
+      await reload();
+    });
+  const remove = (id: string) =>
+    startTransition(async () => {
+      const result = await deleteTaskNote(id);
+      if (!result.ok) return onError?.(result.error);
+      await reload();
+    });
+
+  return (
+    <section aria-label={n.title} className="zk-fade-up flex flex-col gap-2.5 rounded-[18px] bg-white/80 p-3 sm:p-3.5">
+      {notes === null ? (
+        <div className="h-10 animate-pulse rounded-xl bg-mint/70" />
+      ) : notes.length === 0 ? (
+        <p className="text-[13px] text-muted">{n.empty}</p>
+      ) : (
+        <ul className="flex flex-col gap-2.5">
+          {notes.map((note) => (
+            <li key={note.id} className="zk-fade-up flex items-start gap-2.5">
+              <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: avatarColor(note.authorId) }}>
+                {initials(note.author)}
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
+                  <span className="font-semibold">{note.mine ? n.you : note.author}</span>
+                  <span className="text-xs text-muted">{note.when}</span>
+                </span>
+                <p className="whitespace-pre-line text-sm leading-snug text-[#2b3644] [overflow-wrap:anywhere]">{note.body}</p>
+              </div>
+              {note.canDelete && (
+                <button type="button" aria-label={n.remove} title={n.remove} disabled={pending} onClick={() => remove(note.id)} className="flex size-8 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
+                  <Icon d="M6 6l12 12M18 6 6 18" size={14} />
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {notes !== null &&
+        (full ? (
+          <p className="rounded-xl bg-mint px-3 py-2 text-[13px] text-ink-soft">{n.full}</p>
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (text.trim()) add();
+            }}
+            className="flex flex-wrap items-end gap-2"
+          >
+            <textarea
+              aria-label={n.placeholder}
+              placeholder={n.placeholder}
+              value={text}
+              maxLength={NOTE_LENGTH}
+              rows={1}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (text.trim()) add();
+                }
+              }}
+              className="min-h-11 min-w-0 flex-[1_1_220px] resize-none rounded-[14px] border-[1.5px] border-line-strong bg-white px-3 py-2.5 text-sm"
+            />
+            <button type="submit" disabled={pending || !text.trim()} className="min-h-11 rounded-full bg-teal px-4 text-[13px] font-semibold text-white disabled:opacity-50">
+              {n.add}
+            </button>
+            <span className="basis-full text-right text-[11px] text-muted tabular-nums">{fill(n.count, { n: notes.length })}</span>
+          </form>
+        ))}
+    </section>
   );
 }
