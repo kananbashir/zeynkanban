@@ -74,10 +74,10 @@ export function BoardView({
 
   const matches = (task: TaskView) => {
     if (customerFilter.length && !customerFilter.includes(task.customerId)) return false;
-    if (peopleFilter.length && !peopleFilter.includes(task.assigneeId ?? "")) return false;
+    if (peopleFilter.length && !task.assignees.some((p) => peopleFilter.includes(p.id))) return false;
     const q = query.trim().toLocaleLowerCase("az");
     if (!q) return true;
-    return [task.contentCode, task.typeName, task.customerName, task.assigneeName ?? "", task.description, task.note].join(" ").toLocaleLowerCase("az").includes(q);
+    return [task.contentCode, task.typeName, task.customerName, task.assignees.map((p) => p.name).join(" "), task.description, task.note].join(" ").toLocaleLowerCase("az").includes(q);
   };
   const filtered = useMemo(
     () => ({ overdue: day.overdue.filter(matches), due: day.due.filter(matches), finished: day.finished.filter(matches) }),
@@ -96,7 +96,7 @@ export function BoardView({
     { key: "finished", label: isToday ? t.sections.finished : t.sections.finishedOn, color: "text-teal-deep" },
   ];
   const visible = sections.filter((s) => (segment === "all" || segment === s.key) && filtered[s.key].length > 0);
-  const peopleToday = people.filter((p) => all.some((task) => task.assigneeId === p.id));
+  const peopleToday = people.filter((p) => all.some((task) => task.assignees.some((a) => a.id === p.id)));
 
   const toggle = (list: string[], set: (v: string[]) => void, id: string) => set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
   const filterRow = (on: boolean) => (on ? "bg-mint" : "hover:bg-mint-soft");
@@ -186,7 +186,7 @@ export function BoardView({
                     <span className={`flex size-[18px] shrink-0 items-center justify-center rounded-md border-[1.5px] ${box(on)}`}>{on && check}</span>
                     <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: avatarColor(p.id) }}>{initials(p.name)}</span>
                     <span className="min-w-0 flex-1 truncate font-medium">{p.name}</span>
-                    <span className="text-xs text-muted">{all.filter((x) => x.assigneeId === p.id).length}</span>
+                    <span className="text-xs text-muted">{all.filter((x) => x.assignees.some((a) => a.id === p.id)).length}</span>
                   </button>
                 );
               })}

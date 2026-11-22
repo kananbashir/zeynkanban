@@ -1,8 +1,8 @@
 import "server-only";
-import { and, asc, eq, gte, inArray, isNotNull, isNull, lt, sql } from "drizzle-orm";
-import { alias } from "drizzle-orm/mysql-core";
+import { and, asc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { appValues, contents, customers, statuses, taskTypes, tasks, users } from "@/db/schema";
+import { appValues, contents, customers, statuses, taskAssignees, taskTypes, tasks, users } from "@/db/schema";
+import { assigneesColumn, hasAssignees, noAssignees, parseAssignees } from "./assignees";
 import { addDays, APP_TIME_ZONE, todayIso } from "./dates";
 import { deliverPush, notify, pruneNotifications, staffIds } from "./notify";
 import { isUniqueViolation } from "./users";
@@ -51,34 +51,35 @@ async function work(today: string): Promise<boolean> {
 
 /** Tasks that became overdue since the last run: due on or after `since`, before today, still unfinished. */
 async function overdueAlerts(since: string, today: string) {
-  const assignee = alias(users, "assignee");
-  const late = await db
-    .select({ taskId: tasks.id, type: taskTypes.name, code: contents.code, customer: customers.name, customerId: customers.id, due: tasks.dueDate, assignee: assignee.name })
+  const rows = await db
+    .select({ taskId: tasks.id, type: taskTypes.name, typeEn: taskTypes.nameEn, code: contents.code, customer: customers.name, customerId: customers.id, due: tasks.dueDate, assignees: assigneesColumn })
     .from(tasks)
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
     .innerJoin(taskTypes, eq(taskTypes.id, tasks.taskTypeId))
     .innerJoin(contents, eq(contents.id, tasks.contentId))
     .innerJoin(customers, eq(customers.id, tasks.customerId))
-    .innerJoin(assignee, eq(assignee.id, tasks.assigneeId))
-    .where(and(eq(tasks.archived, false), eq(statuses.isFinished, false), gte(tasks.dueDate, since), lt(tasks.dueDate, today)))
+    .where(and(eq(tasks.archived, false), hasAssignees, eq(statuses.isFinished, false), gte(tasks.dueDate, since), lt(tasks.dueDate, today)))
     .orderBy(asc(tasks.dueDate));
-  if (!late.length) return [];
+  if (!rows.length) return [];
   const staff = await staffIds();
-  if (late.length > OVERDUE_ONE_BY_ONE) return notify(staff, "overdue", { kind: "overdueMany", count: late.length });
+  if (rows.length > OVERDUE_ONE_BY_ONE) return notify(staff, "overdue", { kind: "overdueMany", count: rows.length });
   const out = [];
-  for (const task of late) out.push(...(await notify(staff, "overdue", { kind: "overdue", ...task }, task.taskId)));
+  for (const { assignees, typeEn, ...task } of rows) {
+    const names = parseAssignees(assignees).map((p) => p.name).join(", ");
+    out.push(...(await notify(staff, "overdue", { kind: "overdue", ...task, ...(typeEn ? { typeEn } : {}), assignee: names || null }, task.taskId)));
+  }
   return out;
 }
 
 async function summaries(today: string) {
-  const live = and(eq(tasks.archived, false), isNotNull(tasks.assigneeId));
+  const live = and(eq(tasks.archived, false), hasAssignees);
   const unfinishedLate = and(live, eq(statuses.isFinished, false), lt(tasks.dueDate, today));
   const count = sql<number>`count(*)`.mapWith(Number);
 
   const [[dueToday], [late], [drafts], people] = await Promise.all([
     db.select({ n: count, customers: sql<number>`count(distinct ${tasks.customerId})`.mapWith(Number) }).from(tasks).where(and(live, eq(tasks.dueDate, today))),
     db.select({ n: count }).from(tasks).innerJoin(statuses, eq(statuses.id, tasks.statusId)).where(unfinishedLate),
-    db.select({ n: count }).from(tasks).where(and(eq(tasks.archived, false), isNull(tasks.assigneeId))),
+    db.select({ n: count }).from(tasks).where(and(eq(tasks.archived, false), noAssignees)),
     db.select({ id: users.id, role: users.role }).from(users).where(eq(users.active, true)),
   ]);
   const staff = people.filter((p) => p.role !== "employee").map((p) => p.id);
@@ -88,14 +89,15 @@ async function summaries(today: string) {
   if (employees.length) {
     const own = await db
       .select({
-        id: tasks.assigneeId,
+        id: taskAssignees.userId,
         today: sql<number>`sum(${tasks.dueDate} = ${today})`.mapWith(Number),
         late: sql<number>`sum(${tasks.dueDate} < ${today} and ${statuses.isFinished} = false)`.mapWith(Number),
       })
-      .from(tasks)
+      .from(taskAssignees)
+      .innerJoin(tasks, eq(tasks.id, taskAssignees.taskId))
       .innerJoin(statuses, eq(statuses.id, tasks.statusId))
-      .where(and(live, inArray(tasks.assigneeId, employees)))
-      .groupBy(tasks.assigneeId);
+      .where(and(eq(tasks.archived, false), inArray(taskAssignees.userId, employees)))
+      .groupBy(taskAssignees.userId);
     for (const o of own) {
       if (!o.id || (!o.today && !o.late)) continue; // nothing to say
       out.push(...(await notify([o.id], "summary", { kind: "summary", scope: "own", date: today, tasks: o.today, customers: 0, overdue: o.late, drafts: 0 })));

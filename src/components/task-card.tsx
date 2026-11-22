@@ -13,16 +13,13 @@ import { ARCHIVED_BACKGROUND, cardBackground } from "@/lib/task-rules";
 import type { TaskView } from "@/lib/tasks";
 import { useMe } from "./me";
 import { Collapse } from "./motion";
+import { AvatarGroup, personColor } from "./avatar-group";
 import { initials } from "./top-bar";
 
 export type StatusOption = { id: string; name: string; color: string; isFinished: boolean };
 
-const AVATARS = ["#0b7f7b", "#5b4bc4", "#b4532a", "#1f6fb2", "#8a4b9c", "#4e6b1f"];
-export function avatarColor(id: string) {
-  let sum = 0;
-  for (const ch of id) sum = (sum + ch.charCodeAt(0)) % 997;
-  return AVATARS[sum % AVATARS.length];
-}
+/** The colour of a person's avatar (the same everywhere). */
+export const avatarColor = personColor;
 
 function Icon({ d, size = 16 }: { d: string; size?: number }) {
   return (
@@ -34,7 +31,7 @@ function Icon({ d, size = 16 }: { d: string; size?: number }) {
 const CAL = "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M3 10h18";
 const NOTE = "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z";
 
-/** A full-width task card: content ID, customer, status (changeable from the card), type, description, assignee, date, note. */
+/** A full-width task card: content ID, customer, status (changeable from the card), type, description, the people on it, date, note. */
 export function TaskCard({
   task,
   statuses,
@@ -173,7 +170,7 @@ export function TaskCard({
         {lateDays > 0 && (
           <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-bold text-danger">{lateDays === 1 ? t.dayOverdue : fill(t.daysOverdue, { n: lateDays })}</span>
         )}
-        {!task.assigneeId && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.draft}</span>}
+        {!task.assignees.length && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.draft}</span>}
         <div className="relative ml-auto">
           <button
             type="button"
@@ -212,18 +209,20 @@ export function TaskCard({
       <h3 className="text-[17px] font-semibold sm:text-xl">{typeLabel}</h3>
       {task.description && <p className="max-w-[70ch] whitespace-pre-line text-sm leading-normal text-ink-body">{task.description}</p>}
       <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1.5 border-t border-ink/12 pt-2 text-[13px] text-ink-soft">
-        {showAssignee && <span className="flex items-center gap-2">
-          {task.assigneeId ? (
-            <>
-              <span className="flex size-7 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: avatarColor(task.assigneeId) }}>
-                {initials(task.assigneeName ?? "?")}
-              </span>
-              <span className="font-medium text-ink">{task.assigneeName}</span>
-            </>
-          ) : (
-            <span className="font-medium">{t.noAssignee}</span>
-          )}
-        </span>}
+        {(showAssignee || task.assignees.length > 1) && (
+          <span className="flex min-w-0 items-center gap-2">
+            {task.assignees.length ? (
+              <>
+                <AvatarGroup people={task.assignees} label={fill(t.peopleOn, { names: task.assignees.map((p) => p.name).join(", ") })} more={(n) => (n ? fill(t.peopleMore, { n }) : "")} />
+                <span className="min-w-0 truncate font-medium text-ink">
+                  {task.assignees.length === 1 ? task.assignees[0].name : fill(t.peopleFirstMore, { name: task.assignees[0].name, n: task.assignees.length - 1 })}
+                </span>
+              </>
+            ) : (
+              <span className="font-medium">{t.noAssignee}</span>
+            )}
+          </span>
+        )}
         <span className="flex items-center gap-1.5">
           <Icon d={CAL} />
           {fill(status.finished ? t.wasDue : t.due, { date: shortDate(task.dueDate, t) })}

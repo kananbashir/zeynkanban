@@ -8,10 +8,10 @@ import { DashboardView } from "./dashboard-view";
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ view?: string; d?: string }> }) {
   await requireRole("admin", "manager");
-  const { t } = await getDictionary();
+  const { t, locale } = await getDictionary();
   const params = await searchParams;
   const today = todayIso();
   const period = periodOf(params.view === "week" ? "week" : "month", isIsoDateString(params.d) ? params.d : today);
-  const [data, specialDays] = await Promise.all([dashboardData(period, today), allSpecialDays()]);
+  const [data, specialDays] = await Promise.all([dashboardData(period, today, locale), allSpecialDays()]);
   return <DashboardView period={period} today={today} data={data} specialDays={specialDays} t={t.dashboard} taskT={t.tasks} months={t.customers.months} />;
 }

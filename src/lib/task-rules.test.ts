@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, daysBetween, monthGrid, specialDaysOn, weekdayIndex, dateInZone, isIsoDateString } from "./dates";
-import { cardBackground, FINISHED_BACKGROUND, personalShownOn, sectionFor } from "./task-rules";
+import { cardBackground, FINISHED_BACKGROUND, groupByPerson, personalShownOn, sectionFor } from "./task-rules";
 
 const today = "2026-11-20";
 
@@ -66,5 +66,21 @@ describe("personalShownOn", () => {
     expect(personalShownOn({ dueDate: "2026-11-18", done: false }, today, today)).toBe(true);
     expect(personalShownOn({ dueDate: "2026-11-18", done: true }, today, today)).toBe(false);
     expect(personalShownOn({ dueDate: "2026-11-18", done: false }, "2026-11-21", today)).toBe(false);
+  });
+});
+
+describe("groupByPerson", () => {
+  it("lists a shared task under each person, drafts last", () => {
+    const a = { id: "a", name: "Aysel" }, m = { id: "m", name: "Murad" };
+    const groups = groupByPerson([
+      { n: 1, assignees: [a, m] },
+      { n: 2, assignees: [m] },
+      { n: 3, assignees: [] },
+    ]);
+    expect(groups.map((g) => [g.id, g.list.map((x) => x.n)])).toEqual([
+      ["m", [1, 2]],
+      ["a", [1]],
+      ["", [3]],
+    ]);
   });
 });

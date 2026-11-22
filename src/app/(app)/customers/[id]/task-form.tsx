@@ -12,6 +12,7 @@ import { fill } from "@/i18n/format";
 import { monthGrid, monthOf, shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
 import { dayLabel, shortDate } from "@/lib/format-date";
 import { DEFAULT_REMIND_TIME, REMIND_DAYS, reminderDate } from "@/lib/reminder-rules";
+import { groupByPerson } from "@/lib/task-rules";
 import type { TaskView } from "@/lib/tasks";
 
 export type FormContent = { id: string; code: string; typeName: string; publishDate: string | null };
@@ -65,7 +66,7 @@ export function TaskForm({
   const [typeName, setTypeName] = useState(task && !knownType ? task.typeName : "");
   const [saveType, setSaveType] = useState(false);
   const [contentId, setContentId] = useState(task?.contentId ?? "");
-  const [assigneeId, setAssigneeId] = useState<string>(task?.assigneeId ?? "");
+  const [assigneeIds, setAssigneeIds] = useState<string[]>(task?.assignees.map((p) => p.id) ?? []);
   const [date, setDate] = useState(task?.dueDate ?? defaultDate);
   const [description, setDescription] = useState(task?.description ?? "");
   const [note, setNote] = useState(task?.note ?? "");
@@ -109,11 +110,7 @@ export function TaskForm({
     return copy;
   }, [counts, task]);
 
-  const groups = useMemo(() => {
-    const byPerson = new Map<string, TaskView[]>();
-    for (const x of dayList) byPerson.set(x.assigneeId ?? "", [...(byPerson.get(x.assigneeId ?? "") ?? []), x]);
-    return [...byPerson.entries()].sort((a, b) => (a[0] === "" ? 1 : b[0] === "" ? -1 : b[1].length - a[1].length));
-  }, [dayList]);
+  const groups = useMemo(() => groupByPerson(dayList), [dayList]);
   const events = specialDaysOn(date, specialDays);
   const currentYear = Number(today.slice(0, 4));
 
@@ -128,7 +125,7 @@ export function TaskForm({
       taskTypeId: typeId === OTHER ? null : typeId,
       typeName: typeId === OTHER ? typeName : undefined,
       saveType,
-      assigneeId: assigneeId || null,
+      assigneeIds,
       dueDate: date,
       description,
       note,
@@ -138,7 +135,7 @@ export function TaskForm({
     startTransition(async () => {
       const result = task ? await updateTask(task.id, input) : await createTask(input);
       if (!result.ok) return setError(errors[result.error]);
-      onSaved(date, assigneeId ? fill(f.saved, { date: dayLabel(date, fmt, currentYear) }) : f.savedDraft);
+      onSaved(date, assigneeIds.length ? fill(f.saved, { date: dayLabel(date, fmt, currentYear) }) : f.savedDraft);
     });
   }
 
@@ -201,14 +198,30 @@ export function TaskForm({
             </section>
 
             <section className={card}>
-              <h3 id="f-who" className="text-[15px] font-semibold">{f.assignee}</h3>
+              <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+                <h3 id="f-who" className="text-[15px] font-semibold">{f.assignee}</h3>
+                <span className="text-xs text-muted">{f.assigneeHint}</span>
+              </div>
               <div role="group" aria-labelledby="f-who" className="grid gap-2 sm:grid-cols-2">
                 {people.map((p) => {
-                  const n = dayList.filter((x) => x.assigneeId === p.id).length;
-                  const on = assigneeId === p.id;
+                  const n = dayList.filter((x) => x.assignees.some((a) => a.id === p.id)).length;
+                  const on = assigneeIds.includes(p.id);
                   return (
-                    <button key={p.id} type="button" aria-pressed={on} onClick={() => setAssigneeId(on ? "" : p.id)} className={`flex min-h-[52px] items-center gap-2.5 rounded-2xl border-2 px-3 py-1.5 text-left ${pick(on)}`}>
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: avatarColor(p.id) }}>{initials(p.name)}</span>
+                    <button
+                      key={p.id}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => setAssigneeIds((list) => (on ? list.filter((x) => x !== p.id) : [...list, p.id]))}
+                      className={`flex min-h-[52px] items-center gap-2.5 rounded-2xl border-2 px-3 py-1.5 text-left transition-colors duration-200 ${pick(on)}`}
+                    >
+                      <span className="relative flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: avatarColor(p.id) }}>
+                        {initials(p.name)}
+                        {on && (
+                          <span className="zk-pop absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-full border-2 border-surface bg-teal">
+                            <svg viewBox="0 0 24 24" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>
+                          </span>
+                        )}
+                      </span>
                       <span className="flex min-w-0 flex-col leading-tight">
                         <span className="truncate text-sm font-semibold">{p.name}</span>
                         <span className="text-xs text-ink-soft">{n ? fill(f.tasksThatDay, { n: n === 1 ? t.task1 : fill(t.tasksN, { n }) }) : f.freeThatDay}</span>
@@ -263,12 +276,12 @@ export function TaskForm({
                     <input type="time" required value={remindTime} onChange={(e) => setRemindTime(e.target.value || DEFAULT_REMIND_TIME)} className={`${field} w-[132px]`} />
                   </label>
                   <p className="min-w-0 flex-[1_1_220px] text-[13px] leading-snug text-ink-soft">
-                    {!assigneeId
+                    {!assigneeIds.length
                       ? f.remindNoAssignee
                       : remindDays.some((n) => reminderDate(date, n) < today) && remindDays.every((n) => reminderDate(date, n) <= today)
                         ? f.remindPassed
                         : fill(f.remindHint, {
-                            name: people.find((p) => p.id === assigneeId)?.name ?? "",
+                            name: assigneeIds.map((id) => people.find((p) => p.id === id)?.name ?? "").filter(Boolean).join(", "),
                             date: [...remindDays]
                               .sort((a, b) => b - a)
                               .filter((n) => reminderDate(date, n) >= today)
@@ -313,13 +326,13 @@ export function TaskForm({
                 </h3>
                 {events.map((e) => <span key={e.name} className="text-[13px] font-semibold text-sun-ink">{e.name}</span>)}
               </div>
-              {groups.map(([personId, list]) => {
+              {groups.map(({ id: personId, name: personName, list }) => {
                 const person = people.find((p) => p.id === personId);
                 return (
                   <div key={personId || "none"} className="flex flex-col gap-1.5 border-t border-line pt-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ background: personId ? avatarColor(personId) : "var(--color-subtle)" }}>{personId ? initials(person?.name ?? list[0].assigneeName ?? "?") : "?"}</span>
-                      <span className="flex-1 text-sm font-semibold">{personId ? (person?.name ?? list[0].assigneeName) : t.customer.noAssigneeGroup}</span>
+                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ background: personId ? avatarColor(personId) : "var(--color-subtle)" }}>{personId ? initials(person?.name ?? personName) : "?"}</span>
+                      <span className="flex-1 text-sm font-semibold">{personId ? (person?.name ?? personName) : t.customer.noAssigneeGroup}</span>
                       <span className="text-xs text-ink-soft">{list.length === 1 ? t.task1 : fill(t.tasksN, { n: list.length })}</span>
                     </div>
                     {list.map((x) => (
@@ -353,11 +366,11 @@ export function TaskForm({
             </button>
           )}
           <p role={error ? "alert" : undefined} className={`flex-[1_1_260px] text-sm font-medium leading-snug ${error ? "text-danger" : "text-ink-soft"}`}>
-            {error ?? (assigneeId ? (task ? "" : fill(f.hintStart, { status: firstStatus })) : f.hintDraft)}
+            {error ?? (assigneeIds.length ? (task ? "" : fill(f.hintStart, { status: firstStatus })) : f.hintDraft)}
           </p>
           <button type="button" className={`${btn.soft} min-h-12 px-[22px] text-[15px]`} onClick={onClose}>{f.cancel}</button>
           <button type="submit" className={`${btn.primary} min-h-12 px-[26px] text-[15px]`} disabled={pending}>
-            {task ? f.saveChanges : assigneeId ? f.saveTask : f.saveDraft}
+            {task ? f.saveChanges : assigneeIds.length ? f.saveTask : f.saveDraft}
           </button>
         </div>
       </form>

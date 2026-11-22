@@ -59,6 +59,7 @@ export const loginAttempts = mysqlTable(
 export const statuses = mysqlTable("statuses", {
   id: id(),
   name: varchar("name", { length: 120 }).notNull(),
+  nameEn: varchar("name_en", { length: 120 }),
   color: varchar("color", { length: 7 }).notNull(),
   isFinished: boolean("is_finished").notNull().default(false),
   /** Moving a task into this status tells admins and managers it is ready for review. */
@@ -71,7 +72,10 @@ export const statuses = mysqlTable("statuses", {
 /** Task types, the header of every task. Deleted ones are only marked, as with statuses. */
 export const taskTypes = mysqlTable("task_types", {
   id: id(),
+  /** The name in Azerbaijani (the site's main language). */
   name: varchar("name", { length: 120 }).notNull(),
+  /** The name in English; when empty, the Azerbaijani name is shown in English too. */
+  nameEn: varchar("name_en", { length: 120 }),
   position: int("position").notNull().default(0),
   /** The type the month planner gives every task it creates ("Post publishing"). */
   isPublishing: boolean("is_publishing").notNull().default(false),
@@ -98,6 +102,7 @@ export const specialDays = mysqlTable("special_days", {
   id: id(),
   date: date("date", { mode: "string" }).notNull(),
   name: varchar("name", { length: 120 }).notNull(),
+  nameEn: varchar("name_en", { length: 120 }),
   kind: mysqlEnum("kind", DAY_KINDS).notNull().default("holiday"),
   yearly: boolean("yearly").notNull().default(false),
   createdAt: createdAt(),
@@ -180,7 +185,6 @@ export const tasks = mysqlTable(
     statusId: varchar("status_id", { length: 36 })
       .notNull()
       .references(() => statuses.id),
-    assigneeId: varchar("assignee_id", { length: 36 }).references(() => users.id),
     dueDate: date("due_date", { mode: "string" }).notNull(),
     description: text("description"),
     note: varchar("note", { length: 500 }).notNull().default(""),
@@ -197,7 +201,6 @@ export const tasks = mysqlTable(
     index("tasks_due_idx").on(t.dueDate, t.archived),
     index("tasks_customer_idx").on(t.customerId, t.dueDate),
     index("tasks_content_idx").on(t.contentId),
-    index("tasks_assignee_idx").on(t.assigneeId, t.dueDate),
   ],
 );
 
@@ -252,6 +255,21 @@ export const taskNotes = mysqlTable(
     createdAt: createdAt(),
   },
   (t) => [index("task_notes_task_idx").on(t.taskId, t.createdAt)],
+);
+
+/** Who works on a task: one or more people, in the order they were picked. A task with nobody is a draft. */
+export const taskAssignees = mysqlTable(
+  "task_assignees",
+  {
+    taskId: varchar("task_id", { length: 36 })
+      .notNull()
+      .references(() => tasks.id),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id),
+    position: int("position").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.taskId, t.userId] }), index("task_assignees_user_idx").on(t.userId)],
 );
 
 /** Reminders for a task's assignee: one row per "days before the due date". */

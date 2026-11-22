@@ -1,38 +1,41 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { and, eq, inArray, isNull, lt, sql } from "drizzle-orm";
-import { alias } from "drizzle-orm/mysql-core";
 import webpush from "web-push";
 import { db } from "@/db";
 import { appValues, contents, customers, notificationPrefs, notifications, pushSubscriptions, taskTypes, tasks, users, type NotificationKind } from "@/db/schema";
 import { dictionaries, type Locale } from "@/i18n/dictionaries";
+import { assigneesColumn, parseAssignees, type Person } from "./assignees";
 import { todayIso } from "./dates";
 import { notificationText, PREF_OF, type NotificationData, type TaskRef } from "./notification-text";
 
 type Row = { id: string; userId: string; data: NotificationData };
 
 /** The facts about a task that a notification repeats (so it reads right even if the task changes later). */
-export async function taskRef(taskId: string): Promise<(TaskRef & { assigneeId: string | null; assigneeName: string | null }) | null> {
-  const assignee = alias(users, "assignee");
+export async function taskRef(taskId: string): Promise<(TaskRef & { assignees: Person[] }) | null> {
   const [row] = await db
     .select({
       taskId: tasks.id,
       type: taskTypes.name,
+      typeEn: taskTypes.nameEn,
       code: contents.code,
       customer: customers.name,
       customerId: customers.id,
       due: tasks.dueDate,
-      assigneeId: tasks.assigneeId,
-      assigneeName: assignee.name,
+      assignees: assigneesColumn,
     })
     .from(tasks)
     .innerJoin(taskTypes, eq(taskTypes.id, tasks.taskTypeId))
     .innerJoin(contents, eq(contents.id, tasks.contentId))
     .innerJoin(customers, eq(customers.id, tasks.customerId))
-    .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
     .where(eq(tasks.id, taskId));
-  return row ?? null;
+  if (!row) return null;
+  const { typeEn, assignees, ...rest } = row;
+  return { ...rest, ...(typeEn ? { typeEn } : {}), assignees: parseAssignees(assignees) };
 }
+
+/** A task's facts for a notification, without who is on it. */
+export const refOnly = <T extends TaskRef>({ taskId, type, typeEn, code, customer, customerId, due }: T): TaskRef => ({ taskId, type, ...(typeEn ? { typeEn } : {}), code, customer, customerId, due });
 
 /** Active admins and managers, the people told about reviews and overdue tasks. */
 export async function staffIds(except?: string): Promise<string[]> {
@@ -105,7 +108,7 @@ export async function deliverPush(rows: Row[]) {
         .filter((s) => s.userId === row.userId)
         .map(async (s) => {
           const t = dictionaries[(s.locale as Locale) in dictionaries ? (s.locale as Locale) : "az"];
-          const text = notificationText(row.data, roles.get(s.userId) !== "employee", today, t.notifications, t.tasks);
+          const text = notificationText(row.data, roles.get(s.userId) !== "employee", today, t.notifications, t.tasks, s.locale as Locale);
           const payload = JSON.stringify({ title: text.title, body: [text.a, text.b].filter(Boolean).join("\n"), url: text.href, tag: row.id, badge: unread.get(s.userId) ?? 0 });
           try {
             await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, {

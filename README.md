@@ -69,8 +69,9 @@ The login code boxes are animated the way Animate UI's Input OTP describes, buil
 - **Task types**: rename, reorder by dragging, add and delete (deleted ones are kept the same way). "Post publishing" is the type the month planner uses, so it can be renamed but not deleted.
 - **Content types**: a short code (it goes inside content IDs, as in `thrive-vid-nd26-1`) and a name. Archived, never deleted.
 - **Holidays and special events**: date, name, holiday or special event, and whether it repeats every year.
+- **Names in two languages**: statuses, task types and holidays/events have an Azerbaijani name (required) and, under it, an optional English one. With the site in English, people see the English name; where it is empty they see the Azerbaijani one. Notifications use the reader's language too.
 
-A new installation starts with four statuses (To do, In progress, Ready for review, Done), five task types and two content types (`vid`, `gpost`). All can be changed.
+A new installation starts with four statuses (Ediləcək / To do, İcrada / In progress, Yoxlamaya hazır / Ready for review, Tamamlandı / Done), five task types (Video çəkilişi / Video shoot, Video montajı / Video edit, Qrafik dizayn / Graphic design, Mətnin yazılması / Caption writing, Postun paylaşılması / Post publishing) and two content types (`vid`, `gpost`). All can be changed. An existing installation gets the same Azerbaijani names on its update, with the English ones kept as the English names; a status or type that was already renamed is left as it is.
 
 ## Customers and content IDs
 
@@ -81,13 +82,14 @@ A new installation starts with four statuses (To do, In progress, Ready for revi
 
 ## Tasks and the managing board
 
-- Every task belongs to a content ID. It has a type, an assignee, a date, an optional description and note, and a status; new tasks start with the first status.
-- **A task without an assignee is a draft**: it shows in the customer's Drafts box only, never on the managing board.
+- Every task belongs to a content ID. It has a type, one or more assignees, a date, an optional description and note, and a status; new tasks start with the first status.
+- **Several people on one task**: in the task form, tap each person to add or remove them. Everyone on a task sees it in My tasks, can change its status and add notes, and gets its notifications and reminders. The card shows the first name and "+N", with overlapping avatars: hover over one (or tap it on a phone, or reach it with Tab) and it rises with a little bounce while a label with the name glides from avatar to avatar. With "reduce motion" switched on in the device's settings, the avatar simply moves up and the label just fades in.
+- **A task with nobody on it is a draft**: it shows in the customer's Drafts box only, never on the managing board.
 - **Day views** (managing board, customer Tasks tab): unfinished tasks show on their due day; on today's view, unfinished tasks from earlier days also show as overdue; finished tasks show on the day they were finished. "Today" is taken in Baku time (`APP_TIME_ZONE`).
-- **Managing board** (admin, manager): calendar, day summary, filters by customer and assignee, search, and status changes from each card. "Open task" opens the task form on the customer's page.
-- **Task form** (customer page, yellow button): type (or "Other…", optionally saved to the list), content ID with its publish date, assignee with their load that day, description, note, and a calendar showing how many tasks each day already has, with holidays marked and that day's tasks grouped by person.
+- **Managing board** (admin, manager): calendar, day summary, filters by customer and person, search, and status changes from each card. "Open task" opens the task form on the customer's page.
+- **Task form** (customer page, yellow button): type (or "Other…", optionally saved to the list), content ID with its publish date, the people on it (each with their load that day), description, note, and a calendar showing how many tasks each day already has, with holidays marked and that day's tasks grouped by person.
 - Tasks are archived, never deleted (admin only), and can be restored from the Contents tab, where each content ID shows its publish date, progress and tasks.
-- **Notes**: each task card has a Notes button. The assignee, admins and managers can read and add notes (up to 10 per task); everyone can delete their own, and admins can delete any. Content IDs are always listed in counting order (…-2 before …-10).
+- **Notes**: each task card has a Notes button. The people on the task, admins and managers can read and add notes (up to 10 per task); everyone can delete their own, and admins can delete any. Content IDs are always listed in counting order (…-2 before …-10).
 - A task whose status or type was deleted in Settings shows "Deleted status (name)" or "Deleted task type (name)".
 
 ## Month planner
@@ -109,7 +111,7 @@ The first page for admins and managers. It shows counts and charts for a month (
 - **Tasks per day**: finished and open tasks for each day, with holidays and special events marked. Pick or hover a day to read its numbers; "Open this day" opens it on the managing board.
 - **Team workload**, **Customers**, **Tasks by status** and **Content types**: how the period's tasks split up, each bar showing finished and open.
 
-Every task with an assignee counts on its due date; archived tasks don't count. Drafts appear only in their own total, just as the managing board leaves them out.
+Every task with someone on it counts on its due date, for each person on it (a task for two people counts once in the totals and once for each of them by person); archived tasks don't count. Drafts appear only in their own total, just as the managing board leaves them out.
 
 ## My tasks and personal tasks
 
@@ -125,18 +127,18 @@ The bell in the top bar shows how many notifications are unread; it checks again
 
 | Notification | Who gets it |
 |---|---|
-| New task assigned to you | The assignee, when a task is created for them or given to them |
-| A task was given to someone else | The previous assignee |
-| A task of yours changed | The assignee, when the date, description or note changes, or when someone else changes its status |
+| New task assigned to you | Each person put on a task, when it is created or when they are added to it |
+| You are no longer on a task | A person taken off a task (with who has it now) |
+| A task of yours changed | The people on a task, when the date, description or note changes, or when someone else changes its status |
 | Status changed | Admins and managers, on every status change made by someone else (old status → new status, and who) |
 | Ready for review | Admins and managers, when a task moves into a status marked "Sends ‘Ready for review’" (Settings → Statuses); this replaces "Status changed" for that move |
-| Reminder | The assignee, when a task has reminders set (see below) |
-| New note on a task | Admins and managers, and the assignee, when someone else adds a note to a task |
+| Reminder | The people on a task, when it has reminders set (see below) |
+| New note on a task | Admins and managers, and the people on the task, when someone else adds a note to it |
 | Personal reminder | Only the owner of a personal task with reminders |
 | A task became overdue | Admins and managers, at 09:00, for tasks that passed their date unfinished (more than 3 become one notification) |
 | Morning summary | Everyone at 09:00: the day's tasks, overdue and drafts (employees: their own; skipped when they have nothing) |
 
-**Task reminders**: the task form has "Reminders for the assignee": no reminder (the default), or any of 1, 3 and 5 days before the due date, at one chosen time (Baku time). Each reminder goes to the assignee once. Changing the due date or the time makes them all due again; adding or removing one leaves the others as they were. They aren't sent for finished or archived tasks, or once the due date has passed. A reminder whose moment has already passed when it is set goes out right away; if several are due at once, one notification covers them.
+**Task reminders**: the task form has "Reminders for the people on it": no reminder (the default), or any of 1, 3 and 5 days before the due date, at one chosen time (Baku time). Each reminder goes once to everyone on the task. Changing the due date or the time makes them all due again; adding or removing one leaves the others as they were. They aren't sent for finished or archived tasks, or once the due date has passed. A reminder whose moment has already passed when it is set goes out right away; if several are due at once, one notification covers them.
 
 Nobody is notified about their own changes. Each person chooses what they want in the panel's settings, and can turn on **phone notifications on this device**. On an iPhone (iOS 16.4 or newer) the site must first be added to the home screen and opened from there. Phone notifications need the site on HTTPS (or `localhost` when testing on your own computer).
 

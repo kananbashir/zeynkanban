@@ -36,3 +36,19 @@ export const ARCHIVED_BACKGROUND = "#e9edf0";
 export function cardBackground(statusColor: string, finished: boolean): string {
   return finished ? FINISHED_BACKGROUND : (CARD_BACKGROUNDS[statusColor.toLowerCase()] ?? "#e9edf0");
 }
+
+/**
+ * Tasks grouped by the people on them, for the "whole day" lists: a shared task appears under each
+ * of its people; tasks nobody is on come last, under id "". Busiest people first.
+ */
+export function groupByPerson<T extends { assignees: { id: string; name: string }[] }>(tasks: T[]): { id: string; name: string; list: T[] }[] {
+  const groups = new Map<string, { id: string; name: string; list: T[] }>();
+  for (const task of tasks) {
+    for (const person of task.assignees.length ? task.assignees : [{ id: "", name: "" }]) {
+      const group = groups.get(person.id) ?? { id: person.id, name: person.name, list: [] };
+      group.list.push(task);
+      groups.set(person.id, group);
+    }
+  }
+  return [...groups.values()].sort((a, b) => (a.id === "" ? 1 : b.id === "" ? -1 : b.list.length - a.list.length || a.name.localeCompare(b.name)));
+}

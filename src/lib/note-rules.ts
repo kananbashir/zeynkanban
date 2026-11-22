@@ -6,7 +6,7 @@ export function cleanNote(body: unknown): string {
   return String(body ?? "").replace(/\r\n/g, "\n").trim().slice(0, NOTE_LENGTH);
 }
 
-/** Who can read and add notes: admins and managers on any task, an employee on tasks assigned to them. */
-export function canUseNotes(user: { id: string; role: string }, task: { assigneeId: string | null }): boolean {
-  return user.role !== "employee" || task.assigneeId === user.id;
+/** Who can read and add notes: admins and managers on any task, an employee on tasks they are on. */
+export function canUseNotes(user: { id: string; role: string }, assigneeIds: string[]): boolean {
+  return user.role !== "employee" || assigneeIds.includes(user.id);
 }

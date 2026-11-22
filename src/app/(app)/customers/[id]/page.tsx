@@ -67,7 +67,6 @@ export default async function CustomerPage({
     ]);
     return (
       <TasksTab
-        key={query.edit ?? "day"}
         customerId={id}
         customerName={customer.name}
         date={date}

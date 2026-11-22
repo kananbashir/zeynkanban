@@ -1,8 +1,9 @@
 // The dashboard's rules: which days a period covers, and how tasks are counted.
 // Pure functions, tested in dashboard-rules.test.ts.
 //
-// Counting: every unarchived task with an assignee counts on its due date. Drafts (no assignee)
-// are counted only in their own total, the same way the managing board leaves them out.
+// Counting: every unarchived task someone is on counts once on its due date (and, in the team
+// workload, once for each person on it). Drafts (nobody on them) are counted only in their own
+// total, the same way the managing board leaves them out.
 import { addDays, firstOfMonth, monthOf, shiftMonth, weekdayIndex } from "./dates";
 
 export type PeriodKind = "week" | "month";
@@ -39,7 +40,7 @@ export function shiftPeriod(period: Period, by: number): Period {
 
 export type CountRow = {
   dueDate: string;
-  assigneeId: string | null;
+  assigneeIds: string[];
   customerId: string;
   statusId: string;
   contentTypeId: string;
@@ -69,7 +70,7 @@ const add = (map: Record<string, Tally>, key: string, finished: boolean) => {
 export function summarize(rows: CountRow[], today: string): Summary {
   const s: Summary = { total: 0, finished: 0, overdue: 0, drafts: 0, perDay: {}, byPerson: {}, byCustomer: {}, byStatus: {}, byContentType: {} };
   for (const r of rows) {
-    if (!r.assigneeId) {
+    if (!r.assigneeIds.length) {
       s.drafts++;
       continue;
     }
@@ -77,7 +78,7 @@ export function summarize(rows: CountRow[], today: string): Summary {
     if (r.finished) s.finished++;
     else if (r.dueDate < today) s.overdue++;
     add(s.perDay, r.dueDate, r.finished);
-    add(s.byPerson, r.assigneeId, r.finished);
+    for (const person of r.assigneeIds) add(s.byPerson, person, r.finished);
     add(s.byCustomer, r.customerId, r.finished);
     add(s.byContentType, r.contentTypeId, r.finished);
     s.byStatus[r.statusId] = (s.byStatus[r.statusId] ?? 0) + 1;

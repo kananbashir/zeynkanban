@@ -1,22 +1,24 @@
 "use client";
 
 import { startTransition, useOptimistic, useState } from "react";
-import { InlineText } from "@/components/inline-text";
 import { SortableList } from "@/components/sortable-list";
 import { Toast, useToast } from "@/components/toast";
 import { btn, card, row } from "@/components/ui";
-import type { Dictionary } from "@/i18n/dictionaries";
+import type { Dictionary, Locale } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
+import { localName } from "@/lib/names";
 import { COLOR_NAMES, STATUS_COLORS } from "@/lib/settings-rules";
-import { addStatus, deleteStatus, renameStatus, reorderStatuses, setStatusColor, setStatusFinished, setStatusReview } from "./actions";
+import { addStatus, deleteStatus, renameStatus, renameStatusEn, reorderStatuses, setStatusColor, setStatusFinished, setStatusReview } from "./actions";
+import { BilingualName } from "./bilingual-name";
 import { AddNameForm } from "./add-name-form";
 import { ConfirmBar } from "@/components/confirm-bar";
 import { SectionHeader } from "./section-header";
 import { useAction } from "./use-action";
 
-type Status = { id: string; name: string; color: string; isFinished: boolean; notifyReview: boolean };
+type Status = { id: string; name: string; nameEn: string | null; color: string; isFinished: boolean; notifyReview: boolean };
 
-export function StatusesSection({ statuses, t, errors }: { statuses: Status[]; t: Dictionary["settings"]; errors: Dictionary["errors"] }) {
+export function StatusesSection({ statuses, locale, t, errors }: { statuses: Status[]; locale: Locale; t: Dictionary["settings"]; errors: Dictionary["errors"] }) {
+  const shown = (x: Status) => localName(x.name, x.nameEn, locale);
   const { message, show } = useToast();
   const { pending, run } = useAction(errors, show);
   const [ordered, setOrdered] = useOptimistic(statuses, (current, ids: string[]) =>
@@ -36,15 +38,15 @@ export function StatusesSection({ statuses, t, errors }: { statuses: Status[]; t
 
   return (
     <section aria-label={t.sections.statuses} className={card}>
-      <SectionHeader title={t.sections.statuses} intro={`${s.intro} ${t.dragHint}`} />
+      <SectionHeader title={t.sections.statuses} intro={`${s.intro} ${t.dragHint} ${t.namesHint}`} />
       <SortableList items={ordered} onReorder={reorder}>
         {(status, index, handle) => (
           <div data-row className={`flex flex-col gap-2.5 ${row}`}>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              {handle(fill(t.reorder, { name: status.name }))}
+              {handle(fill(t.reorder, { name: shown(status) }))}
               <button
                 type="button"
-                aria-label={fill(s.colorOf, { name: status.name })}
+                aria-label={fill(s.colorOf, { name: shown(status) })}
                 aria-expanded={colorOpen === status.id}
                 onClick={() => setColorOpen(colorOpen === status.id ? null : status.id)}
                 className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface"
@@ -52,7 +54,15 @@ export function StatusesSection({ statuses, t, errors }: { statuses: Status[]; t
                 <span className="size-4 rounded-full" style={{ background: status.color }} />
               </button>
               <div className="min-w-0 flex-[1_1_160px]">
-                <InlineText value={status.name} label={s.placeholder} onSave={(name) => run(() => renameStatus(status.id, name))} />
+                <BilingualName
+                  name={status.name}
+                  nameEn={status.nameEn}
+                  label={s.placeholder}
+                  labelEn={fill(t.nameEnOf, { name: status.name })}
+                  placeholderEn={t.nameEnPlaceholder}
+                  onSave={(name) => run(() => renameStatus(status.id, name))}
+                  onSaveEn={(nameEn) => run(() => renameStatusEn(status.id, nameEn))}
+                />
               </div>
               {index === 0 && (
                 <span className="whitespace-nowrap rounded-full bg-teal-tint px-2.5 py-1 text-xs font-semibold text-teal-deep">{s.startsHere}</span>
@@ -84,7 +94,7 @@ export function StatusesSection({ statuses, t, errors }: { statuses: Status[]; t
               </label>
             </div>
             {colorOpen === status.id && (
-              <div role="group" aria-label={fill(s.colorOf, { name: status.name })} className="flex flex-wrap gap-2 pl-[52px]">
+              <div role="group" aria-label={fill(s.colorOf, { name: shown(status) })} className="flex flex-wrap gap-2 pl-[52px]">
                 {STATUS_COLORS.map((color, i) => (
                   <button
                     key={color}
@@ -101,7 +111,7 @@ export function StatusesSection({ statuses, t, errors }: { statuses: Status[]; t
             )}
             {confirming === status.id && (
               <ConfirmBar
-                text={fill(s.confirmDelete, { name: status.name })}
+                text={fill(s.confirmDelete, { name: shown(status) })}
                 confirmLabel={t.delete}
                 cancelLabel={t.cancel}
                 disabled={pending}
@@ -111,7 +121,7 @@ export function StatusesSection({ statuses, t, errors }: { statuses: Status[]; t
                     () => deleteStatus(status.id),
                     () => {
                       setConfirming(null);
-                      show(fill(s.deleted, { name: status.name }));
+                      show(fill(s.deleted, { name: shown(status) }));
                     },
                   )
                 }
@@ -120,7 +130,7 @@ export function StatusesSection({ statuses, t, errors }: { statuses: Status[]; t
           </div>
         )}
       </SortableList>
-      <AddNameForm label={s.placeholder} buttonLabel={s.add} disabled={pending} onAdd={(name, reset) => run(() => addStatus(name), reset)} />
+      <AddNameForm label={s.placeholder} labelEn={t.nameEnPlaceholder} buttonLabel={s.add} disabled={pending} onAdd={(name, reset, nameEn) => run(() => addStatus(name, nameEn), reset)} />
       <Toast message={message} />
     </section>
   );

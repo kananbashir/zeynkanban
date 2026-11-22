@@ -4,7 +4,7 @@ import { useRef } from "react";
 
 /**
  * Text that edits in place. Saves when the field loses focus or Enter is pressed;
- * Escape or an empty value puts the saved text back.
+ * Escape puts the saved text back, and so does an empty value unless `allowEmpty` (then it clears it).
  */
 export function InlineText({
   value,
@@ -13,6 +13,7 @@ export function InlineText({
   className = "",
   placeholder,
   mono = false,
+  allowEmpty = false,
 }: {
   value: string;
   label: string;
@@ -20,6 +21,7 @@ export function InlineText({
   className?: string;
   placeholder?: string;
   mono?: boolean;
+  allowEmpty?: boolean;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
@@ -41,7 +43,7 @@ export function InlineText({
       }}
       onBlur={(e) => {
         const next = e.currentTarget.value.replace(/\s+/g, " ").trim();
-        if (!next || next === value) {
+        if ((!next && !allowEmpty) || next === value) {
           e.currentTarget.value = value;
           return;
         }

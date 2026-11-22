@@ -48,18 +48,18 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     content = <UsersSection users={list} meId={me.id} t={t.settings} errors={t.errors} roles={t.roles} />;
   } else if (section === "statuses") {
     const list = await db
-      .select({ id: statuses.id, name: statuses.name, color: statuses.color, isFinished: statuses.isFinished, notifyReview: statuses.notifyReview })
+      .select({ id: statuses.id, name: statuses.name, nameEn: statuses.nameEn, color: statuses.color, isFinished: statuses.isFinished, notifyReview: statuses.notifyReview })
       .from(statuses)
       .where(isNull(statuses.deletedAt))
       .orderBy(asc(statuses.position), asc(statuses.createdAt));
-    content = <StatusesSection statuses={list} t={t.settings} errors={t.errors} />;
+    content = <StatusesSection statuses={list} locale={locale} t={t.settings} errors={t.errors} />;
   } else if (section === "types") {
     const list = await db
-      .select({ id: taskTypes.id, name: taskTypes.name, isPublishing: taskTypes.isPublishing })
+      .select({ id: taskTypes.id, name: taskTypes.name, nameEn: taskTypes.nameEn, isPublishing: taskTypes.isPublishing })
       .from(taskTypes)
       .where(and(isNull(taskTypes.deletedAt), eq(taskTypes.oneOff, false)))
       .orderBy(asc(taskTypes.position), asc(taskTypes.createdAt));
-    content = <TaskTypesSection types={list} t={t.settings} errors={t.errors} />;
+    content = <TaskTypesSection types={list} locale={locale} t={t.settings} errors={t.errors} />;
   } else if (section === "content") {
     const [types, usage] = await Promise.all([
       db
@@ -76,7 +76,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     content = <ContentTypesSection types={list} t={t.settings} errors={t.errors} />;
   } else {
     const list = await db
-      .select({ id: specialDays.id, date: specialDays.date, name: specialDays.name, kind: specialDays.kind, yearly: specialDays.yearly })
+      .select({ id: specialDays.id, date: specialDays.date, name: specialDays.name, nameEn: specialDays.nameEn, kind: specialDays.kind, yearly: specialDays.yearly })
       .from(specialDays)
       .orderBy(asc(specialDays.date), asc(specialDays.createdAt));
     content = <SpecialDaysSection days={list} t={t.settings} errors={t.errors} />;

@@ -53,7 +53,7 @@ export async function generateContentIds(
 }
 
 /**
- * Saves a month plan: one "Post publishing" draft (no assignee) per content ID on its chosen day.
+ * Saves a month plan: one "Post publishing" draft (nobody on it yet) per content ID on its chosen day.
  * Content IDs that already have a publishing task are skipped.
  */
 export async function savePublishingPlan(customerId: string, items: { contentId: string; date: string }[]): Promise<{ ok: true; created: number } | Fail> {
@@ -86,7 +86,7 @@ export async function savePublishingPlan(customerId: string, items: { contentId:
   );
   const rows = items
     .filter((i, index) => !planned.has(i.contentId) && items.findIndex((x) => x.contentId === i.contentId) === index)
-    .map((i) => ({ customerId, contentId: i.contentId, taskTypeId: type.id, statusId: first.id, assigneeId: null, dueDate: i.date, note: "", createdBy: me.id }));
+    .map((i) => ({ customerId, contentId: i.contentId, taskTypeId: type.id, statusId: first.id, dueDate: i.date, note: "", createdBy: me.id }));
   if (rows.length) await db.insert(tasks).values(rows);
   revalidatePath("/", "layout");
   return { ok: true, created: rows.length };

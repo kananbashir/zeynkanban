@@ -14,7 +14,7 @@ import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import { shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
 import { dayLabel, longDate } from "@/lib/format-date";
-import type { Section } from "@/lib/task-rules";
+import { groupByPerson, type Section } from "@/lib/task-rules";
 import type { DayTasks, TaskView } from "@/lib/tasks";
 import { PlanMonth, type PlanContent, type PlanPeriod, type PlanType } from "./plan-month";
 import { TaskForm, type FormContent, type FormPerson, type FormType } from "./task-form";
@@ -66,6 +66,13 @@ export function TasksTab({
   const pathname = usePathname();
   const { message, show } = useToast();
   const [form, setForm] = useState<{ task: TaskView | null } | null>(editTask ? { task: editTask } : null);
+  // A task to edit arriving in the address (?edit=, e.g. from the board's Edit link) opens its form.
+  // Done here rather than by remounting the tab, so the "saved" message survives dropping ?edit= afterwards.
+  const [editOpened, setEditOpened] = useState(editTask?.id ?? null);
+  if ((editTask?.id ?? null) !== editOpened) {
+    setEditOpened(editTask?.id ?? null);
+    if (editTask) setForm({ task: editTask });
+  }
   const [fab, setFab] = useState(false);
   const [planning, setPlanning] = useState(openPlan);
   const [whole, setWhole] = useState<TaskView[] | null>(null);
@@ -98,11 +105,7 @@ export function TasksTab({
   const events = specialDaysOn(date, specialDays);
   const onError = (key: string) => show(errors[key as ErrorKey] ?? errors.generic, "error");
 
-  const groups = whole
-    ? [...new Set(whole.map((x) => x.assigneeId ?? ""))]
-        .map((id) => ({ id, list: whole.filter((x) => (x.assigneeId ?? "") === id) }))
-        .sort((a, b) => (a.id === "" ? 1 : b.id === "" ? -1 : b.list.length - a.list.length))
-    : [];
+  const groups = whole ? groupByPerson(whole) : [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -192,6 +195,7 @@ export function TasksTab({
 
       {form && (
         <TaskForm
+          key={form.task?.id ?? "new"}
           customerId={customerId}
           customerName={customerName}
           contents={contents}
@@ -254,11 +258,11 @@ export function TasksTab({
             </div>
             <CloseButton label={t.form.close} onClick={() => setWhole(null)} />
           </div>
-          {groups.map(({ id, list }) => (
+          {groups.map(({ id, name, list }) => (
             <section key={id || "none"} className="flex flex-col rounded-[20px] bg-surface px-4 pb-1.5 pt-3.5">
               <div className="flex items-center gap-2.5 pb-2">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: id ? avatarColor(id) : "var(--color-subtle)" }}>{id ? initials(list[0].assigneeName ?? "?") : "?"}</span>
-                <h3 className="flex-1 text-[15px] font-semibold">{id ? list[0].assigneeName : c.noAssigneeGroup}</h3>
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: id ? avatarColor(id) : "var(--color-subtle)" }}>{id ? initials(name) : "?"}</span>
+                <h3 className="flex-1 text-[15px] font-semibold">{id ? name : c.noAssigneeGroup}</h3>
                 <span className="text-[13px] text-ink-soft">{list.length === 1 ? t.task1 : fill(t.tasksN, { n: list.length })}</span>
               </div>
               {list.map((x) => (

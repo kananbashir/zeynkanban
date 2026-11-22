@@ -5,13 +5,13 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { db } from "@/db";
-import { contents, statuses, taskReminders, taskTypes, tasks, users } from "@/db/schema";
+import { contents, statuses, taskAssignees, taskReminders, taskTypes, tasks, users } from "@/db/schema";
 import type { ErrorKey } from "@/i18n/dictionaries";
 import { requireRole, requireUser } from "@/lib/auth";
 import { isIsoDateString } from "@/lib/dates";
 import { cleanName } from "@/lib/settings-rules";
 import { countsByDay, wholeDay, type TaskView } from "@/lib/tasks";
-import { deliverPush, notify, staffIds, taskRef } from "@/lib/notify";
+import { deliverPush, notify, refOnly, staffIds, taskRef } from "@/lib/notify";
 import { cleanReminders } from "@/lib/reminder-rules";
 import { found } from "@/lib/users";
 
@@ -36,7 +36,8 @@ export type TaskInput = {
   typeName?: string;
   /** Add a hand-typed type to the list in Settings. */
   saveType?: boolean;
-  assigneeId: string | null;
+  /** The people on the task (none: a draft). */
+  assigneeIds: string[];
   dueDate: string;
   description: string;
   note: string;
@@ -68,16 +69,31 @@ async function validate(input: TaskInput): Promise<ErrorKey | null> {
   if (!isIsoDateString(input.dueDate)) return "dateInvalid";
   const [content] = await db.select({ customerId: contents.customerId }).from(contents).where(eq(contents.id, input.contentId));
   if (!content || content.customerId !== input.customerId) return "contentRequired";
-  if (input.assigneeId) {
-    const active = await db.$count(users, and(eq(users.id, input.assigneeId), eq(users.active, true)));
-    if (!active) return "notFound";
+  const people = cleanIds(input.assigneeIds);
+  if (people.length) {
+    const active = await db.$count(users, and(inArray(users.id, people), eq(users.active, true)));
+    if (active !== people.length) return "notFound";
   }
   return null;
 }
 
+/** The chosen people, each once, in the order picked. */
+const cleanIds = (ids: unknown): string[] => [...new Set((Array.isArray(ids) ? ids : []).map(String).filter(Boolean))].slice(0, 20);
+
+/** Puts the chosen people on a task, replacing whoever was on it. */
+async function saveAssignees(taskId: string, ids: string[]) {
+  await db.delete(taskAssignees).where(eq(taskAssignees.taskId, taskId));
+  if (ids.length) await db.insert(taskAssignees).values(ids.map((userId, position) => ({ taskId, userId, position })));
+}
+
+/** Who is on a task now. */
+async function assigneesOf(taskId: string): Promise<string[]> {
+  return (await db.select({ userId: taskAssignees.userId }).from(taskAssignees).where(eq(taskAssignees.taskId, taskId)).orderBy(asc(taskAssignees.position))).map((r) => r.userId);
+}
+
 const text = (value: unknown, max: number) => String(value ?? "").trim().slice(0, max);
 
-/** Creates a task. It starts with the first status; without an assignee it is a draft. */
+/** Creates a task. It starts with the first status; with nobody on it, it is a draft. */
 export async function createTask(input: TaskInput): Promise<Result> {
   const me = await requireRole("admin", "manager");
   const problem = await validate(input);
@@ -94,7 +110,6 @@ export async function createTask(input: TaskInput): Promise<Result> {
     contentId: input.contentId,
     taskTypeId: type.id,
     statusId: first.id,
-    assigneeId: input.assigneeId || null,
     dueDate: input.dueDate,
     description: text(input.description, 5000) || null,
     note: text(input.note, 500),
@@ -103,9 +118,12 @@ export async function createTask(input: TaskInput): Promise<Result> {
     createdBy: me.id,
   });
   if (reminder.days.length) await db.insert(taskReminders).values(reminder.days.map((daysBefore) => ({ taskId: id, daysBefore })));
-  if (input.assigneeId && input.assigneeId !== me.id) {
+  const people = cleanIds(input.assigneeIds);
+  await saveAssignees(id, people);
+  const others = people.filter((p) => p !== me.id);
+  if (others.length) {
     const ref = await taskRef(id);
-    if (ref) push(await notify([input.assigneeId], "assigned", { kind: "assigned", by: me.name, ...ref }, id));
+    if (ref) push(await notify(others, "assigned", { kind: "assigned", by: me.name, ...refOnly(ref) }, id));
   }
   refresh();
   return { ok: true, id };
@@ -117,17 +135,17 @@ export async function updateTask(id: string, input: TaskInput): Promise<Result> 
   if (problem) return fail(problem);
   const type = await resolveType(input);
   if (!type.ok) return fail(type.error);
-  const [before] = await db
-    .select({ assigneeId: tasks.assigneeId, dueDate: tasks.dueDate, description: tasks.description, note: tasks.note, remindTime: tasks.remindTime })
+  const [row] = await db
+    .select({ dueDate: tasks.dueDate, description: tasks.description, note: tasks.note, remindTime: tasks.remindTime })
     .from(tasks)
     .where(eq(tasks.id, id));
+  const before = row ? { ...row, assigneeIds: await assigneesOf(id) } : null;
   const reminder = cleanReminders(input.remindDays, input.remindTime);
   const result = await db
     .update(tasks)
     .set({
       contentId: input.contentId,
       taskTypeId: type.id,
-      assigneeId: input.assigneeId || null,
       dueDate: input.dueDate,
       description: text(input.description, 5000) || null,
       note: text(input.note, 500),
@@ -136,6 +154,7 @@ export async function updateTask(id: string, input: TaskInput): Promise<Result> 
     })
     .where(and(eq(tasks.id, id), eq(tasks.customerId, input.customerId)));
   if (!found(result)) return fail("notFound");
+  await saveAssignees(id, cleanIds(input.assigneeIds));
   await saveReminders(id, reminder.days, !before || before.dueDate !== input.dueDate || before.remindTime !== reminder.time);
   if (before) await notifyChanges(id, before, me);
   return refresh();
@@ -154,37 +173,46 @@ async function saveReminders(taskId: string, days: number[], timingChanged: bool
   if (timingChanged) await db.update(taskReminders).set({ sentAt: null }).where(eq(taskReminders.taskId, taskId));
 }
 
-/** Tells the people concerned what an edit changed for them. Nobody is told about their own edits. */
-async function notifyChanges(id: string, before: { assigneeId: string | null; dueDate: string; description: string | null; note: string }, me: { id: string; name: string }) {
+/**
+ * Tells the people concerned what an edit changed for them: newly added people that the task is
+ * theirs, removed people who has it now, and people who stay on it what changed. Nobody is told
+ * about their own edits.
+ */
+async function notifyChanges(id: string, before: { assigneeIds: string[]; dueDate: string; description: string | null; note: string }, me: { id: string; name: string }) {
   const ref = await taskRef(id);
   if (!ref) return;
+  const now = ref.assignees.map((p) => p.id);
+  const added = now.filter((p) => !before.assigneeIds.includes(p) && p !== me.id);
+  const removed = before.assigneeIds.filter((p) => !now.includes(p) && p !== me.id);
+  const stayed = now.filter((p) => before.assigneeIds.includes(p) && p !== me.id);
+  const facts = refOnly(ref);
   const rows = [];
-  if (before.assigneeId !== ref.assigneeId) {
-    if (ref.assigneeId && ref.assigneeId !== me.id) rows.push(...(await notify([ref.assigneeId], "assigned", { kind: "assigned", by: me.name, ...ref }, id)));
-    if (before.assigneeId && before.assigneeId !== me.id) rows.push(...(await notify([before.assigneeId], "moved", { kind: "moved", to: ref.assigneeName, ...ref }, id)));
-  } else if (ref.assigneeId && ref.assigneeId !== me.id) {
+  if (added.length) rows.push(...(await notify(added, "assigned", { kind: "assigned", by: me.name, ...facts }, id)));
+  if (removed.length) rows.push(...(await notify(removed, "moved", { kind: "moved", to: ref.assignees.length ? ref.assignees.map((p) => p.name).join(", ") : null, ...facts }, id)));
+  if (stayed.length) {
     const [current] = await db.select({ description: tasks.description, note: tasks.note }).from(tasks).where(eq(tasks.id, id));
     const change = {
       ...(before.dueDate !== ref.due ? { dateFrom: before.dueDate, dateTo: ref.due } : {}),
       ...((before.description ?? "") !== (current?.description ?? "") ? { description: true } : {}),
       ...(before.note !== (current?.note ?? "") ? { note: current?.note ?? "" } : {}),
     };
-    if (Object.keys(change).length) rows.push(...(await notify([ref.assigneeId], "changed", { kind: "changed", ...change, ...ref }, id)));
+    if (Object.keys(change).length) rows.push(...(await notify(stayed, "changed", { kind: "changed", ...change, ...facts }, id)));
   }
   push(rows);
 }
 
-/** Admins and managers can change any task's status; employees only their own. */
+/** Admins and managers can change any task's status; employees only tasks they are on. */
 export async function setTaskStatus(id: string, statusId: string): Promise<Result> {
   const me = await requireUser();
   const [task] = await db
-    .select({ assigneeId: tasks.assigneeId, wasFinished: statuses.isFinished, finishedAt: tasks.finishedAt, statusId: tasks.statusId, statusName: statuses.name })
+    .select({ wasFinished: statuses.isFinished, finishedAt: tasks.finishedAt, statusId: tasks.statusId, statusName: statuses.name, statusNameEn: statuses.nameEn })
     .from(tasks)
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
     .where(eq(tasks.id, id));
   if (!task) return fail("notFound");
-  if (me.role === "employee" && task.assigneeId !== me.id) return fail("notAllowed");
-  const [status] = await db.select({ name: statuses.name, isFinished: statuses.isFinished, notifyReview: statuses.notifyReview }).from(statuses).where(and(eq(statuses.id, statusId), isNull(statuses.deletedAt)));
+  const people = await assigneesOf(id);
+  if (me.role === "employee" && !people.includes(me.id)) return fail("notAllowed");
+  const [status] = await db.select({ name: statuses.name, nameEn: statuses.nameEn, isFinished: statuses.isFinished, notifyReview: statuses.notifyReview }).from(statuses).where(and(eq(statuses.id, statusId), isNull(statuses.deletedAt)));
   if (!status) return fail("notFound");
   const finishedAt = status.isFinished ? (task.wasFinished && task.finishedAt ? task.finishedAt : new Date()) : null;
   await db.update(tasks).set({ statusId, finishedAt, updatedAt: new Date() }).where(eq(tasks.id, id));
@@ -192,11 +220,21 @@ export async function setTaskStatus(id: string, statusId: string): Promise<Resul
     const ref = await taskRef(id);
     if (ref) {
       // Admins and managers hear about every status change made by someone else ("Ready for review"
-      // has its own notification). The assignee is told when someone else changes their task's status.
+      // has its own notification). The people on the task are told when someone else changes its status.
       const staff = await staffIds(me.id);
-      const change = { kind: "status" as const, from: task.statusName, to: status.name, by: me.name, ...ref };
-      const rows = status.notifyReview ? await notify(staff, "review", { kind: "review", by: me.name, ...ref }, id) : await notify(staff, "status", change, id);
-      if (task.assigneeId && task.assigneeId !== me.id && !staff.includes(task.assigneeId)) rows.push(...(await notify([task.assigneeId], "changed", change, id)));
+      const facts = refOnly(ref);
+      const change = {
+        kind: "status" as const,
+        from: task.statusName,
+        to: status.name,
+        ...(task.statusNameEn ? { fromEn: task.statusNameEn } : {}),
+        ...(status.nameEn ? { toEn: status.nameEn } : {}),
+        by: me.name,
+        ...facts,
+      };
+      const rows = status.notifyReview ? await notify(staff, "review", { kind: "review", by: me.name, ...facts }, id) : await notify(staff, "status", change, id);
+      const workers = people.filter((p) => p !== me.id && !staff.includes(p));
+      if (workers.length) rows.push(...(await notify(workers, "changed", change, id)));
       push(rows);
     }
   }

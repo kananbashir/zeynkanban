@@ -19,13 +19,13 @@ describe("periods", () => {
 });
 
 describe("summarize", () => {
-  const row = (o: Partial<CountRow>): CountRow => ({ dueDate: "2026-11-20", assigneeId: "a", customerId: "c1", statusId: "todo", contentTypeId: "vid", finished: false, ...o });
+  const row = (o: Partial<CountRow>): CountRow => ({ dueDate: "2026-11-20", assigneeIds: ["a"], customerId: "c1", statusId: "todo", contentTypeId: "vid", finished: false, ...o });
   const s = summarize(
     [
       row({}),
       row({ finished: true, statusId: "done" }),
-      row({ dueDate: "2026-11-25", assigneeId: "b", customerId: "c2", contentTypeId: "gpost" }),
-      row({ assigneeId: null }),
+      row({ dueDate: "2026-11-25", assigneeIds: ["b", "a"], customerId: "c2", contentTypeId: "gpost" }),
+      row({ assigneeIds: [] }),
     ],
     "2026-11-22",
   );
@@ -38,6 +38,7 @@ describe("summarize", () => {
   it("groups by day, person, customer, status and content type", () => {
     expect(s.perDay["2026-11-20"]).toEqual({ total: 2, finished: 1 });
     expect(s.byPerson.b).toEqual({ total: 1, finished: 0 });
+    expect(s.byPerson.a).toEqual({ total: 3, finished: 1 }); // a shared task counts for each person on it
     expect(s.byCustomer.c1).toEqual({ total: 2, finished: 1 });
     expect(s.byStatus).toEqual({ todo: 2, done: 1 });
     expect(s.byContentType.gpost.total).toBe(1);

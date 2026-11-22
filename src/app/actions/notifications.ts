@@ -15,13 +15,13 @@ export type NotificationItem = { id: string; title: string; a: string; b: string
 /** Only the caller's own notifications, written in the site's current language. */
 export async function loadNotifications(): Promise<{ unread: number; items: NotificationItem[]; prefs: Record<PrefKey, boolean>; prefKeys: PrefKey[]; publicKey: string }> {
   const me = await requireUser();
-  const { t } = await getDictionary();
+  const { t, locale } = await getDictionary();
   const staff = me.role !== "employee";
   const rows = await db.select().from(notifications).where(eq(notifications.userId, me.id)).orderBy(desc(notifications.createdAt)).limit(60);
   const now = new Date();
   const today = todayIso();
   const items = rows.map((r) => {
-    const text = notificationText(JSON.parse(r.data) as NotificationData, staff, today, t.notifications, t.tasks);
+    const text = notificationText(JSON.parse(r.data) as NotificationData, staff, today, t.notifications, t.tasks, locale);
     return { id: r.id, ...text, time: notificationTime(r.createdAt, now, t.notifications, t.tasks), today: dateInZone(r.createdAt) === today, unread: !r.readAt };
   });
   const [prefRow] = await db.select().from(notificationPrefs).where(eq(notificationPrefs.userId, me.id));

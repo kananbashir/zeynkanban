@@ -1,9 +1,12 @@
 import "server-only";
 import { and, asc, eq, gte, inArray, isNull, lt, lte, or, sql, type SQL } from "drizzle-orm";
-import { alias } from "drizzle-orm/mysql-core";
 import { db } from "@/db";
 import { contentTypes, contents, customers, specialDays, statuses, taskNotes, taskReminders, taskTypes, tasks, users } from "@/db/schema";
+import type { Locale } from "@/i18n/dictionaries";
+import { getLocale } from "@/i18n/server";
+import { assignedTo, assigneesColumn, hasAssignees, noAssignees, parseAssignees, type Person } from "./assignees";
 import { addDays, dateInZone, type SpecialDay } from "./dates";
+import { localName } from "./names";
 import { sectionFor, type Section } from "./task-rules";
 
 /** Everything a task card needs. Sent to the browser, so no secrets. */
@@ -25,8 +28,8 @@ export type TaskView = {
   statusColor: string;
   statusDeleted: boolean;
   finished: boolean;
-  assigneeId: string | null;
-  assigneeName: string | null;
+  /** The people on the task, in the order they were picked; none means it is a draft. */
+  assignees: Person[];
   dueDate: string;
   description: string;
   note: string;
@@ -37,8 +40,6 @@ export type TaskView = {
   remindTime: string | null;
   notesCount: number;
 };
-
-const assignee = alias(users, "assignee");
 
 function select(where: SQL | undefined) {
   return db
@@ -53,15 +54,16 @@ function select(where: SQL | undefined) {
       contentTypeCode: contentTypes.code,
       taskTypeId: tasks.taskTypeId,
       typeName: taskTypes.name,
+      typeNameEn: taskTypes.nameEn,
       typeDeletedAt: taskTypes.deletedAt,
       isPublishing: taskTypes.isPublishing,
       statusId: tasks.statusId,
       statusName: statuses.name,
+      statusNameEn: statuses.nameEn,
       statusColor: statuses.color,
       statusDeletedAt: statuses.deletedAt,
       finished: statuses.isFinished,
-      assigneeId: tasks.assigneeId,
-      assigneeName: assignee.name,
+      assignees: assigneesColumn,
       dueDate: tasks.dueDate,
       description: tasks.description,
       note: tasks.note,
@@ -78,14 +80,13 @@ function select(where: SQL | undefined) {
     .innerJoin(contentTypes, eq(contentTypes.id, contents.contentTypeId))
     .innerJoin(taskTypes, eq(taskTypes.id, tasks.taskTypeId))
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
-    .leftJoin(assignee, eq(assignee.id, tasks.assigneeId))
     .where(where)
     .orderBy(asc(tasks.dueDate), asc(customers.name), asc(tasks.createdAt));
 }
 
 type Row = Awaited<ReturnType<typeof select>>[number];
 
-function toView(row: Row): TaskView {
+function toView(row: Row, locale: Locale): TaskView {
   return {
     id: row.id,
     customerId: row.customerId,
@@ -96,16 +97,15 @@ function toView(row: Row): TaskView {
     contentArchived: row.contentArchived,
     contentTypeCode: row.contentTypeCode,
     taskTypeId: row.taskTypeId,
-    typeName: row.typeName,
+    typeName: localName(row.typeName, row.typeNameEn, locale),
     typeDeleted: !!row.typeDeletedAt,
     isPublishing: row.isPublishing,
     statusId: row.statusId,
-    statusName: row.statusName,
+    statusName: localName(row.statusName, row.statusNameEn, locale),
     statusColor: row.statusColor,
     statusDeleted: !!row.statusDeletedAt,
     finished: row.finished,
-    assigneeId: row.assigneeId,
-    assigneeName: row.assigneeName,
+    assignees: parseAssignees(row.assignees),
     dueDate: row.dueDate,
     description: row.description ?? "",
     note: row.note,
@@ -121,20 +121,21 @@ export type DayTasks = Record<Section, TaskView[]>;
 
 /**
  * The tasks shown on a day view: overdue (today only), due that day, and finished that day.
- * Drafts (no assignee) are left out unless asked for. Optional filters narrow it to one customer or person.
+ * Drafts (nobody on them) are left out unless asked for. Optional filters narrow it to one customer or person.
  */
 export async function dayTasks(date: string, today: string, filter: { customerId?: string; assigneeId?: string; includeDrafts?: boolean } = {}): Promise<DayTasks> {
+  const locale = await getLocale();
   const conditions: SQL[] = [eq(tasks.archived, false)];
   if (filter.customerId) conditions.push(eq(tasks.customerId, filter.customerId));
-  if (filter.assigneeId) conditions.push(eq(tasks.assigneeId, filter.assigneeId));
-  if (!filter.includeDrafts) conditions.push(sql`${tasks.assigneeId} is not null`);
+  if (filter.assigneeId) conditions.push(assignedTo(filter.assigneeId));
+  if (!filter.includeDrafts) conditions.push(hasAssignees);
   // Candidates: due that day, unfinished earlier ones (when viewing today), or finished around that day.
   const around = or(
     eq(tasks.dueDate, date),
     date === today ? lt(tasks.dueDate, today) : undefined,
     and(gte(tasks.finishedAt, new Date(`${addDays(date, -1)}T00:00:00Z`)), lt(tasks.finishedAt, new Date(`${addDays(date, 2)}T00:00:00Z`))),
   );
-  const rows = (await select(and(...conditions, around))).map(toView);
+  const rows = (await select(and(...conditions, around))).map((row) => toView(row, locale));
   const out: DayTasks = { overdue: [], due: [], finished: [] };
   for (const task of rows) {
     const section = sectionFor(task, date, today);
@@ -143,27 +144,29 @@ export async function dayTasks(date: string, today: string, filter: { customerId
   return out;
 }
 
-/** Drafts of a customer: tasks without an assignee, in date order. */
+/** Drafts of a customer: tasks nobody is on yet, in date order. */
 export async function draftsOf(customerId: string): Promise<TaskView[]> {
-  return (await select(and(eq(tasks.customerId, customerId), eq(tasks.archived, false), isNull(tasks.assigneeId)))).map(toView);
+  const locale = await getLocale();
+  return (await select(and(eq(tasks.customerId, customerId), eq(tasks.archived, false), noAssignees))).map((row) => toView(row, locale));
 }
 
 /** Every task of a customer (archived ones too), for the Contents tab. */
 export async function tasksOfCustomer(customerId: string): Promise<TaskView[]> {
-  return (await select(eq(tasks.customerId, customerId))).map(toView);
+  const locale = await getLocale();
+  return (await select(eq(tasks.customerId, customerId))).map((row) => toView(row, locale));
 }
 
 export async function taskById(id: string): Promise<TaskView | null> {
   const [row] = await select(eq(tasks.id, id));
-  return row ? toView(row) : null;
+  return row ? toView(row, await getLocale()) : null;
 }
 
 /** Number of (unarchived) tasks due on each day of a range, optionally for one customer or person. */
 export async function countsByDay(from: string, to: string, filter: { customerId?: string; assigneeId?: string; excludeDrafts?: boolean } = {}) {
   const conditions: SQL[] = [eq(tasks.archived, false), gte(tasks.dueDate, from), lte(tasks.dueDate, to)];
   if (filter.customerId) conditions.push(eq(tasks.customerId, filter.customerId));
-  if (filter.assigneeId) conditions.push(eq(tasks.assigneeId, filter.assigneeId));
-  if (filter.excludeDrafts) conditions.push(sql`${tasks.assigneeId} is not null`);
+  if (filter.assigneeId) conditions.push(assignedTo(filter.assigneeId));
+  if (filter.excludeDrafts) conditions.push(hasAssignees);
   const rows = await db
     .select({ date: tasks.dueDate, n: sql<number>`count(*)`.mapWith(Number) })
     .from(tasks)
@@ -174,31 +177,41 @@ export async function countsByDay(from: string, to: string, filter: { customerId
 
 /** All tasks due on a day, across every customer, drafts included: the "whole day" view. */
 export async function wholeDay(date: string): Promise<TaskView[]> {
-  return (await select(and(eq(tasks.archived, false), eq(tasks.dueDate, date)))).map(toView);
+  const locale = await getLocale();
+  return (await select(and(eq(tasks.archived, false), eq(tasks.dueDate, date)))).map((row) => toView(row, locale));
 }
 
+/** Statuses to choose from, named in the reader's language. */
 export async function liveStatuses() {
-  return db
-    .select({ id: statuses.id, name: statuses.name, color: statuses.color, isFinished: statuses.isFinished })
+  const locale = await getLocale();
+  const rows = await db
+    .select({ id: statuses.id, name: statuses.name, nameEn: statuses.nameEn, color: statuses.color, isFinished: statuses.isFinished })
     .from(statuses)
     .where(isNull(statuses.deletedAt))
     .orderBy(asc(statuses.position), asc(statuses.createdAt));
+  return rows.map(({ nameEn, ...row }) => ({ ...row, name: localName(row.name, nameEn, locale) }));
 }
 
+/** Task types to choose from, named in the reader's language. */
 export async function listedTaskTypes() {
-  return db
-    .select({ id: taskTypes.id, name: taskTypes.name, isPublishing: taskTypes.isPublishing })
+  const locale = await getLocale();
+  const rows = await db
+    .select({ id: taskTypes.id, name: taskTypes.name, nameEn: taskTypes.nameEn, isPublishing: taskTypes.isPublishing })
     .from(taskTypes)
     .where(and(isNull(taskTypes.deletedAt), eq(taskTypes.oneOff, false)))
     .orderBy(asc(taskTypes.position), asc(taskTypes.createdAt));
+  return rows.map(({ nameEn, ...row }) => ({ ...row, name: localName(row.name, nameEn, locale) }));
 }
 
 export async function activePeople() {
   return db.select({ id: users.id, name: users.name, role: users.role }).from(users).where(eq(users.active, true)).orderBy(asc(users.name));
 }
 
+/** Holidays and special events, named in the reader's language. */
 export async function allSpecialDays(): Promise<SpecialDay[]> {
-  return db.select({ date: specialDays.date, name: specialDays.name, kind: specialDays.kind, yearly: specialDays.yearly }).from(specialDays);
+  const locale = await getLocale();
+  const rows = await db.select({ date: specialDays.date, name: specialDays.name, nameEn: specialDays.nameEn, kind: specialDays.kind, yearly: specialDays.yearly }).from(specialDays);
+  return rows.map(({ nameEn, ...row }) => ({ ...row, name: localName(row.name, nameEn, locale) }));
 }
 
 export async function customersForFilter(ids: string[]) {

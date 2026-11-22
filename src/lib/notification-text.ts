@@ -1,10 +1,12 @@
 // Turns a stored notification into words, in either language. Pure, tested in notification-text.test.ts.
-import type { Dictionary } from "@/i18n/dictionaries";
+import type { Dictionary, Locale } from "@/i18n/dictionaries";
+import { localName } from "./names";
 import { fill } from "@/i18n/format";
 import { dateInZone, daysBetween, weekdayIndex } from "./dates";
 import { shortDate } from "./format-date";
 
-export type TaskRef = { taskId: string; type: string; code: string; customer: string; customerId: string; due: string };
+/** The facts about a task a notification repeats. `type`/`typeEn`: the task type in Azerbaijani and English. */
+export type TaskRef = { taskId: string; type: string; typeEn?: string; code: string; customer: string; customerId: string; due: string };
 
 export type NotificationData =
   | ({ kind: "assigned"; by: string } & TaskRef)
@@ -12,7 +14,7 @@ export type NotificationData =
   | ({ kind: "changed"; dateFrom?: string; dateTo?: string; description?: boolean; note?: string | null } & TaskRef)
   | ({ kind: "review"; by: string } & TaskRef)
   | ({ kind: "overdue"; assignee: string | null } & TaskRef)
-  | ({ kind: "status"; from: string; to: string; by: string } & TaskRef)
+  | ({ kind: "status"; from: string; to: string; fromEn?: string; toEn?: string; by: string } & TaskRef)
   | ({ kind: "reminder" } & TaskRef)
   | ({ kind: "note"; by: string; body: string } & TaskRef)
   | { kind: "personal"; title: string; due: string; time: string | null }
@@ -35,7 +37,7 @@ export type IconKind = "assigned" | "moved" | "changed" | "review" | "overdue" |
 type T = Dictionary["notifications"];
 type TaskT = Pick<Dictionary["tasks"], "monthsShort" | "tasksN" | "task1">;
 
-export function notificationText(d: NotificationData, viewerIsStaff: boolean, today: string, t: T, taskT: TaskT): NotificationText {
+export function notificationText(d: NotificationData, viewerIsStaff: boolean, today: string, t: T, taskT: TaskT, locale: Locale = "az"): NotificationText {
   const date = (iso: string) => shortDate(iso, taskT);
   const tasks = (n: number) => (n === 1 ? taskT.task1 : fill(taskT.tasksN, { n }));
   if (d.kind === "summary") {
@@ -53,7 +55,7 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
   }
   if (d.kind === "overdueMany") return { title: fill(t.kinds.overdueMany, { n: d.count }), a: t.overdueManyLine, b: "", href: "/board", icon: "overdue" };
 
-  const a = `${d.type} · ${d.code} · ${d.customer}`;
+  const a = `${localName(d.type, d.typeEn, locale)} · ${d.code} · ${d.customer}`;
   const home = viewerIsStaff ? "/board" : "/my-tasks";
   const href = `${home}?task=${d.taskId}${d.kind === "note" ? "&notes=1" : ""}`;
   const open = { taskId: d.taskId, notes: d.kind === "note" };
@@ -73,7 +75,7 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
     case "note":
       return { title: t.kinds.note, a, b: fill(t.noteLine, { name: d.by, body: d.body }), href, icon: "note", ...open };
     case "status":
-      return { title: t.kinds.status, a, b: `${d.from} → ${d.to} · ${d.by}`, href, icon: "status", ...open };
+      return { title: t.kinds.status, a, b: `${localName(d.from, d.fromEn, locale)} → ${localName(d.to, d.toEn, locale)} · ${d.by}`, href, icon: "status", ...open };
     case "reminder": {
       const left = daysBetween(today, d.due);
       const b = left < 0 ? fill(t.wasDue, { date: date(d.due) }) : left === 0 ? t.remindToday : left === 1 ? t.remindTomorrow : fill(t.remindIn, { n: left, date: date(d.due) });

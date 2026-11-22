@@ -101,13 +101,24 @@ async function liveStatuses() {
     .orderBy(asc(statuses.position));
 }
 
-export async function addStatus(name: string): Promise<Result> {
+/** An English name: empty means "use the Azerbaijani one". */
+function cleanNameEn(input: unknown): { ok: true; value: string | null } | { ok: false; error: ErrorKey } {
+  const value = String(input ?? "").replace(/\s+/g, " ").trim();
+  if (!value) return { ok: true, value: null };
+  const clean = cleanName(value);
+  return clean;
+}
+
+export async function addStatus(name: string, nameEn = ""): Promise<Result> {
   await requireRole("admin");
   const clean = cleanName(name);
   if (!clean.ok) return fail(clean.error);
+  const en = cleanNameEn(nameEn);
+  if (!en.ok) return fail(en.error);
   const live = await liveStatuses();
   await db.insert(statuses).values({
     name: clean.value,
+    nameEn: en.value,
     color: nextStatusColor(live.map((s) => s.color)),
     position: live.length,
   });
@@ -119,6 +130,14 @@ export async function renameStatus(id: string, name: string): Promise<Result> {
   const clean = cleanName(name);
   if (!clean.ok) return fail(clean.error);
   const rows = await db.update(statuses).set({ name: clean.value }).where(and(eq(statuses.id, id), isNull(statuses.deletedAt)));
+  return found(rows) ? done() : fail("notFound");
+}
+
+export async function renameStatusEn(id: string, nameEn: string): Promise<Result> {
+  await requireRole("admin");
+  const en = cleanNameEn(nameEn);
+  if (!en.ok) return fail(en.error);
+  const rows = await db.update(statuses).set({ nameEn: en.value }).where(and(eq(statuses.id, id), isNull(statuses.deletedAt)));
   return found(rows) ? done() : fail("notFound");
 }
 
@@ -174,13 +193,23 @@ async function liveTaskTypes() {
     .orderBy(asc(taskTypes.position));
 }
 
-export async function addTaskType(name: string): Promise<Result> {
+export async function addTaskType(name: string, nameEn = ""): Promise<Result> {
   await requireRole("admin");
   const clean = cleanName(name);
   if (!clean.ok) return fail(clean.error);
+  const en = cleanNameEn(nameEn);
+  if (!en.ok) return fail(en.error);
   const live = await liveTaskTypes();
-  await db.insert(taskTypes).values({ name: clean.value, position: live.length });
+  await db.insert(taskTypes).values({ name: clean.value, nameEn: en.value, position: live.length });
   return done();
+}
+
+export async function renameTaskTypeEn(id: string, nameEn: string): Promise<Result> {
+  await requireRole("admin");
+  const en = cleanNameEn(nameEn);
+  if (!en.ok) return fail(en.error);
+  const rows = await db.update(taskTypes).set({ nameEn: en.value }).where(and(eq(taskTypes.id, id), isNull(taskTypes.deletedAt)));
+  return found(rows) ? done() : fail("notFound");
 }
 
 export async function renameTaskType(id: string, name: string): Promise<Result> {
@@ -257,19 +286,21 @@ export async function setContentTypeArchived(id: string, archived: boolean): Pro
 
 /* ---------- Holidays and special events ---------- */
 
-export async function addSpecialDay(input: { date: string; name: string; kind: string; yearly: boolean }): Promise<Result> {
+export async function addSpecialDay(input: { date: string; name: string; nameEn?: string; kind: string; yearly: boolean }): Promise<Result> {
   await requireRole("admin");
   if (!isIsoDate(input.date)) return fail("dateInvalid");
   const clean = cleanName(input.name);
   if (!clean.ok) return fail(clean.error);
+  const en = cleanNameEn(input.nameEn);
+  if (!en.ok) return fail(en.error);
   if (!isDayKind(input.kind)) return fail("generic");
-  await db.insert(specialDays).values({ date: input.date, name: clean.value, kind: input.kind, yearly: !!input.yearly });
+  await db.insert(specialDays).values({ date: input.date, name: clean.value, nameEn: en.value, kind: input.kind, yearly: !!input.yearly });
   return done();
 }
 
 export async function updateSpecialDay(
   id: string,
-  patch: Partial<{ date: string; name: string; kind: string; yearly: boolean }>,
+  patch: Partial<{ date: string; name: string; nameEn: string; kind: string; yearly: boolean }>,
 ): Promise<Result> {
   await requireRole("admin");
   const set: Partial<typeof specialDays.$inferInsert> = {};
@@ -281,6 +312,11 @@ export async function updateSpecialDay(
     const clean = cleanName(patch.name);
     if (!clean.ok) return fail(clean.error);
     set.name = clean.value;
+  }
+  if (patch.nameEn !== undefined) {
+    const en = cleanNameEn(patch.nameEn);
+    if (!en.ok) return fail(en.error);
+    set.nameEn = en.value;
   }
   if (patch.kind !== undefined) {
     if (!isDayKind(patch.kind)) return fail("generic");

@@ -1,9 +1,10 @@
 import "server-only";
-import { and, eq, gte, inArray, isNotNull, isNull, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { personalReminders, personalTasks, statuses, taskReminders, tasks } from "@/db/schema";
 import { addDays, APP_TIME_ZONE, todayIso } from "./dates";
-import { deliverPush, notify, taskRef } from "./notify";
+import { hasAssignees } from "./assignees";
+import { deliverPush, notify, refOnly, taskRef } from "./notify";
 import { personalState, reminderState } from "./reminder-rules";
 import { found } from "./users";
 
@@ -24,36 +25,37 @@ export async function runReminders(now = new Date()): Promise<number> {
   const today = todayIso();
   const clock = clockIn(now);
   const waiting = await db
-    .select({ taskId: tasks.id, assigneeId: tasks.assigneeId, dueDate: tasks.dueDate, remindTime: tasks.remindTime, daysBefore: taskReminders.daysBefore })
+    .select({ taskId: tasks.id, dueDate: tasks.dueDate, remindTime: tasks.remindTime, daysBefore: taskReminders.daysBefore })
     .from(taskReminders)
     .innerJoin(tasks, eq(tasks.id, taskReminders.taskId))
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
     .where(
       and(
         isNull(taskReminders.sentAt),
-        isNotNull(tasks.assigneeId),
+        hasAssignees,
         eq(tasks.archived, false),
         eq(statuses.isFinished, false),
         gte(tasks.dueDate, today),
         lte(tasks.dueDate, addDays(today, 5)),
       ),
     );
-  const due = new Map<string, { assigneeId: string; days: number[] }>();
+  const due = new Map<string, { days: number[] }>();
   for (const r of waiting) {
     if (reminderState({ dueDate: r.dueDate, daysBefore: r.daysBefore, remindTime: r.remindTime ?? "09:00" }, today, clock) !== "send") continue;
-    const entry = due.get(r.taskId) ?? { assigneeId: r.assigneeId!, days: [] };
+    const entry = due.get(r.taskId) ?? { days: [] };
     entry.days.push(r.daysBefore);
     due.set(r.taskId, entry);
   }
   const rows = [];
-  for (const [taskId, { assigneeId, days }] of due) {
+  for (const [taskId, { days }] of due) {
     const claim = await db
       .update(taskReminders)
       .set({ sentAt: now })
       .where(and(eq(taskReminders.taskId, taskId), inArray(taskReminders.daysBefore, days), isNull(taskReminders.sentAt)));
     if (!found(claim)) continue; // another process sent it
     const ref = await taskRef(taskId);
-    if (ref) rows.push(...(await notify([assigneeId], "reminder", { kind: "reminder", ...ref }, taskId)));
+    // Everyone on the task is reminded.
+    if (ref?.assignees.length) rows.push(...(await notify(ref.assignees.map((p) => p.id), "reminder", { kind: "reminder", ...refOnly(ref) }, taskId)));
   }
   rows.push(...(await personalDue(today, clock, now)));
   await deliverPush(rows);

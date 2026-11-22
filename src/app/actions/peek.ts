@@ -16,13 +16,14 @@ export async function peekTask(
   const me = await requireUser();
   const task = await taskById(String(id));
   const staff = me.role !== "employee";
-  if (!task || (!staff && task.assigneeId !== me.id)) return { ok: false, error: "taskGone" };
+  const mine = !!task?.assignees.some((p) => p.id === me.id);
+  if (!task || (!staff && !mine)) return { ok: false, error: "taskGone" };
   return {
     ok: true,
     task,
     statuses: await liveStatuses(),
     today: todayIso(),
     editHref: staff ? `/customers/${task.customerId}?tab=tasks&date=${task.dueDate}&edit=${task.id}` : null,
-    canChangeStatus: !task.archived && (staff || task.assigneeId === me.id),
+    canChangeStatus: !task.archived && (staff || mine),
   };
 }

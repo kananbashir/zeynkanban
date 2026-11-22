@@ -125,7 +125,7 @@ export function ContentsTab({
             {own.map((x, i) => (
               <div key={x.id} className={`flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5 text-[13px] text-ink-soft ${i ? "border-t border-line" : ""}`}>
                 <span className="flex-[1_1_150px] text-sm font-semibold text-ink">{x.typeDeleted ? fill(taskT.deletedType, { name: x.typeName }) : x.typeName}</span>
-                <span className="flex flex-[1_1_150px] items-center gap-2">{x.assigneeName ?? taskT.noAssignee}</span>
+                <span className="flex flex-[1_1_150px] items-center gap-2">{x.assignees.length ? x.assignees.map((p) => p.name).join(", ") : taskT.noAssignee}</span>
                 <span className="whitespace-nowrap">{shortDate(x.dueDate, taskT)}</span>
                 <span className="flex min-w-[130px] items-center gap-1.5 whitespace-nowrap font-semibold text-ink">
                   <span className="size-[9px] rounded-full" style={{ background: x.archived ? "var(--color-subtle)" : x.statusColor }} />
