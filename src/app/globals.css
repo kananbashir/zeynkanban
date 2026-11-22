@@ -98,3 +98,13 @@ a {
   to { transform: none; }
 }
 .zk-grow-x { animation: zk-grow-x 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); transform-origin: left; }
+
+/* Dropdowns: our own arrow, set in from the edge (the browser's sits right against the border). */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234a5563' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px 16px;
+  padding-right: 40px;
+}

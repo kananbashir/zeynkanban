@@ -4,14 +4,15 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { MiniCalendar } from "@/components/mini-calendar";
-import { SegmentedControl, SlideByDate, useFlip } from "@/components/motion";
+import { DaySwitcher, EventChips } from "@/components/day-header";
+import { SegmentedControl, useFlip } from "@/components/motion";
 import { avatarColor, TaskCard, type StatusOption } from "@/components/task-card";
 import { Toast, useToast } from "@/components/toast";
 import { initials } from "@/components/top-bar";
 import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
-import { addDays, shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
-import { dayLabel, longDate, shortDate } from "@/lib/format-date";
+import { shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
+import { shortDate } from "@/lib/format-date";
 import type { Section } from "@/lib/task-rules";
 import type { DayTasks, TaskView } from "@/lib/tasks";
 
@@ -52,7 +53,6 @@ export function BoardView({
   const [customerFilter, setCustomerFilter] = useState<string[]>([]);
   const [peopleFilter, setPeopleFilter] = useState<string[]>([]);
   const [sideOpen, setSideOpen] = useState(false);
-  const fmt = { ...t, months };
   const b = t.board;
   const list = useRef<HTMLDivElement>(null);
   useFlip(list);
@@ -198,28 +198,8 @@ export function BoardView({
                   {b.filters}
                 </button>
               </div>
-              <div className="flex items-center gap-1">
-                <button type="button" aria-label={t.prevDay} onClick={() => go({ date: addDays(date, -1) })} className="-ml-2.5 flex size-11 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
-                </button>
-                <h1 className="min-w-0 overflow-hidden whitespace-nowrap text-[19px] font-semibold sm:text-[26px]">
-                  <SlideByDate date={date}>
-                    <span className="hidden sm:inline">{longDate(date, fmt)}</span>
-                    <span className="sm:hidden">{dayLabel(date, fmt, Number(today.slice(0, 4)))}</span>
-                  </SlideByDate>
-                </h1>
-                <button type="button" aria-label={t.nextDay} onClick={() => go({ date: addDays(date, 1) })} className="flex size-11 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
-                  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
-                </button>
-                {isToday ? (
-                  <span className="shrink-0 rounded-full bg-teal-tint px-3 py-1.5 text-[13px] font-semibold text-teal-deep">{t.today}</span>
-                ) : (
-                  <button type="button" onClick={() => go({ date: today })} className="min-h-11 shrink-0 whitespace-nowrap rounded-full bg-sun px-4 text-sm font-semibold text-ink">{t.goToday}</button>
-                )}
-              </div>
-              {events.map((e) => (
-                <span key={e.name} className="self-start rounded-full bg-sun-tint px-3 py-1.5 text-[13px] font-semibold text-sun-ink">{e.name}</span>
-              ))}
+              <DaySwitcher date={date} today={today} onGo={(iso) => go({ date: iso })} t={t} months={months} />
+              <EventChips events={events} t={t} />
             </div>
             <div className="ml-auto flex w-full min-w-0 flex-wrap items-center gap-2.5 sm:w-auto">
               <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={b.search} aria-label={b.search} className="h-11 min-w-0 flex-[1_1_180px] rounded-full border-[1.5px] border-line-strong bg-white px-4 text-sm" />

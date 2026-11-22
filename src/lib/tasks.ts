@@ -32,6 +32,8 @@ export type TaskView = {
   note: string;
   archived: boolean;
   finishedOn: string | null;
+  remindDays: number | null;
+  remindTime: string | null;
 };
 
 const assignee = alias(users, "assignee");
@@ -63,6 +65,8 @@ function select(where: SQL | undefined) {
       note: tasks.note,
       archived: tasks.archived,
       finishedAt: tasks.finishedAt,
+      remindDays: tasks.remindDays,
+      remindTime: tasks.remindTime,
       createdAt: tasks.createdAt,
     })
     .from(tasks)
@@ -104,6 +108,8 @@ function toView(row: Row): TaskView {
     note: row.note,
     archived: row.archived,
     finishedOn: row.finishedAt ? dateInZone(row.finishedAt) : null,
+    remindDays: row.remindDays,
+    remindTime: row.remindTime,
   };
 }
 

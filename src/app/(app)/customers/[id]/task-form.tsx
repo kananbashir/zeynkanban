@@ -11,6 +11,7 @@ import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import { monthGrid, monthOf, shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
 import { dayLabel, shortDate } from "@/lib/format-date";
+import { DEFAULT_REMIND_TIME, REMIND_DAYS, reminderDate } from "@/lib/reminder-rules";
 import type { TaskView } from "@/lib/tasks";
 
 export type FormContent = { id: string; code: string; typeName: string; publishDate: string | null };
@@ -68,6 +69,8 @@ export function TaskForm({
   const [date, setDate] = useState(task?.dueDate ?? defaultDate);
   const [description, setDescription] = useState(task?.description ?? "");
   const [note, setNote] = useState(task?.note ?? "");
+  const [remindDays, setRemindDays] = useState<number | null>(task?.remindDays ?? null);
+  const [remindTime, setRemindTime] = useState(task?.remindTime ?? DEFAULT_REMIND_TIME);
   const [shown, setShown] = useState(monthOf(task?.dueDate ?? defaultDate));
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [dayList, setDayList] = useState<TaskView[]>([]);
@@ -129,6 +132,8 @@ export function TaskForm({
       dueDate: date,
       description,
       note,
+      remindDays,
+      remindTime,
     };
     startTransition(async () => {
       const result = task ? await updateTask(task.id, input) : await createTask(input);
@@ -224,6 +229,35 @@ export function TaskForm({
                 {f.note}
                 <input className={field} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} autoComplete="off" />
               </label>
+            </section>
+
+            <section className={card}>
+              <h3 id="task-reminder" className="text-[15px] font-semibold">{f.reminder}</h3>
+              <div role="group" aria-labelledby="task-reminder" className="flex flex-wrap gap-2">
+                {[null, ...REMIND_DAYS].map((n) => {
+                  const on = remindDays === n;
+                  return (
+                    <button key={n ?? 0} type="button" aria-pressed={on} onClick={() => setRemindDays(n)} className={`min-h-11 rounded-full border-2 px-4 text-sm font-semibold transition-colors duration-200 ${pick(on)}`}>
+                      {n === null ? f.remindNever : n === 1 ? f.remind1 : fill(f.remindN, { n })}
+                    </button>
+                  );
+                })}
+              </div>
+              {remindDays !== null && (
+                <div className="zk-fade-up flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <label className="flex items-center gap-2.5 text-[13px] font-semibold">
+                    {f.remindTime}
+                    <input type="time" required value={remindTime} onChange={(e) => setRemindTime(e.target.value || DEFAULT_REMIND_TIME)} className={`${field} w-[132px]`} />
+                  </label>
+                  <p className="min-w-0 flex-[1_1_220px] text-[13px] leading-snug text-ink-soft">
+                    {!assigneeId
+                      ? f.remindNoAssignee
+                      : reminderDate(date, remindDays) < today
+                        ? f.remindPassed
+                        : fill(f.remindHint, { name: people.find((p) => p.id === assigneeId)?.name ?? "", date: dayLabel(reminderDate(date, remindDays), fmt, currentYear), time: remindTime })}
+                  </p>
+                </div>
+              )}
             </section>
           </div>
 

@@ -57,29 +57,31 @@ export function StatusesSection({ statuses, t, errors }: { statuses: Status[]; t
               {index === 0 && (
                 <span className="whitespace-nowrap rounded-full bg-teal-tint px-2.5 py-1 text-xs font-semibold text-teal-deep">{s.startsHere}</span>
               )}
-              <label className="flex min-h-10 cursor-pointer items-center gap-2 whitespace-nowrap text-sm">
+              <button type="button" className={btn.soft} onClick={() => setConfirming(status.id)}>
+                {t.delete}
+              </button>
+            </div>
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 pl-1 sm:pl-[104px]">
+              <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[13px] text-ink-soft">
                 <input
                   type="checkbox"
-                  className="size-5 accent-teal"
+                  className="size-[18px] accent-teal"
                   checked={status.isFinished}
                   disabled={pending}
                   onChange={(e) => run(() => setStatusFinished(status.id, e.target.checked))}
                 />
                 {s.finished}
               </label>
-              <label className="flex min-h-10 cursor-pointer items-center gap-2 whitespace-nowrap text-sm">
+              <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[13px] text-ink-soft">
                 <input
                   type="checkbox"
-                  className="size-5 accent-teal"
+                  className="size-[18px] accent-teal"
                   checked={status.notifyReview}
                   disabled={pending}
                   onChange={(e) => run(() => setStatusReview(status.id, e.target.checked))}
                 />
                 {s.review}
               </label>
-              <button type="button" className={btn.soft} onClick={() => setConfirming(status.id)}>
-                {t.delete}
-              </button>
             </div>
             {colorOpen === status.id && (
               <div role="group" aria-label={fill(s.colorOf, { name: status.name })} className="flex flex-wrap gap-2 pl-[52px]">

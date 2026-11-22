@@ -29,6 +29,8 @@ const ICONS: Record<IconKind, string> = {
   overdue: "M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M12 8v5M12 16.5v.01",
   summary: "M8 12a4 4 0 1 0 8 0a4 4 0 1 0-8 0M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4",
   moved: "M7 7h13l-3-3M17 17H4l3 3",
+  status: "M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5",
+  reminder: "M12 7v5l3 2M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0",
 };
 const TINTS: Record<IconKind, [string, string]> = {
   assigned: ["#d9f0ee", "#0a5e5b"],
@@ -37,6 +39,8 @@ const TINTS: Record<IconKind, [string, string]> = {
   overdue: ["#fbe0dd", "#b3261e"],
   summary: ["#fff3cc", "#18232f"],
   moved: ["#d2cbf6", "#18232f"],
+  status: ["#edf6f4", "#0a5e5b"],
+  reminder: ["#fff3cc", "#5c4300"],
 };
 
 const svg = (d: string, size = 18) => (
