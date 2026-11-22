@@ -192,6 +192,7 @@ Open http://localhost:3000. The first time, the setup page creates your admin an
 | `npm run setup:local` | First-time setup on your own computer (settings file, database, tables) |
 | `npm run db:migrate` | Applies pending database changes |
 | `npm run user:create -- "Name" role` | Creates a person (`admin`, `manager` or `employee`) and prints their code |
+| `npm run user:code -- "Name"` | Gives an existing person a new code and prints it (e.g. a locked-out admin); part of the name is enough |
 
 ## Installing on the hosting (Turhost cPanel)
 

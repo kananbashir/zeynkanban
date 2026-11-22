@@ -12,6 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "user:create": "tsx scripts/create-user.ts",
+    "user:code": "tsx scripts/new-code.ts",
     "package": "STANDALONE=1 next build && node scripts/package.mjs",
     "setup:local": "tsx scripts/setup-local.ts",
     "local": "npm install --no-audit --no-fund && tsx scripts/setup-local.ts && next dev"
