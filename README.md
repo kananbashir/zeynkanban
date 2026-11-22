@@ -132,7 +132,7 @@ How it works:
 
 The first time the site is opened on an empty database, it shows a one-time setup page where you create the first admin and receive their access code. Once that admin exists, the setup page closes for good and everyone else is added from Settings.
 
-Pending database changes are applied automatically each time the app starts (see `src/instrumentation.ts`), so the hosting never needs a command line. Set `SKIP_MIGRATIONS=1` to turn this off.
+Pending database changes are applied automatically each time the app starts (see `src/instrumentation.ts`), both on the hosting and with `npm run dev` on your own computer, so the hosting never needs a command line and a pulled update never needs an extra step. Set `SKIP_MIGRATIONS=1` to turn this off.
 
 ## Running it on your own computer
 
