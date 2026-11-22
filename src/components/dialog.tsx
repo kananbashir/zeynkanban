@@ -20,7 +20,7 @@ export function Dialog({ label, onClose, children, wide = false }: { label: stri
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto p-2 sm:p-4">
-      <button type="button" aria-label="×" tabIndex={-1} onClick={onClose} className="fixed inset-0 cursor-default bg-scrim" />
+      <button data-no-press type="button" aria-label="×" tabIndex={-1} onClick={onClose} className="fixed inset-0 cursor-default bg-scrim" />
       <div
         ref={ref}
         role="dialog"

@@ -219,7 +219,7 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
       </button>
       {open && (
         <>
-          <button type="button" aria-label={t.close} tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-[24] cursor-default" />
+          <button data-no-press type="button" aria-label={t.close} tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-[24] cursor-default" />
           <section
             role="dialog"
             aria-label={view === "prefs" ? t.settings : t.title}

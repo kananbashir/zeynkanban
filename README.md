@@ -58,6 +58,8 @@ On phones, the main pages are in a bar along the bottom of the screen; About and
 
 All colours are named in `src/app/globals.css`, each with a value for the dark theme.
 
+Every button (and every link styled as one) shrinks slightly while pressed and springs back on release: scale 0.97 on a spring with stiffness 550 and damping 30, the same as Animate UI's Button. It is done once for the whole site in `src/components/press-animation.tsx`, so new buttons get it automatically; nothing moves on hover, for disabled buttons, or when the device asks for reduced motion. Add `data-no-press` to leave an element out.
+
 ## Settings (admin only)
 
 - **Users, roles and codes**: add people, rename them, change their role, give them a new code, deactivate or reactivate them. A new code logs the person out everywhere and their old code stops working. A deactivated person is logged out at once and can't log in; their tasks and history stay. Nobody can change their own role or deactivate themselves, so there is always at least one admin.

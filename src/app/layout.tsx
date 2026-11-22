@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
 import "./globals.css";
+import { PressAnimation } from "@/components/press-animation";
 import { getLocale } from "@/i18n/server";
 import { DEFAULT_THEME, isTheme, THEME_COOKIE, THEME_SCRIPT } from "@/lib/theme";
 
@@ -31,7 +32,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
       </head>
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        <PressAnimation />
+      </body>
     </html>
   );
 }
