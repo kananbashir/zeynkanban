@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { MiniCalendar } from "@/components/mini-calendar";
+import { SegmentedControl, SlideByDate, useFlip } from "@/components/motion";
 import { avatarColor, TaskCard, type StatusOption } from "@/components/task-card";
 import { Toast, useToast } from "@/components/toast";
 import { initials } from "@/components/top-bar";
@@ -53,6 +54,8 @@ export function BoardView({
   const [sideOpen, setSideOpen] = useState(false);
   const fmt = { ...t, months };
   const b = t.board;
+  const list = useRef<HTMLDivElement>(null);
+  useFlip(list);
 
   const go = (params: { date?: string; m?: string }) => {
     const search = new URLSearchParams();
@@ -199,9 +202,11 @@ export function BoardView({
                 <button type="button" aria-label={t.prevDay} onClick={() => go({ date: addDays(date, -1) })} className="-ml-2.5 flex size-11 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
                 </button>
-                <h1 className="min-w-0 truncate whitespace-nowrap text-[19px] font-semibold sm:text-[26px]">
-                  <span className="hidden sm:inline">{longDate(date, fmt)}</span>
-                  <span className="sm:hidden">{dayLabel(date, fmt, Number(today.slice(0, 4)))}</span>
+                <h1 className="min-w-0 overflow-hidden whitespace-nowrap text-[19px] font-semibold sm:text-[26px]">
+                  <SlideByDate date={date}>
+                    <span className="hidden sm:inline">{longDate(date, fmt)}</span>
+                    <span className="sm:hidden">{dayLabel(date, fmt, Number(today.slice(0, 4)))}</span>
+                  </SlideByDate>
                 </h1>
                 <button type="button" aria-label={t.nextDay} onClick={() => go({ date: addDays(date, 1) })} className="flex size-11 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
@@ -209,7 +214,7 @@ export function BoardView({
                 {isToday ? (
                   <span className="shrink-0 rounded-full bg-teal-tint px-3 py-1.5 text-[13px] font-semibold text-teal-deep">{t.today}</span>
                 ) : (
-                  <button type="button" onClick={() => go({ date: today })} className="min-h-11 shrink-0 rounded-full bg-sun px-4 text-sm font-semibold text-ink">{t.today}</button>
+                  <button type="button" onClick={() => go({ date: today })} className="min-h-11 shrink-0 whitespace-nowrap rounded-full bg-sun px-4 text-sm font-semibold text-ink">{t.goToday}</button>
                 )}
               </div>
               {events.map((e) => (
@@ -218,25 +223,26 @@ export function BoardView({
             </div>
             <div className="ml-auto flex w-full min-w-0 flex-wrap items-center gap-2.5 sm:w-auto">
               <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={b.search} aria-label={b.search} className="h-11 min-w-0 flex-[1_1_180px] rounded-full border-[1.5px] border-line-strong bg-white px-4 text-sm" />
-              <div role="group" aria-label={b.showLabel} className="flex w-full gap-1 overflow-x-auto rounded-full bg-mint p-1 sm:w-auto">
-                {(["all", "overdue", "due", "finished"] as Segment[]).map((key) => {
-                  const n = key === "all" ? filtered.overdue.length + filtered.due.length + filtered.finished.length : filtered[key].length;
-                  const on = segment === key;
-                  return (
-                    <button key={key} type="button" aria-pressed={on} onClick={() => setSegment(key)} className={`flex min-h-10 flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-2 text-[13px] font-semibold sm:px-3.5 sm:text-sm ${on ? "bg-white text-ink shadow-[0_1px_3px_rgba(24,35,47,0.14)]" : "text-ink-soft"}`}>
-                      <span>{b.segments[key]}</span>
-                      <span className="font-medium text-muted">{n}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <SegmentedControl
+                label={b.showLabel}
+                value={segment}
+                onChange={(key) => setSegment(key as Segment)}
+                stretch
+                className="w-full overflow-x-auto sm:w-auto"
+                itemClassName="min-h-10 px-2 text-[13px] sm:px-3.5 sm:text-sm"
+                items={(["all", "overdue", "due", "finished"] as Segment[]).map((key) => ({
+                  key,
+                  label: b.segments[key],
+                  count: key === "all" ? filtered.overdue.length + filtered.due.length + filtered.finished.length : filtered[key].length,
+                }))}
+              />
             </div>
           </header>
 
-          <div className="flex flex-col gap-[26px] rounded-[28px] bg-white p-4 sm:p-[22px]">
+          <div ref={list} className="flex flex-col gap-[26px] rounded-[28px] bg-white p-4 sm:p-[22px]">
             {visible.map((section) => (
               <section key={section.key} className="flex flex-col gap-3">
-                <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                <div data-flip={`heading-${section.key}`} className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                   <h2 className={`text-base font-semibold ${section.color}`}>{section.label}</h2>
                   <span className="text-[13px] text-muted">
                     {filtered[section.key].length}

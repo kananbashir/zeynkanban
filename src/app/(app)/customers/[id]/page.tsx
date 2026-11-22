@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { SegmentedControl } from "@/components/motion";
 import { db } from "@/db";
 import { customers } from "@/db/schema";
 import { getDictionary } from "@/i18n/server";
@@ -67,7 +67,7 @@ export default async function CustomerPage({
     ]);
     return (
       <TasksTab
-        key={`${date}-${query.edit ?? ""}`}
+        key={query.edit ?? "day"}
         customerId={id}
         customerName={customer.name}
         date={date}
@@ -105,21 +105,13 @@ export default async function CustomerPage({
             </div>
           </div>
         </div>
-        <nav aria-label={customer.name} className="flex gap-1 rounded-full bg-mint p-1">
-          {TABS.map((key) => {
-            const active = key === tab;
-            return (
-              <Link
-                key={key}
-                href={{ pathname: `/customers/${id}`, query: { tab: key } }}
-                scroll={false}
-                aria-current={active ? "page" : undefined}
-                className={`flex min-h-11 items-center whitespace-nowrap rounded-full px-3 text-[13px] font-semibold md:px-[18px] md:text-sm ${active ? "bg-white text-ink shadow-[0_1px_3px_rgba(24,35,47,0.14)]" : "text-ink-soft"}`}
-              >
-                {c.tabs[key]}
-              </Link>
-            );
-          })}
+        <nav aria-label={customer.name}>
+          <SegmentedControl
+            label={customer.name}
+            value={tab}
+            itemClassName="min-h-11 px-3 text-[13px] md:px-[18px] md:text-sm"
+            items={TABS.map((key) => ({ key, label: c.tabs[key], href: `/customers/${id}?tab=${key}` }))}
+          />
         </nav>
       </header>
 

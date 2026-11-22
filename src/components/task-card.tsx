@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useOptimistic, useState, useTransition } from "react";
 import { setTaskStatus } from "@/app/actions/tasks";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
@@ -53,17 +53,24 @@ export function TaskCard({
   onError?: (message: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [pending, startTransition] = useTransition();
-  const lateDays = !task.finished && task.dueDate < today ? daysBetween(task.dueDate, today) : 0;
-  const statusLabel = task.statusDeleted ? fill(t.deletedStatus, { name: task.statusName }) : task.statusName;
+  const [, startTransition] = useTransition();
+  // The new status shows at once; the card moves to its new group when the page refreshes.
+  const [statusId, setStatusId] = useOptimistic(task.statusId);
+  const chosen = statusId !== task.statusId ? statuses.find((s) => s.id === statusId) : undefined;
+  const status = chosen
+    ? { name: chosen.name, color: chosen.color, finished: chosen.isFinished, deleted: false }
+    : { name: task.statusName, color: task.statusColor, finished: task.finished, deleted: task.statusDeleted };
+  const lateDays = !status.finished && task.dueDate < today ? daysBetween(task.dueDate, today) : 0;
+  const statusLabel = status.deleted ? fill(t.deletedStatus, { name: status.name }) : status.name;
   const typeLabel = task.typeDeleted ? fill(t.deletedType, { name: task.typeName }) : task.typeName;
-  const background = task.contentArchived ? ARCHIVED_BACKGROUND : cardBackground(task.statusColor, task.finished);
+  const background = task.contentArchived ? ARCHIVED_BACKGROUND : cardBackground(status.color, status.finished);
 
-  function choose(statusId: string) {
+  function choose(next: string) {
     setOpen(false);
-    if (statusId === task.statusId) return;
+    if (next === task.statusId) return;
     startTransition(async () => {
-      const result = await setTaskStatus(task.id, statusId);
+      setStatusId(next);
+      const result = await setTaskStatus(task.id, next);
       if (!result.ok) onError?.(result.error);
     });
   }
@@ -78,7 +85,8 @@ export function TaskCard({
   return (
     <article
       data-task={task.id}
-      className={`relative flex flex-col gap-2.5 rounded-[22px] border-[1.5px] p-3.5 sm:gap-3 sm:px-5 sm:py-[18px] ${task.contentArchived ? "border-dashed border-[#6b7785]" : "border-transparent"} ${open ? "z-20" : "z-0"} ${pending ? "opacity-70" : ""}`}
+      data-flip={task.id}
+      className={`relative flex flex-col gap-2.5 rounded-[22px] border-[1.5px] p-3.5 transition-[background-color] duration-500 sm:gap-3 sm:px-5 sm:py-[18px] ${task.contentArchived ? "border-dashed border-[#6b7785]" : "border-transparent"} ${open ? "z-20" : "z-0"}`}
       style={{ background }}
     >
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-ink/12 pb-3">
@@ -97,14 +105,14 @@ export function TaskCard({
         <div className="relative ml-auto">
           <button
             type="button"
-            disabled={!canChangeStatus || pending}
+            disabled={!canChangeStatus}
             aria-haspopup="true"
             aria-expanded={open}
             aria-label={fill(t.statusAria, { name: statusLabel })}
             onClick={() => setOpen((v) => !v)}
             className="flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-full bg-white pl-2.5 pr-2 text-xs font-semibold disabled:cursor-default sm:min-h-11 sm:gap-2 sm:pl-3.5 sm:pr-3 sm:text-[13px]"
           >
-            <span className="size-[9px] rounded-full" style={{ background: task.statusDeleted ? "#6b7785" : task.statusColor }} />
+            <span className="size-[9px] rounded-full transition-colors duration-500" style={{ background: status.deleted ? "#6b7785" : status.color }} />
             <span>{statusLabel}</span>
             {canChangeStatus && <Icon d="m6 9 6 6 6-6" />}
           </button>
@@ -117,11 +125,11 @@ export function TaskCard({
                     key={s.id}
                     type="button"
                     onClick={() => choose(s.id)}
-                    className={`flex min-h-10 items-center gap-2.5 rounded-xl px-2.5 text-left text-[13px] font-medium sm:min-h-11 sm:px-3 sm:text-sm ${s.id === task.statusId ? "bg-mint" : "hover:bg-mint-soft"}`}
+                    className={`flex min-h-10 items-center gap-2.5 rounded-xl px-2.5 text-left text-[13px] font-medium sm:min-h-11 sm:px-3 sm:text-sm ${s.id === statusId ? "bg-mint" : "hover:bg-mint-soft"}`}
                   >
                     <span className="size-[9px] shrink-0 rounded-full" style={{ background: s.color }} />
                     <span className="flex-1">{s.name}</span>
-                    {s.id === task.statusId && <Icon d="m5 12 5 5L20 7" />}
+                    {s.id === statusId && <Icon d="m5 12 5 5L20 7" />}
                   </button>
                 ))}
               </div>
@@ -146,7 +154,7 @@ export function TaskCard({
         </span>
         <span className="flex items-center gap-1.5">
           <Icon d={CAL} />
-          {fill(task.finished ? t.wasDue : t.due, { date: shortDate(task.dueDate, t) })}
+          {fill(status.finished ? t.wasDue : t.due, { date: shortDate(task.dueDate, t) })}
         </span>
         {task.note && (
           <span className="flex min-w-0 items-center gap-1.5">

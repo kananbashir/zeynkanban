@@ -1,10 +1,11 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { loadDay } from "@/app/actions/tasks";
 import { CloseButton, Dialog } from "@/components/dialog";
 import { MiniCalendar } from "@/components/mini-calendar";
+import { SlideByDate, useFlip } from "@/components/motion";
 import { avatarColor, TaskCard, type StatusOption } from "@/components/task-card";
 import { Toast, useToast } from "@/components/toast";
 import { initials } from "@/components/top-bar";
@@ -65,6 +66,8 @@ export function TasksTab({
   const c = t.customer;
   const isToday = date === today;
   const currentYear = Number(today.slice(0, 4));
+  const list = useRef<HTMLDivElement>(null);
+  useFlip(list);
 
   const go = (params: Record<string, string>) => {
     const search = new URLSearchParams({ tab: "tasks", date, ...params });
@@ -113,15 +116,17 @@ export function TasksTab({
           />
         </section>
 
-        <div className="flex min-w-0 flex-[999_1_480px] flex-col gap-[22px] rounded-[28px] bg-white p-4 sm:p-[22px]">
+        <div ref={list} className="flex min-w-0 flex-[999_1_480px] flex-col gap-[22px] rounded-[28px] bg-white p-4 sm:p-[22px]">
           <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
             <div className="flex min-w-0 items-center gap-1">
               <button type="button" aria-label={t.prevDay} onClick={() => go({ date: addDays(date, -1) })} className="-ml-2.5 flex size-11 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
               </button>
-              <h2 className="min-w-0 truncate whitespace-nowrap text-lg font-semibold sm:text-[22px]">
-                <span className="hidden sm:inline">{longDate(date, fmt)}</span>
-                <span className="sm:hidden">{dayLabel(date, fmt, currentYear)}</span>
+              <h2 className="min-w-0 overflow-hidden whitespace-nowrap text-lg font-semibold sm:text-[22px]">
+                <SlideByDate date={date}>
+                  <span className="hidden sm:inline">{longDate(date, fmt)}</span>
+                  <span className="sm:hidden">{dayLabel(date, fmt, currentYear)}</span>
+                </SlideByDate>
               </h2>
               <button type="button" aria-label={t.nextDay} onClick={() => go({ date: addDays(date, 1) })} className="flex size-11 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
@@ -129,7 +134,7 @@ export function TasksTab({
               {isToday ? (
                 <span className="shrink-0 rounded-full bg-teal-tint px-3 py-1.5 text-[13px] font-semibold text-teal-deep">{t.today}</span>
               ) : (
-                <button type="button" onClick={() => go({ date: today })} className="min-h-11 shrink-0 rounded-full bg-sun px-4 text-sm font-semibold text-ink">{t.today}</button>
+                <button type="button" onClick={() => go({ date: today })} className="min-h-11 shrink-0 whitespace-nowrap rounded-full bg-sun px-4 text-sm font-semibold text-ink">{t.goToday}</button>
               )}
             </div>
             {events.map((e) => <span key={e.name} className="rounded-full bg-sun-tint px-3 py-1.5 text-[13px] font-semibold text-sun-ink">{e.name}</span>)}
@@ -140,7 +145,7 @@ export function TasksTab({
 
           {visible.map((section) => (
             <section key={section.key} className="flex flex-col gap-3">
-              <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+              <div data-flip={`heading-${section.key}`} className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                 <h3 className={`text-base font-semibold ${section.color}`}>{section.label}</h3>
                 <span className="text-[13px] text-muted">{day[section.key].length}{section.hint ? ` · ${section.hint}` : ""}</span>
               </div>

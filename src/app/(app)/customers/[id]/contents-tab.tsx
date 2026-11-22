@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { InlineText } from "@/components/inline-text";
+import { SegmentedControl } from "@/components/motion";
 import { Toast, useToast } from "@/components/toast";
 import { btn, card, field, row, rowOff } from "@/components/ui";
 import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
@@ -78,7 +79,6 @@ export function ContentsTab({
     });
   }
 
-  const seg = (on: boolean) => (on ? "bg-white text-ink shadow-[0_1px_3px_rgba(24,35,47,0.14)]" : "text-ink-soft");
 
   const contentRow = (item: Content) => {
     const own = tasks.filter((x) => x.contentId === item.id);
@@ -148,13 +148,13 @@ export function ContentsTab({
     <div className="flex flex-col gap-5">
       <section aria-label={t.addTitle} className={card}>
         <div className="flex flex-wrap items-center gap-2.5">
-          <div role="group" aria-label={t.type} className="flex flex-wrap gap-1 rounded-full bg-mint p-1">
-            {[{ id: "all", name: t.all }, ...filterTypes].map((x) => (
-              <button key={x.id} type="button" aria-pressed={filter === x.id} onClick={() => setFilter(x.id)} className={`min-h-10 rounded-full px-3.5 text-sm font-semibold ${seg(filter === x.id)}`}>
-                {x.name}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label={t.type}
+            value={filter}
+            onChange={setFilter}
+            className="max-w-full overflow-x-auto"
+            items={[{ id: "all", name: t.all }, ...filterTypes].map((x) => ({ key: x.id, label: x.name }))}
+          />
           <button type="button" className={`${btn.primary} ml-auto`} aria-expanded={adding} onClick={() => setAdding((v) => !v)}>
             {t.add}
           </button>
