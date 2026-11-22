@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { springEasing, springOrFallback } from "@/lib/spring";
 
 // The press animation of every button on the site, in one place (the same behaviour as Animate UI's
 // Button): pressing scales a button to 0.97 on a spring (stiffness 550, damping 30: quick, with a
@@ -15,29 +16,15 @@ const DAMPING = 30;
 const DURATION = 350; // ms: long enough for the spring to settle
 const PRESSABLE = 'button, a[href], [role="button"], summary';
 
-/** The spring as a CSS easing curve: the motion of a mass on a spring, sampled every few milliseconds. */
-export function springEasing(stiffness = STIFFNESS, damping = DAMPING, duration = DURATION / 1000, steps = 40): string {
-  const w0 = Math.sqrt(stiffness);
-  const zeta = damping / (2 * w0);
-  const points: string[] = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = (i / steps) * duration;
-    let p: number;
-    if (zeta < 1) {
-      const wd = w0 * Math.sqrt(1 - zeta * zeta);
-      p = 1 - Math.exp(-zeta * w0 * t) * (Math.cos(wd * t) + ((zeta * w0) / wd) * Math.sin(wd * t));
-    } else {
-      p = 1 - Math.exp(-w0 * t) * (1 + w0 * t);
-    }
-    points.push(i === steps ? "1" : p.toFixed(4));
-  }
-  return `linear(${points.join(", ")})`;
+/** The press spring as a CSS easing curve (see src/lib/spring.ts). */
+export function pressEasing(): string {
+  return springEasing(STIFFNESS, DAMPING, DURATION / 1000);
 }
 
 export function PressAnimation() {
   useEffect(() => {
     const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const easing = CSS.supports("animation-timing-function", "linear(0, 1)") ? springEasing() : "cubic-bezier(0.34, 1.56, 0.64, 1)";
+    const easing = springOrFallback(STIFFNESS, DAMPING, DURATION / 1000, "cubic-bezier(0.34, 1.56, 0.64, 1)");
     const pressed = new Set<HTMLElement>();
 
     const scaleTo = (el: HTMLElement, to: number) => {

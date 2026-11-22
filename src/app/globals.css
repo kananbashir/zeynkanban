@@ -184,6 +184,7 @@ select {
 /* Collapse (motion.tsx): height opens and closes smoothly; also used for single notes coming and going. */
 .zk-collapse {
   display: grid;
+  grid-template-columns: minmax(0, 1fr); /* never wider than its place, so long names shorten with "…" instead of spilling over */
   grid-template-rows: 0fr;
   opacity: 0;
   transition: grid-template-rows 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.22s ease;
@@ -194,6 +195,7 @@ select {
 }
 .zk-collapse > div {
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 .zk-collapse[data-settled="true"] > div {
@@ -209,3 +211,11 @@ select {
     overflow: visible;
   }
 }
+
+/* The blinking cursor in the active login code box (steady when motion is reduced). */
+@keyframes zk-blink {
+  0%, 45% { opacity: 1; }
+  50%, 95% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.zk-caret { animation: zk-blink 1.1s step-end infinite; }

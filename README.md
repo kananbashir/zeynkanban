@@ -60,6 +60,8 @@ All colours are named in `src/app/globals.css`, each with a value for the dark t
 
 Every button (and every link styled as one) shrinks slightly while pressed and springs back on release: scale 0.97 on a spring with stiffness 550 and damping 30, the same as Animate UI's Button. It is done once for the whole site in `src/components/press-animation.tsx`, so new buttons get it automatically; nothing moves on hover, for disabled buttons, or when the device asks for reduced motion. Add `data-no-press` to leave an element out.
 
+The login code boxes are animated the way Animate UI's Input OTP describes, built into `src/app/login/login-form.tsx` (the code still lives in one ordinary text field, so typing, pasting, autofill and password managers work as before): a typed character lands small and grows into place on a spring that never overshoots; pasted codes stagger in; the ring glides from box to box and turns red for a refused code; Backspace shrinks the character away; clearing the code drops the characters out one by one into a blur; a completed code sends a small wave through the boxes. With reduced motion, characters only fade. The springs are in `src/lib/spring.ts`.
+
 ## Settings (admin only)
 
 - **Users, roles and codes**: add people, rename them, change their role, give them a new code, deactivate or reactivate them. A new code logs the person out everywhere and their old code stops working. A deactivated person is logged out at once and can't log in; their tasks and history stay. Nobody can change their own role or deactivate themselves, so there is always at least one admin.
