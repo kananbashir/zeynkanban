@@ -15,6 +15,7 @@ import { addDays, shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates
 import { dayLabel, longDate } from "@/lib/format-date";
 import type { Section } from "@/lib/task-rules";
 import type { DayTasks, TaskView } from "@/lib/tasks";
+import { PlanMonth, type PlanContent, type PlanPeriod, type PlanType } from "./plan-month";
 import { TaskForm, type FormContent, type FormPerson, type FormType } from "./task-form";
 
 export function TasksTab({
@@ -33,6 +34,8 @@ export function TasksTab({
   people,
   editTask,
   canArchive,
+  plan,
+  openPlan,
   t,
   months,
   errors,
@@ -52,6 +55,8 @@ export function TasksTab({
   people: FormPerson[];
   editTask: TaskView | null;
   canArchive: boolean;
+  plan: { shortName: string; contents: PlanContent[]; allCodes: string[]; periods: PlanPeriod[]; contentTypes: PlanType[] };
+  openPlan: boolean;
   t: Dictionary["tasks"];
   months: readonly string[];
   errors: Dictionary["errors"];
@@ -61,6 +66,7 @@ export function TasksTab({
   const { message, show } = useToast();
   const [form, setForm] = useState<{ task: TaskView | null } | null>(editTask ? { task: editTask } : null);
   const [fab, setFab] = useState(false);
+  const [planning, setPlanning] = useState(openPlan);
   const [whole, setWhole] = useState<TaskView[] | null>(null);
   const fmt = { ...t, months };
   const c = t.customer;
@@ -76,6 +82,10 @@ export function TasksTab({
   const closeForm = () => {
     setForm(null);
     if (editTask) go({}); // drop ?edit= from the address
+  };
+  const closePlan = () => {
+    setPlanning(false);
+    if (openPlan) go({}); // drop ?plan= from the address
   };
 
   const sections: { key: Section; label: string; color: string; hint?: string }[] = [
@@ -185,7 +195,7 @@ export function TasksTab({
       <div className="fixed bottom-[max(28px,env(safe-area-inset-bottom))] right-[max(20px,env(safe-area-inset-right))] z-20 flex flex-col items-end gap-2.5">
         {fab && (
           <div className="flex flex-col items-end gap-2">
-            <button type="button" onClick={() => { setFab(false); show(c.planSoon); }} className="flex min-h-12 items-center gap-2.5 rounded-full bg-white px-[18px] text-sm font-semibold shadow-[0_8px_24px_rgba(24,35,47,0.18)]">{c.planMonth}</button>
+            <button type="button" onClick={() => { setFab(false); setPlanning(true); }} className="flex min-h-12 items-center gap-2.5 rounded-full bg-white px-[18px] text-sm font-semibold shadow-[0_8px_24px_rgba(24,35,47,0.18)]">{c.planMonth}</button>
             <button type="button" onClick={() => { setFab(false); setForm({ task: null }); }} className="flex min-h-12 items-center gap-2.5 rounded-full bg-white px-[18px] text-sm font-semibold shadow-[0_8px_24px_rgba(24,35,47,0.18)]">{c.addTask}</button>
           </div>
         )}
@@ -217,6 +227,31 @@ export function TasksTab({
             go({ date: savedDate });
           }}
           onNewContent={() => router.push(`${pathname}?tab=contents`)}
+        />
+      )}
+
+      {planning && (
+        <PlanMonth
+          customerId={customerId}
+          customerName={customerName}
+          shortName={plan.shortName}
+          contents={plan.contents}
+          allCodes={plan.allCodes}
+          periods={plan.periods}
+          contentTypes={plan.contentTypes}
+          specialDays={specialDays}
+          today={today}
+          t={t}
+          months={months}
+          errors={errors}
+          onClose={closePlan}
+          onMessage={show}
+          onSaved={(msg) => {
+            setPlanning(false);
+            show(msg);
+            if (openPlan) go({});
+            else router.refresh();
+          }}
         />
       )}
 

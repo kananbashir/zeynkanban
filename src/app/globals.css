@@ -82,3 +82,9 @@ a {
 .zk-next { animation: zk-from-right 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .zk-prev { animation: zk-from-left 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .zk-fade-up { animation: zk-fade-up 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes zk-pop {
+  from { opacity: 0; transform: scale(0.82); }
+  70% { transform: scale(1.04); }
+  to { opacity: 1; transform: none; }
+}
+.zk-pop { animation: zk-pop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }

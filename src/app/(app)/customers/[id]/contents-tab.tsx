@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
 import { InlineText } from "@/components/inline-text";
 import { SegmentedControl } from "@/components/motion";
@@ -155,7 +156,10 @@ export function ContentsTab({
             className="max-w-full overflow-x-auto"
             items={[{ id: "all", name: t.all }, ...filterTypes].map((x) => ({ key: x.id, label: x.name }))}
           />
-          <button type="button" className={`${btn.primary} ml-auto`} aria-expanded={adding} onClick={() => setAdding((v) => !v)}>
+          <Link href={`/customers/${customerId}?tab=tasks&plan=1`} className={`${btn.mint} ml-auto`}>
+            {taskT.plan.openFromContents}
+          </Link>
+          <button type="button" className={btn.primary} aria-expanded={adding} onClick={() => setAdding((v) => !v)}>
             {t.add}
           </button>
         </div>

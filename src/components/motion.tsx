@@ -83,7 +83,7 @@ export function SegmentedControl({
 }
 
 /** Wraps content that changes with a date: it slides in from the right when moving forward and from the left when going back. */
-export function SlideByDate({ date, children, className = "" }: { date: string; children: ReactNode; className?: string }) {
+export function SlideByDate({ date, children, block = false }: { date: string; children: ReactNode; block?: boolean }) {
   const [direction, setDirection] = useState<"" | "zk-next" | "zk-prev">("");
   const [shown, setShown] = useState(date);
   if (shown !== date) {
@@ -92,7 +92,7 @@ export function SlideByDate({ date, children, className = "" }: { date: string; 
     setShown(date);
   }
   return (
-    <span key={date} className={`inline-block ${direction} ${className}`}>
+    <span key={date} className={`${block ? "block" : "inline-block"} ${direction}`}>
       {children}
     </span>
   );

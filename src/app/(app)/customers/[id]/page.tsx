@@ -23,7 +23,7 @@ export default async function CustomerPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; date?: string; m?: string; edit?: string }>;
+  searchParams: Promise<{ tab?: string; date?: string; m?: string; edit?: string; plan?: string }>;
 }) {
   const user = await requireRole("admin", "manager");
   const { id } = await params;
@@ -83,6 +83,14 @@ export default async function CustomerPage({
         people={people}
         editTask={editing && editing.customerId === id ? editing : null}
         canArchive={admin}
+        openPlan={query.plan === "1" && !customer.archived}
+        plan={{
+          shortName: customer.shortName,
+          contents: contentRows.filter((x) => !x.archived).map((x) => ({ id: x.id, code: x.code, typeCode: x.typeCode, publishDate: publishDate.get(x.id) ?? null })),
+          allCodes: contentRows.map((x) => x.code),
+          periods,
+          contentTypes: types,
+        }}
         t={t.tasks}
         months={c.months}
         errors={t.errors}

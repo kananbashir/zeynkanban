@@ -10,8 +10,8 @@ A website for planning Zeyn Media's customers, content and tasks. It replaces th
 | 2 | Settings: users, statuses, task types, content types, holidays and events | Done |
 | 3 | Customers, content IDs, contract renewal | Done |
 | 4 | Tasks, managing board, task form, archiving | Done |
-| 5 | Month planner | Next |
-| 6 | Dashboard | |
+| 5 | Month planner | Done |
+| 6 | Dashboard | Next |
 | 7 | My tasks and personal tasks | |
 | 8 | Notifications, including phone push | |
 | 9 | Going live on a zeynmedia.az subdomain | |
@@ -72,6 +72,17 @@ A new installation starts with four statuses (To do, In progress, Ready for revi
 - **Task form** (customer page, yellow button): type (or "Other…", optionally saved to the list), content ID with its publish date, assignee with their load that day, description, note, and a calendar showing how many tasks each day already has, with holidays marked and that day's tasks grouped by person.
 - Tasks are archived, never deleted (admin only), and can be restored from the Contents tab, where each content ID shows its publish date, progress and tasks.
 - A task whose status or type was deleted in Settings shows "Deleted status (name)" or "Deleted task type (name)".
+
+## Month planner
+
+Opened from the customer page (yellow button → Plan month, or "Generate IDs and plan month" on the Contents tab). Admins and managers can use it.
+
+- **Content IDs to place**: the customer's content IDs that have no publish date yet. Pick one, then click a day; the next one is picked for you. Click a new chip on the calendar to take it off again.
+- **Generate IDs**: choose how many of each content type to create for the contract that covers the month shown. Numbers continue from the last ID of each type, and a preview shows the IDs before they are created.
+- **Calendar**: each day shows how many tasks it already has across all customers, holidays and special events, publications already planned (grey) and the new ones (teal). Past days can't be picked. On phones it becomes a list of the remaining days.
+- **Spread evenly** places every unplaced ID over the rest of the month, as far apart as possible, around the publications already planned, alternating content types. Weekends and holidays are not skipped.
+- **Publishing rhythm**: the month's publishing days as a row of cards with the days between them; the longest gap is highlighted.
+- **Save** creates one "Post publishing" draft (no assignee, first status) per placed ID. Drafts stay off the managing board until someone is assigned, from the customer's Drafts box. A content ID that already has a publishing task is never given a second one.
 
 ## First start on a new server
 
