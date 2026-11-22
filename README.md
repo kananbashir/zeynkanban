@@ -11,8 +11,8 @@ A website for planning Zeyn Media's customers, content and tasks. It replaces th
 | 3 | Customers, content IDs, contract renewal | Done |
 | 4 | Tasks, managing board, task form, archiving | Done |
 | 5 | Month planner | Done |
-| 6 | Dashboard | Next |
-| 7 | My tasks and personal tasks | |
+| 6 | Dashboard | Done |
+| 7 | My tasks and personal tasks | Next |
 | 8 | Notifications, including phone push | |
 | 9 | Going live on a zeynmedia.az subdomain | |
 
@@ -83,6 +83,16 @@ Opened from the customer page (yellow button → Plan month, or "Generate IDs an
 - **Spread evenly** places every unplaced ID over the rest of the month, as far apart as possible, around the publications already planned, alternating content types. Weekends and holidays are not skipped.
 - **Publishing rhythm**: the month's publishing days as a row of cards with the days between them; the longest gap is highlighted.
 - **Save** creates one "Post publishing" draft (no assignee, first status) per placed ID. Drafts stay off the managing board until someone is assigned, from the customer's Drafts box. A content ID that already has a publishing task is never given a second one.
+
+## Dashboard
+
+The first page for admins and managers. It shows counts and charts for a month (the default) or a week, never task details. Arrows move to the previous or next period, and "Go to this month/week" comes back.
+
+- **Totals**: tasks (compared with the period before), finished (and their share), overdue (unfinished and past their date), and drafts waiting for an assignee.
+- **Tasks per day**: finished and open tasks for each day, with holidays and special events marked. Pick or hover a day to read its numbers; "Open this day" opens it on the managing board.
+- **Team workload**, **Customers**, **Tasks by status** and **Content types**: how the period's tasks split up, each bar showing finished and open.
+
+Every task with an assignee counts on its due date; archived tasks don't count. Drafts appear only in their own total, just as the managing board leaves them out.
 
 ## First start on a new server
 
