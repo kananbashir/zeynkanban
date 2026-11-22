@@ -185,6 +185,11 @@ export const tasks = mysqlTable(
     archived: boolean("archived").notNull().default(false),
     /** When the task last moved into a status that counts as finished (for "Finished today"). */
     finishedAt: datetime("finished_at", { mode: "date", fsp: 3 }),
+    /** Reminder for the assignee: this many days before the due date, at this time ("09:00", Baku). Null = no reminder. */
+    remindDays: int("remind_days"),
+    remindTime: varchar("remind_time", { length: 5 }),
+    /** Set once the reminder has gone out; cleared when the date or the reminder changes. */
+    remindedAt: datetime("reminded_at", { mode: "date", fsp: 3 }),
     createdBy: varchar("created_by", { length: 36 }).references(() => users.id),
     createdAt: createdAt(),
     updatedAt: now("updated_at"),
@@ -218,7 +223,7 @@ export const personalTasks = mysqlTable(
   (t) => [index("personal_owner_idx").on(t.ownerId, t.dueDate)],
 );
 
-export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary"] as const;
+export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder"] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 /**
@@ -251,6 +256,8 @@ export const notificationPrefs = mysqlTable("notification_prefs", {
   summary: boolean("summary").notNull().default(true),
   review: boolean("review").notNull().default(true),
   overdue: boolean("overdue").notNull().default(true),
+  status: boolean("status").notNull().default(true),
+  reminder: boolean("reminder").notNull().default(true),
 });
 
 /** A browser or phone that accepted push notifications. */

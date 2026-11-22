@@ -27,6 +27,13 @@ describe("notificationText", () => {
     expect([staff.a, staff.b]).toEqual(["9 tasks today across 4 customers, 2 overdue.", "7 drafts are waiting for an assignee"]);
     expect(text({ kind: "summary", scope: "own", date: "2026-11-22", tasks: 1, customers: 1, overdue: 0, drafts: 0 }).a).toBe("You have 1 task today and 0 overdue.");
   });
+  it("status changes and reminders", () => {
+    const x = text({ kind: "status", from: "In progress", to: "Done", by: "Murad", ...ref }, true);
+    expect([x.title, x.b]).toEqual(["Status changed", "In progress → Done · Murad"]);
+    expect(text({ kind: "reminder", ...ref }).b).toBe("Due today");
+    expect(text({ kind: "reminder", ...ref, due: "2026-11-23" }).b).toBe("Due tomorrow");
+    expect(text({ kind: "reminder", ...ref, due: "2026-11-25" }).b).toBe("Due in 3 days · 25 Nov");
+  });
   it("Azerbaijani", () => {
     const x = notificationText({ kind: "overdueMany", count: 5 }, true, "2026-11-22", dictionaries.az.notifications, dictionaries.az.tasks);
     expect(x.title).toBe("5 tapşırığın vaxtı keçdi");

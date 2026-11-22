@@ -110,10 +110,14 @@ The bell in the top bar shows how many notifications are unread; it checks again
 |---|---|
 | New task assigned to you | The assignee, when a task is created for them or given to them |
 | A task was given to someone else | The previous assignee |
-| A task of yours changed | The assignee, when the date, description or note changes |
-| Ready for review | Admins and managers, when a task moves into a status marked "Sends ‘Ready for review’" (Settings → Statuses) |
+| A task of yours changed | The assignee, when the date, description or note changes, or when someone else changes its status |
+| Status changed | Admins and managers, on every status change made by someone else (old status → new status, and who) |
+| Ready for review | Admins and managers, when a task moves into a status marked "Sends ‘Ready for review’" (Settings → Statuses); this replaces "Status changed" for that move |
+| Reminder | The assignee, when a task has a reminder set (see below) |
 | A task became overdue | Admins and managers, at 09:00, for tasks that passed their date unfinished (more than 3 become one notification) |
 | Morning summary | Everyone at 09:00: the day's tasks, overdue and drafts (employees: their own; skipped when they have nothing) |
+
+**Task reminders**: the task form has "Reminder for the assignee": no reminder (the default), or 1, 3 or 5 days before the due date, at a chosen time (Baku time). The reminder goes to the assignee once. Changing the date or the reminder makes it due again; it isn't sent for finished or archived tasks, or once the due date has passed. If it is set after its moment has already passed, it goes out right away.
 
 Nobody is notified about their own changes. Each person chooses what they want in the panel's settings, and can turn on **phone notifications on this device**. On an iPhone (iOS 16.4 or newer) the site must first be added to the home screen and opened from there. Phone notifications need the site on HTTPS (or `localhost` when testing on your own computer).
 
@@ -122,6 +126,7 @@ How it works:
 - Notifications are stored per person in the database (`notifications`) and written out in the language the site is shown in. They are kept for 90 days.
 - Phone notifications use Web Push. The signing keys are created on first use and kept in the database (`app_values`), so nothing needs setting up on the hosting; `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` can be set instead. Devices that no longer accept pushes are forgotten automatically.
 - The 09:00 work runs once a day (Baku time): from a timer while the server is running, and also on the first page visit after 09:00 in case the hosting put the server to sleep overnight. A database row claims each day, so it never runs twice. Set `SKIP_DAILY_JOBS=1` to turn the timer off.
+- Task reminders are checked about once a minute by the same timer, and on page visits. If the hosting has put the server to sleep, a reminder goes out when the server next wakes.
 
 ## First start on a new server
 

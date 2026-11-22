@@ -12,11 +12,13 @@ export type NotificationData =
   | ({ kind: "changed"; dateFrom?: string; dateTo?: string; description?: boolean; note?: string | null } & TaskRef)
   | ({ kind: "review"; by: string } & TaskRef)
   | ({ kind: "overdue"; assignee: string | null } & TaskRef)
+  | ({ kind: "status"; from: string; to: string; by: string } & TaskRef)
+  | ({ kind: "reminder" } & TaskRef)
   | { kind: "overdueMany"; count: number }
   | { kind: "summary"; scope: "staff" | "own"; date: string; tasks: number; customers: number; overdue: number; drafts: number };
 
 export type NotificationText = { title: string; a: string; b: string; href: string; icon: IconKind };
-export type IconKind = "assigned" | "moved" | "changed" | "review" | "overdue" | "summary";
+export type IconKind = "assigned" | "moved" | "changed" | "review" | "overdue" | "summary" | "status" | "reminder";
 
 type T = Dictionary["notifications"];
 type TaskT = Pick<Dictionary["tasks"], "monthsShort" | "tasksN" | "task1">;
@@ -46,6 +48,13 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
       return { title: t.kinds.review, a, b: fill(t.markedReady, { name: d.by }), href, icon: "review" };
     case "overdue":
       return { title: t.kinds.overdue, a, b: d.assignee ? fill(t.wasDueBy, { date: date(d.due), name: d.assignee }) : fill(t.wasDue, { date: date(d.due) }), href, icon: "overdue" };
+    case "status":
+      return { title: t.kinds.status, a, b: `${d.from} → ${d.to} · ${d.by}`, href, icon: "status" };
+    case "reminder": {
+      const left = daysBetween(today, d.due);
+      const b = left < 0 ? fill(t.wasDue, { date: date(d.due) }) : left === 0 ? t.remindToday : left === 1 ? t.remindTomorrow : fill(t.remindIn, { n: left, date: date(d.due) });
+      return { title: t.kinds.reminder, a, b, href, icon: "reminder" };
+    }
     case "changed": {
       const parts: string[] = [];
       if (d.dateFrom && d.dateTo) parts.push(fill(t.dateMoved, { from: date(d.dateFrom), to: date(d.dateTo) }));
@@ -70,7 +79,16 @@ export function notificationTime(at: Date, now: Date, t: T, taskT: Pick<Dictiona
 }
 
 /** Which setting turns a kind of notification on or off. */
-export const PREF_OF = { assigned: "assigned", moved: "assigned", changed: "changed", review: "review", overdue: "overdue", summary: "summary" } as const;
+export const PREF_OF = {
+  assigned: "assigned",
+  moved: "assigned",
+  changed: "changed",
+  review: "review",
+  overdue: "overdue",
+  summary: "summary",
+  status: "status",
+  reminder: "reminder",
+} as const;
 export type PrefKey = (typeof PREF_OF)[keyof typeof PREF_OF];
-export const STAFF_PREFS: PrefKey[] = ["assigned", "changed", "summary", "review", "overdue"];
-export const OWN_PREFS: PrefKey[] = ["assigned", "changed", "summary"];
+export const STAFF_PREFS: PrefKey[] = ["assigned", "changed", "reminder", "summary", "review", "status", "overdue"];
+export const OWN_PREFS: PrefKey[] = ["assigned", "changed", "reminder", "summary"];

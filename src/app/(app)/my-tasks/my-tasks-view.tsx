@@ -4,13 +4,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { useOptimistic, useRef, useState, useTransition } from "react";
 import { addPersonalTask, deletePersonalTask, setPersonalDone } from "@/app/actions/personal";
 import { MiniCalendar } from "@/components/mini-calendar";
-import { SlideByDate, useFlip } from "@/components/motion";
+import { DaySwitcher, EventChips, lineButton } from "@/components/day-header";
+import { useFlip } from "@/components/motion";
 import { TaskCard, type StatusOption } from "@/components/task-card";
 import { Toast, useToast } from "@/components/toast";
 import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
-import { addDays, shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
-import { dayLabel, longDate, shortDate } from "@/lib/format-date";
+import { shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
+import { shortDate } from "@/lib/format-date";
 import type { PersonalTask } from "@/lib/personal";
 import type { Section } from "@/lib/task-rules";
 import type { DayTasks } from "@/lib/tasks";
@@ -57,7 +58,6 @@ export function MyTasksView({
   const pathname = usePathname();
   const { message, show } = useToast();
   const [sideOpen, setSideOpen] = useState(false);
-  const fmt = { ...taskT, months };
   const isToday = date === today;
   const events = specialDaysOn(date, specialDays);
   const list = useRef<HTMLDivElement>(null);
@@ -125,36 +125,21 @@ export function MyTasksView({
       </aside>
 
       <main className="flex min-w-0 flex-[999_1_520px] flex-col gap-5">
-        <header className="flex flex-wrap items-center gap-x-[18px] gap-y-2.5 rounded-[28px] bg-white px-3.5 py-3 sm:px-[22px] sm:py-[18px]">
-          <div className="flex min-w-0 items-center gap-1">
-            <button type="button" aria-label={taskT.prevDay} onClick={() => go({ date: addDays(date, -1) })} className="-ml-2.5 flex size-11 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
-              {icon("m15 18-6-6 6-6")}
-            </button>
-            <h1 className="min-w-0 overflow-hidden whitespace-nowrap text-[19px] font-semibold sm:text-[26px]">
-              <SlideByDate date={date}>
-                <span className="hidden sm:inline">{longDate(date, fmt)}</span>
-                <span className="sm:hidden">{dayLabel(date, fmt, Number(today.slice(0, 4)))}</span>
-              </SlideByDate>
-            </h1>
-            <button type="button" aria-label={taskT.nextDay} onClick={() => go({ date: addDays(date, 1) })} className="flex size-11 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
-              {icon("m9 18 6-6-6-6")}
-            </button>
-            {isToday ? (
-              <span className="shrink-0 rounded-full bg-teal-tint px-3 py-1.5 text-[13px] font-semibold text-teal-deep">{taskT.today}</span>
-            ) : (
-              <button type="button" onClick={() => go({ date: today })} className="zk-pop min-h-11 shrink-0 whitespace-nowrap rounded-full bg-sun px-4 text-sm font-semibold text-ink">{taskT.goToday}</button>
-            )}
-          </div>
-          {events.map((e) => (
-            <span key={e.name} className="flex items-center gap-1.5 rounded-full bg-sun-tint px-3 py-1.5 text-[13px] font-semibold text-sun-ink">
-              {icon("M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22v-7", 16)}
-              {e.name}
-            </span>
-          ))}
-          <button type="button" onClick={() => setSideOpen((v) => !v)} aria-expanded={sideOpen} className="ml-auto flex min-h-11 items-center gap-2 rounded-full bg-mint px-3.5 text-[13px] font-semibold lg:hidden">
-            {icon("M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M3 10h18", 16)}
-            {t.calendar}
-          </button>
+        <header className="flex flex-col gap-2.5 rounded-[28px] bg-white px-3.5 py-3 sm:px-[22px] sm:py-[18px]">
+          <DaySwitcher
+            date={date}
+            today={today}
+            onGo={(iso) => go({ date: iso })}
+            t={taskT}
+            months={months}
+            actions={
+              <button type="button" onClick={() => setSideOpen((v) => !v)} aria-expanded={sideOpen} className={`${lineButton} lg:hidden`}>
+                {icon("M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M3 10h18", 15)}
+                {t.calendar}
+              </button>
+            }
+          />
+          <EventChips events={events} t={taskT} />
         </header>
 
         <div ref={list} className="flex flex-col gap-[26px] rounded-[28px] bg-white p-4 sm:p-[22px]">

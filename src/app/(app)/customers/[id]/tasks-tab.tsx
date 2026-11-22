@@ -5,13 +5,14 @@ import { useRef, useState } from "react";
 import { loadDay } from "@/app/actions/tasks";
 import { CloseButton, Dialog } from "@/components/dialog";
 import { MiniCalendar } from "@/components/mini-calendar";
-import { SlideByDate, useFlip } from "@/components/motion";
+import { DaySwitcher, EventChips, lineButton } from "@/components/day-header";
+import { useFlip } from "@/components/motion";
 import { avatarColor, TaskCard, type StatusOption } from "@/components/task-card";
 import { Toast, useToast } from "@/components/toast";
 import { initials } from "@/components/top-bar";
 import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
-import { addDays, shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
+import { shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
 import { dayLabel, longDate } from "@/lib/format-date";
 import type { Section } from "@/lib/task-rules";
 import type { DayTasks, TaskView } from "@/lib/tasks";
@@ -127,30 +128,15 @@ export function TasksTab({
         </section>
 
         <div ref={list} className="flex min-w-0 flex-[999_1_480px] flex-col gap-[22px] rounded-[28px] bg-white p-4 sm:p-[22px]">
-          <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2">
-            <div className="flex min-w-0 items-center gap-1">
-              <button type="button" aria-label={t.prevDay} onClick={() => go({ date: addDays(date, -1) })} className="-ml-2.5 flex size-11 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+          <div className="flex flex-col gap-2.5">
+            <DaySwitcher date={date} today={today} onGo={(iso) => go({ date: iso })} t={t} months={months} heading="h2" titleClass="text-lg sm:text-[22px]" />
+            <div className="flex flex-wrap items-center gap-2">
+              <EventChips events={events} t={t} />
+              <button type="button" onClick={() => loadDay(date).then(setWhole)} className={`${lineButton} ml-auto`}>
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+                {c.wholeDay}
               </button>
-              <h2 className="min-w-0 overflow-hidden whitespace-nowrap text-lg font-semibold sm:text-[22px]">
-                <SlideByDate date={date}>
-                  <span className="hidden sm:inline">{longDate(date, fmt)}</span>
-                  <span className="sm:hidden">{dayLabel(date, fmt, currentYear)}</span>
-                </SlideByDate>
-              </h2>
-              <button type="button" aria-label={t.nextDay} onClick={() => go({ date: addDays(date, 1) })} className="flex size-11 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
-              </button>
-              {isToday ? (
-                <span className="shrink-0 rounded-full bg-teal-tint px-3 py-1.5 text-[13px] font-semibold text-teal-deep">{t.today}</span>
-              ) : (
-                <button type="button" onClick={() => go({ date: today })} className="min-h-11 shrink-0 whitespace-nowrap rounded-full bg-sun px-4 text-sm font-semibold text-ink">{t.goToday}</button>
-              )}
             </div>
-            {events.map((e) => <span key={e.name} className="rounded-full bg-sun-tint px-3 py-1.5 text-[13px] font-semibold text-sun-ink">{e.name}</span>)}
-            <button type="button" onClick={() => loadDay(date).then(setWhole)} className="ml-auto flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full bg-mint px-4 text-sm font-semibold">
-              {c.wholeDay}
-            </button>
           </div>
 
           {visible.map((section) => (
