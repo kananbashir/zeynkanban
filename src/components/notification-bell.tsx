@@ -199,8 +199,8 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
   const label = unread ? fill(t.bellNew, { n: unread }) : t.title;
 
   const toggle = (on: boolean) => (
-    <span className={`flex h-7 w-[46px] shrink-0 rounded-full p-[3px] transition-colors duration-200 ${on ? "bg-teal" : "bg-[#6b7785]"}`}>
-      <span className={`size-[22px] rounded-full bg-white shadow-sm transition-transform duration-200 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${on ? "translate-x-[18px]" : ""}`} />
+    <span className={`flex h-7 w-[46px] shrink-0 rounded-full p-[3px] transition-colors duration-200 ${on ? "bg-teal" : "bg-subtle"}`}>
+      <span className={`size-[22px] rounded-full bg-surface shadow-sm transition-transform duration-200 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${on ? "translate-x-[18px]" : ""}`} />
     </span>
   );
 
@@ -209,7 +209,7 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
 
   return (
     <div className="relative">
-      <button type="button" aria-label={label} title={label} aria-expanded={open} onClick={toggleOpen} className="relative flex size-[52px] items-center justify-center rounded-full bg-white text-ink">
+      <button type="button" aria-label={label} title={label} aria-expanded={open} onClick={toggleOpen} className="relative flex size-[52px] items-center justify-center rounded-full bg-surface text-ink">
         <Icon name="bell" />
         {unread > 0 && (
           <span key={unread} className="zk-pop absolute right-1.5 top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-sun px-[5px] text-[11px] font-bold text-ink">
@@ -223,7 +223,7 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
           <section
             role="dialog"
             aria-label={view === "prefs" ? t.settings : t.title}
-            className="zk-fade-up fixed inset-x-2 top-2 z-[25] flex max-h-[calc(100dvh-16px)] flex-col overflow-hidden rounded-[24px] bg-white text-left shadow-[0_20px_56px_rgba(24,35,47,0.22)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-[62px] sm:w-[420px]"
+            className="zk-fade-up fixed inset-x-2 top-2 z-[25] flex max-h-[calc(100dvh-16px)] flex-col overflow-hidden rounded-[24px] bg-surface text-left shadow-[0_20px_56px_rgba(24,35,47,0.22)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-[62px] sm:w-[420px]"
           >
             <div className="flex flex-col gap-3 pb-3 pl-[18px] pr-3.5 pt-4">
               <div className="flex items-center gap-2">
@@ -270,8 +270,8 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
                   <div key={g.label} className="flex flex-col gap-0.5">
                     <span className="px-2.5 pb-1 pt-2 text-xs font-semibold text-muted">{g.label}</span>
                     {g.list.map((n) => (
-                      <button key={n.id} type="button" onClick={() => openItem(n)} className={`flex items-start gap-3 rounded-2xl p-2.5 text-left transition-colors hover:bg-mint ${n.unread ? "bg-[#f4f9f8]" : ""}`}>
-                        <span className="flex size-10 shrink-0 items-center justify-center rounded-full" style={{ background: TINTS[n.icon][0], color: TINTS[n.icon][1] }}>
+                      <button key={n.id} type="button" onClick={() => openItem(n)} className={`flex items-start gap-3 rounded-2xl p-2.5 text-left transition-colors hover:bg-mint ${n.unread ? "bg-mint-soft" : ""}`}>
+                        <span className="zk-tint flex size-10 shrink-0 items-center justify-center rounded-full" style={{ "--tint-bg": TINTS[n.icon][0], "--tint-ink": TINTS[n.icon][1] } as React.CSSProperties}>
                           {svg(ICONS[n.icon])}
                         </span>
                         <span className="flex min-w-0 flex-1 flex-col gap-0.5">

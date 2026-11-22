@@ -27,11 +27,11 @@ export function ContentTypesSection({ types, t, errors }: { types: ContentType[]
         {types.map((type) => (
           <div key={type.id} data-row className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${type.archived ? rowOff : row}`}>
             {type.used > 0 ? (
-              <span title={errors.codeLocked} className="w-[120px] shrink-0 rounded-[10px] bg-white px-2.5 py-2 text-center font-mono text-[13px] font-medium">
+              <span title={errors.codeLocked} className="w-[120px] shrink-0 rounded-[10px] bg-surface px-2.5 py-2 text-center font-mono text-[13px] font-medium">
                 {type.code}
               </span>
             ) : (
-              <div className="w-[120px] shrink-0 rounded-[10px] bg-white">
+              <div className="w-[120px] shrink-0 rounded-[10px] bg-surface">
                 <InlineText mono value={type.code} label={c.code} onSave={(next) => run(() => setContentTypeCode(type.id, next))} />
               </div>
             )}

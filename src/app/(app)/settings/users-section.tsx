@@ -8,13 +8,16 @@ import { btn, card, field, fieldSmall, row, rowOff } from "@/components/ui";
 import type { Role } from "@/db/schema";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
-import { createUser, newUserCode, renameUser, setUserActive, setUserRole } from "./actions";
+import { Icon } from "@/components/icons";
+import { createUser, newUserCode, renameUser, revealUserCode, setUserActive, setUserRole } from "./actions";
 import { SectionHeader } from "./section-header";
 import { useAction } from "./use-action";
 
 type User = { id: string; name: string; role: Role; active: boolean };
 const ROLES: Role[] = ["admin", "manager", "employee"];
 const AVATARS = ["#0b7f7b", "#5b4bc4", "#b4532a", "#1f6fb2", "#8a4b9c", "#4e6b1f"];
+
+const withoutKey = (all: Record<string, string>, key: string) => Object.fromEntries(Object.entries(all).filter(([k]) => k !== key));
 
 function avatarColor(id: string) {
   let sum = 0;
@@ -41,6 +44,7 @@ export function UsersSection({
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState<Role>("employee");
   const [revealed, setRevealed] = useState<{ id: string; code: string } | null>(null);
+  const [shown, setShown] = useState<Record<string, string>>({});
   const u = t.users;
 
   async function copy(code: string) {
@@ -118,7 +122,7 @@ export function UsersSection({
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                 <span
                   className="flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                  style={{ background: user.active ? avatarColor(user.id) : "#6b7785" }}
+                  style={{ background: user.active ? avatarColor(user.id) : "var(--color-subtle)" }}
                 >
                   {initials(user.name)}
                 </span>
@@ -141,14 +145,45 @@ export function UsersSection({
                     </option>
                   ))}
                 </select>
-                <span aria-label={u.codeHidden} className="font-mono text-[13px] tracking-[1px] text-ink-soft">
-                  ••••••••
+                <span className="flex items-center gap-0.5 rounded-full bg-surface py-0.5 pl-3 pr-0.5">
+                  <span aria-label={shown[user.id] ? undefined : u.codeHidden} className={`min-w-[86px] font-mono text-[13px] ${shown[user.id] ? "zk-fade-up select-all tracking-[1.5px] text-ink" : "tracking-[1px] text-ink-soft"}`}>
+                    {shown[user.id] ?? "••••••••"}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={shown[user.id] ? u.hideCode : fill(u.showCode, { name: user.name })}
+                    title={shown[user.id] ? u.hideCode : fill(u.showCode, { name: user.name })}
+                    aria-pressed={!!shown[user.id]}
+                    disabled={pending}
+                    onClick={() =>
+                      shown[user.id]
+                        ? setShown((all) => withoutKey(all, user.id))
+                        : run(() => revealUserCode(user.id), (result) => result.code && setShown((all) => ({ ...all, [user.id]: result.code! })))
+                    }
+                    className="flex size-9 items-center justify-center rounded-full text-icon hover:bg-mint"
+                  >
+                    <Icon name={shown[user.id] ? "eyeOff" : "eye"} size={17} />
+                  </button>
+                  {shown[user.id] && (
+                    <button type="button" aria-label={u.copyCode} title={u.copyCode} onClick={() => copy(shown[user.id])} className="zk-pop flex size-9 items-center justify-center rounded-full text-icon hover:bg-mint">
+                      <Icon name="copy" size={17} />
+                    </button>
+                  )}
                 </span>
                 <button
                   type="button"
                   className={btn.soft}
                   disabled={pending}
-                  onClick={() => run(() => newUserCode(user.id), (result) => result.code && setRevealed({ id: user.id, code: result.code }))}
+                  onClick={() =>
+                    run(
+                      () => newUserCode(user.id),
+                      (result) => {
+                        if (!result.code) return;
+                        setRevealed({ id: user.id, code: result.code });
+                        setShown((all) => withoutKey(all, user.id));
+                      },
+                    )
+                  }
                 >
                   {u.newCode}
                 </button>

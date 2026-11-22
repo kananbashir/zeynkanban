@@ -1,5 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
-import { CODE_LENGTH, generateCode, hashCode, hashToken, isWellFormedCode, newSessionToken } from "./codes";
+import { CODE_LENGTH, decryptCode, encryptCode, generateCode, hashCode, hashToken, isWellFormedCode, newSessionToken } from "./codes";
 
 beforeAll(() => {
   process.env.AUTH_SECRET = "test-secret-test-secret-test-secret";
@@ -53,5 +53,21 @@ describe("session tokens", () => {
     expect(a.token).not.toBe(b.token);
     expect(a.tokenHash).toBe(hashToken(a.token));
     expect(a.tokenHash).not.toBe(a.token);
+  });
+});
+
+describe("encrypted copy of a code", () => {
+  it("gives the code back", () => {
+    const code = generateCode();
+    const stored = encryptCode(code);
+    expect(stored).not.toContain(code);
+    expect(decryptCode(stored)).toBe(code);
+  });
+  it("is different every time, and tampering is caught", () => {
+    expect(encryptCode("Ab3$Ab3$")).not.toBe(encryptCode("Ab3$Ab3$"));
+    const stored = encryptCode("Ab3$Ab3$");
+    const broken = stored.slice(0, -2) + (stored.endsWith("A") ? "BB" : "AA");
+    expect(decryptCode(broken)).toBeNull();
+    expect(decryptCode(null)).toBeNull();
   });
 });

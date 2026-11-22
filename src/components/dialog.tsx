@@ -20,7 +20,7 @@ export function Dialog({ label, onClose, children, wide = false }: { label: stri
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto p-2 sm:p-4">
-      <button type="button" aria-label="×" tabIndex={-1} onClick={onClose} className="fixed inset-0 cursor-default bg-ink/45" />
+      <button type="button" aria-label="×" tabIndex={-1} onClick={onClose} className="fixed inset-0 cursor-default bg-scrim" />
       <div
         ref={ref}
         role="dialog"
@@ -37,7 +37,7 @@ export function Dialog({ label, onClose, children, wide = false }: { label: stri
 
 export function CloseButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button type="button" aria-label={label} onClick={onClick} className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white text-ink">
+    <button type="button" aria-label={label} onClick={onClick} className="flex size-11 shrink-0 items-center justify-center rounded-full bg-surface text-ink">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
         <path d="M6 6l12 12M18 6 6 18" />
       </svg>

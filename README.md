@@ -35,16 +35,28 @@ The repository holds code only. Customers, tasks and users live in the database,
 | First page after login | Dashboard | Dashboard | My tasks |
 | Dashboard, managing board, customers | Yes | Yes | No |
 | My tasks | Yes | Yes | Yes |
-| Settings | Yes | No | No |
+| Settings: appearance and language | Yes | Yes | Yes |
+| Settings: users, statuses, types, holidays | Yes | No | No |
+| About | Yes | Yes | Yes |
 
 A person who opens a page their role may not see is sent back to their own first page.
 
 ## Access codes
 
 - Everyone logs in with their own 8-character code (letters, numbers and symbols; capitals matter).
-- A code is shown once, when it is created. Only a scrambled form is stored, so nobody can look a code up later, not even in the database. A forgotten code is replaced with a new one.
+- Admins can show and copy anyone's code in Settings → Users (the eye button). For logging in only a one-way hash is used; to be able to show a code again, an encrypted copy is kept too, locked with a key made from `AUTH_SECRET`. So the codes can be read only through the site by an admin, or by someone who has both the database and `AUTH_SECRET`. Codes made before this existed can't be shown: give a new code to see it.
 - After 8 wrong codes from the same address within 15 minutes, logging in from that address is paused for 15 minutes.
 - "Keep me logged in on this device" keeps a person logged in for 30 days. Without it, the login ends when the browser closes, or after 12 hours.
+
+## Appearance, language and About (everyone)
+
+Settings → **Appearance and language**, for every role, saved on the device: **Light**, **System** (follows the device's light or dark mode) or **Dark**, the language (Azərbaycan / English), a link to the About page, and Log out. The theme is applied before the page is drawn, so there is no flash.
+
+The **About** page shows the version and its stage (**Beta** until `APP_STAGE=production` is set on the hosting when the site goes live on its real address), what the site is for, what it does and who can do what. The version number comes from `package.json`.
+
+On phones, the main pages are in a bar along the bottom of the screen; About and Log out are in Settings. On wider screens they are in the rail on the left.
+
+All colours are named in `src/app/globals.css`, each with a value for the dark theme.
 
 ## Settings (admin only)
 
@@ -187,4 +199,5 @@ The hosting runs a ready-made package; it never installs or builds anything itse
    - `DB_HOST` (usually `localhost`), `DB_NAME`, `DB_USER`, `DB_PASSWORD`: the MySQL database created in the hosting panel.
    - `AUTH_SECRET`: a random string of at least 32 characters. Changing it later makes every existing access code stop working.
    - `NODE_ENV`: `production`.
+   - `APP_STAGE`: `production` once the site is live on its real address (the About page then shows "Live" instead of "Beta").
 4. Start the app and open the address. The database tables are created on the first start, and the setup page asks for the first admin.

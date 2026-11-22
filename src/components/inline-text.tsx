@@ -47,7 +47,7 @@ export function InlineText({
         }
         onSave(next);
       }}
-      className={`h-10 w-full min-w-0 rounded-[10px] border-[1.5px] border-transparent bg-transparent px-2.5 text-[15px] font-semibold text-ink hover:border-line-strong hover:bg-white focus:border-line-strong focus:bg-white ${mono ? "font-mono text-[13px] font-medium" : ""} ${className}`}
+      className={`h-10 w-full min-w-0 rounded-[10px] border-[1.5px] border-transparent bg-transparent px-2.5 text-[15px] font-semibold text-ink hover:border-line-strong hover:bg-surface focus:border-line-strong focus:bg-surface ${mono ? "font-mono text-[13px] font-medium" : ""} ${className}`}
     />
   );
 }

@@ -1,34 +1,46 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import Link from "next/link";
+import { Fragment } from "react";
 import { db } from "@/db";
 import { contents, contentTypes, specialDays, statuses, taskTypes, users } from "@/db/schema";
 import { getDictionary } from "@/i18n/server";
-import { requireRole } from "@/lib/auth";
+import { cookies } from "next/headers";
+import { requireUser } from "@/lib/auth";
+import { DEFAULT_THEME, isTheme, THEME_COOKIE } from "@/lib/theme";
+import { PreferencesSection } from "./preferences-section";
 import { ContentTypesSection } from "./content-types-section";
 import { SpecialDaysSection } from "./special-days-section";
 import { StatusesSection } from "./statuses-section";
 import { TaskTypesSection } from "./task-types-section";
 import { UsersSection } from "./users-section";
 
-const SECTIONS = ["users", "statuses", "types", "content", "days"] as const;
-type Section = (typeof SECTIONS)[number];
+const ADMIN_SECTIONS = ["users", "statuses", "types", "content", "days"] as const;
+type Section = (typeof ADMIN_SECTIONS)[number] | "preferences";
 
+/** Admins: everything. Everyone else: only their own appearance and language. */
 export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
-  const me = await requireRole("admin");
-  const { t } = await getDictionary();
+  const me = await requireUser();
+  const admin = me.role === "admin";
+  const { locale, t } = await getDictionary();
   const requested = (await searchParams).section;
-  const section: Section = (SECTIONS as readonly string[]).includes(requested ?? "") ? (requested as Section) : "users";
+  const allowed: Section[] = admin ? [...ADMIN_SECTIONS, "preferences"] : ["preferences"];
+  const section: Section = allowed.includes(requested as Section) ? (requested as Section) : admin ? "users" : "preferences";
 
-  const counts = await Promise.all([
-    db.$count(users, undefined),
-    db.$count(statuses, isNull(statuses.deletedAt)),
-    db.$count(taskTypes, and(isNull(taskTypes.deletedAt), eq(taskTypes.oneOff, false))),
-    db.$count(contentTypes, undefined),
-    db.$count(specialDays, undefined),
-  ]);
+  const counts = admin
+    ? await Promise.all([
+        db.$count(users, undefined),
+        db.$count(statuses, isNull(statuses.deletedAt)),
+        db.$count(taskTypes, and(isNull(taskTypes.deletedAt), eq(taskTypes.oneOff, false))),
+        db.$count(contentTypes, undefined),
+        db.$count(specialDays, undefined),
+      ])
+    : [];
 
   let content: React.ReactNode = null;
-  if (section === "users") {
+  if (section === "preferences") {
+    const saved = (await cookies()).get(THEME_COOKIE)?.value;
+    content = <PreferencesSection theme={isTheme(saved) ? saved : DEFAULT_THEME} locale={locale} t={t.settings} nav={t.nav} />;
+  } else if (section === "users") {
     const list = await db
       .select({ id: users.id, name: users.name, role: users.role, active: users.active })
       .from(users)
@@ -70,30 +82,44 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     content = <SpecialDaysSection days={list} t={t.settings} errors={t.errors} />;
   }
 
+  const heading = (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[13px] font-semibold text-teal-deep">{section === "preferences" ? t.settings.eyebrowAll : t.settings.eyebrow}</span>
+      <h1 className="text-[28px] font-semibold leading-tight">{t.nav.settings}</h1>
+    </div>
+  );
+  if (!admin) {
+    return (
+      <main className="flex flex-col gap-5">
+        {heading}
+        {content}
+      </main>
+    );
+  }
+
   return (
     <main className="flex flex-col gap-5">
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[13px] font-semibold text-teal-deep">{t.settings.eyebrow}</span>
-        <h1 className="text-[28px] font-semibold leading-tight">{t.nav.settings}</h1>
-      </div>
+      {heading}
       <div className="flex flex-wrap items-start gap-6">
         <nav
           aria-label={t.settings.sectionsLabel}
-          className="flex min-w-0 flex-[1_1_240px] flex-col gap-1 rounded-[28px] bg-white p-3 lg:max-w-[300px]"
+          className="flex min-w-0 flex-[1_1_240px] flex-col gap-1 rounded-[28px] bg-surface p-3 lg:max-w-[300px]"
         >
-          {SECTIONS.map((key, i) => {
+          {allowed.map((key, i) => {
             const active = key === section;
             return (
+              <Fragment key={key}>
+              {key === "preferences" && <div aria-hidden="true" className="mx-2 my-1.5 border-t border-line" />}
               <Link
-                key={key}
                 href={{ pathname: "/settings", query: { section: key } }}
                 scroll={false}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-[52px] items-center gap-3 rounded-[18px] px-3.5 py-1.5 text-[15px] font-semibold ${active ? "bg-teal text-white" : "text-ink hover:bg-mint"}`}
+                className={`flex min-h-[52px] items-center gap-3 rounded-[18px] px-3.5 py-1.5 text-[15px] font-semibold transition-colors ${active ? "bg-teal text-white" : "text-ink hover:bg-mint"}`}
               >
                 <span className="min-w-0 flex-1">{t.settings.sections[key]}</span>
-                <span className="text-[13px] font-medium">{counts[i]}</span>
+                {counts[i] !== undefined && <span className="text-[13px] font-medium">{counts[i]}</span>}
               </Link>
+              </Fragment>
             );
           })}
         </nav>

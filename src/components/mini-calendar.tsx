@@ -72,7 +72,7 @@ export function MiniCalendar({
                 ? "bg-sun-tint text-ink font-semibold"
                 : inMonth
                   ? "text-ink font-medium hover:bg-mint"
-                  : "text-[#6b7785] hover:bg-mint";
+                  : "text-subtle hover:bg-mint";
           const label = `${Number(iso.slice(8))} ${months[Number(iso.slice(5, 7)) - 1]} ${iso.slice(0, 4)}${n ? `, ${n}` : ""}${events.length ? `, ${events.map((e) => e.name).join(", ")}` : ""}`;
           return (
             <button
@@ -90,8 +90,8 @@ export function MiniCalendar({
                 <span className={`h-2.5 text-[10px] font-semibold leading-none tabular-nums ${sel ? "text-teal-tint" : "text-muted"}`}>{n || ""}</span>
               ) : (
                 <span className="flex h-[5px] items-center gap-[3px]">
-                  {n > 0 && <span className={`size-[5px] rounded-full ${sel ? "bg-white" : "bg-teal"}`} />}
-                  {events.length > 0 && <span className={`h-1 w-2.5 rounded-sm ${sel ? "bg-sun" : "bg-[#b87a00]"}`} />}
+                  {n > 0 && <span className={`size-[5px] rounded-full ${sel ? "bg-surface" : "bg-teal"}`} />}
+                  {events.length > 0 && <span className={`h-1 w-2.5 rounded-sm ${sel ? "bg-sun" : "bg-event"}`} />}
                 </span>
               )}
             </button>

@@ -17,7 +17,7 @@ export default async function SetupPage() {
           <LanguageSwitch locale={locale} label={t.common.language} />
         </div>
         <div className="flex flex-1 items-center justify-center">
-          <div className="flex w-full max-w-[460px] flex-col gap-6 rounded-[28px] bg-white px-5 py-[26px] md:p-10">
+          <div className="flex w-full max-w-[460px] flex-col gap-6 rounded-[28px] bg-surface px-5 py-[26px] md:p-10">
             <div className="flex items-center gap-3">
               <Image src="/logo-mark.png" alt="" width={256} height={256} className="size-[52px] rounded-[18px]" />
               <span className="text-lg font-semibold">{t.brand}</span>

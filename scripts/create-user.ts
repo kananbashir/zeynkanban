@@ -17,14 +17,14 @@ async function main() {
   }
   const { connect } = await import("../src/db/client");
   const { users } = await import("../src/db/schema");
-  const { generateCode, hashCode } = await import("../src/lib/codes");
+  const { encryptCode, generateCode, hashCode } = await import("../src/lib/codes");
   const { pool, db } = connect();
   const code = generateCode();
-  await db.insert(users).values({ name, role: role as "admin" | "manager" | "employee", codeHash: hashCode(code) });
+  await db.insert(users).values({ name, role: role as "admin" | "manager" | "employee", codeHash: hashCode(code), codeSecret: encryptCode(code) });
   await pool.end();
   console.log(`\nCreated ${role}: ${name}`);
   console.log(`Access code: ${code}`);
-  console.log("Write it down now. It is not stored and cannot be shown again.\n");
+  console.log("An admin can also show it later in Settings → Users.\n");
 }
 
 main().catch((error) => {

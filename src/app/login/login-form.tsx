@@ -48,11 +48,11 @@ export function LoginForm({ t }: { t: Dictionary["login"] }) {
             {Array.from({ length: LENGTH }, (_, i) => {
               const filled = i < code.length;
               const active = focused && i === activeIndex;
-              const border = error ? "border-danger" : active ? "border-teal" : filled ? "border-[#9fcfcb]" : "border-line-strong";
+              const border = error ? "border-danger" : active ? "border-teal" : filled ? "border-filled-line" : "border-line-strong";
               return (
                 <span
                   key={i}
-                  className={`flex h-[46px] items-center justify-center rounded-[10px] border-2 font-mono text-lg font-medium md:h-14 md:rounded-[14px] md:text-[22px] ${border} ${active ? "bg-white" : "bg-mint"}`}
+                  className={`flex h-[46px] items-center justify-center rounded-[10px] border-2 font-mono text-lg font-medium md:h-14 md:rounded-[14px] md:text-[22px] ${border} ${active ? "bg-surface" : "bg-mint"}`}
                 >
                   {filled ? (show ? code[i] : "•") : ""}
                 </span>

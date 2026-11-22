@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { db } from "@/db";
 import { users, type Role } from "@/db/schema";
-import { generateCode, hashCode } from "./codes";
+import { encryptCode, generateCode, hashCode } from "./codes";
 
 /** True when an insert or update hit a unique rule (for example, a content type code already in use). */
 export function isUniqueViolation(error: unknown): boolean {
@@ -16,13 +16,13 @@ export function found(result: unknown): boolean {
   return Number((header as { affectedRows?: number })?.affectedRows ?? 0) > 0;
 }
 
-/** Creates a person with a fresh code and returns the code. The code is never stored, only its hash. */
+/** Creates a person with a fresh code and returns the code. Stored as a hash and an encrypted copy. */
 export async function insertUserWithCode(name: string, role: Role): Promise<{ id: string; code: string }> {
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateCode();
     try {
       const id = randomUUID();
-      await db.insert(users).values({ id, name, role, codeHash: hashCode(code) });
+      await db.insert(users).values({ id, name, role, codeHash: hashCode(code), codeSecret: encryptCode(code) });
       return { id, code };
     } catch (error) {
       if (!isUniqueViolation(error)) throw error; // a code collision is astronomically rare; just try again
@@ -32,11 +32,11 @@ export async function insertUserWithCode(name: string, role: Role): Promise<{ id
 }
 
 /** Gives a person a fresh code. Their old code stops working at once. */
-export async function replaceCode(userId: string, update: (codeHash: string) => Promise<boolean>): Promise<string | null> {
+export async function replaceCode(userId: string, update: (stored: { codeHash: string; codeSecret: string }) => Promise<boolean>): Promise<string | null> {
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateCode();
     try {
-      return (await update(hashCode(code))) ? code : null;
+      return (await update({ codeHash: hashCode(code), codeSecret: encryptCode(code) })) ? code : null;
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
     }

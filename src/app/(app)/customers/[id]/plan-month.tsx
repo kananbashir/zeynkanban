@@ -201,14 +201,14 @@ export function PlanMonth({
     const past = iso < today;
     const inRange = !past && iso >= range.from && iso <= range.to;
     const look = past
-      ? "bg-[#f4f9f8] border-transparent"
-      : `${events.length ? "bg-sun-tint" : inRange ? "bg-[#f4fbfa]" : "bg-white"} ${iso === today ? "border-teal" : events.length ? "border-sun-tint" : inRange ? "border-[#bfe3df]" : "border-line"}`;
+      ? "bg-mint-soft border-transparent"
+      : `${events.length ? "bg-sun-tint" : inRange ? "bg-range" : "bg-surface"} ${iso === today ? "border-teal" : events.length ? "border-sun-tint" : inRange ? "border-range-line" : "border-line"}`;
     const dateText = shortDate(iso, fmt);
     const load = n > 0 && <span className="whitespace-nowrap text-[10px] font-semibold text-muted">{n === 1 ? t.task1 : fill(t.tasksN, { n })}</span>;
     const chips = (
       <>
         {fixed.filter((c) => c.publishDate === iso).map((c) => (
-          <span key={c.id} title={c.code} className="pointer-events-none overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-[#e9edf0] px-[5px] py-[3px] font-mono text-[10px] font-medium">{wide ? c.code : shortChip(c.code)}</span>
+          <span key={c.id} title={c.code} className="pointer-events-none overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-neutral-card px-[5px] py-[3px] font-mono text-[10px] font-medium">{wide ? c.code : shortChip(c.code)}</span>
         ))}
         {here.map((id) => (
           <button
@@ -271,7 +271,7 @@ export function PlanMonth({
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <div className="contents lg:flex lg:w-[300px] lg:shrink-0 lg:flex-col lg:gap-4">
-          <section className="order-1 flex flex-col gap-3 rounded-[20px] bg-white p-4 lg:order-none">
+          <section className="order-1 flex flex-col gap-3 rounded-[20px] bg-surface p-4 lg:order-none">
             <div className="flex items-baseline gap-2">
               <h3 id="plan-ids" className="flex-1 text-[15px] font-semibold">{p.toPlace}</h3>
               {items.length > 0 && <span className="text-[13px] text-ink-soft">{fill(p.placed, { placed: placedCount, total: items.length })}</span>}
@@ -287,7 +287,7 @@ export function PlanMonth({
                       type="button"
                       aria-pressed={on}
                       onClick={() => setSelected(on ? null : c.id)}
-                      className={`flex min-h-11 flex-wrap items-center gap-x-2.5 gap-y-0.5 rounded-[14px] border-[1.5px] px-3 py-1.5 text-left transition-colors duration-200 ${on ? "border-teal bg-teal-tint" : "border-line bg-white hover:bg-mint"}`}
+                      className={`flex min-h-11 flex-wrap items-center gap-x-2.5 gap-y-0.5 rounded-[14px] border-[1.5px] px-3 py-1.5 text-left transition-colors duration-200 ${on ? "border-teal bg-teal-tint" : "border-line bg-surface hover:bg-mint"}`}
                     >
                       <span className="font-mono text-[13px] font-medium">{c.code}</span>
                       <span className={`ml-auto whitespace-nowrap text-xs font-semibold ${when ? "text-teal-deep" : "text-muted"}`}>{when ? shortDate(when, fmt) : p.notPlaced}</span>
@@ -301,7 +301,7 @@ export function PlanMonth({
           </section>
 
           {period && contentTypes.length > 0 && (
-            <section className="order-4 flex flex-col gap-3 rounded-[20px] bg-white p-4 lg:order-none">
+            <section className="order-4 flex flex-col gap-3 rounded-[20px] bg-surface p-4 lg:order-none">
               <div className="flex flex-col gap-1">
                 <h3 className="text-[15px] font-semibold">{p.generate}</h3>
                 <span className="text-[13px] text-ink-soft">{p.forContract} {period.label}</span>
@@ -325,7 +325,7 @@ export function PlanMonth({
                 type="button"
                 disabled={!total || pending}
                 onClick={generate}
-                className={`min-h-11 rounded-full px-4 text-sm font-semibold transition-colors duration-200 ${total ? "bg-teal text-white" : "bg-[#e3ecea] text-icon"}`}
+                className={`min-h-11 rounded-full px-4 text-sm font-semibold transition-colors duration-200 ${total ? "bg-teal text-white" : "bg-line text-icon"}`}
               >
                 {total === 0 ? p.createIds : total === 1 ? p.create1 : fill(p.createN, { n: total })}
               </button>
@@ -334,7 +334,7 @@ export function PlanMonth({
         </div>
 
         <div className="contents lg:flex lg:min-w-0 lg:flex-1 lg:flex-col lg:gap-4">
-          <section className="order-2 flex min-w-0 flex-col gap-3 rounded-[20px] bg-white p-4 lg:order-none">
+          <section className="order-2 flex min-w-0 flex-col gap-3 rounded-[20px] bg-surface p-4 lg:order-none">
             <div className="flex items-center gap-1">
               <button type="button" aria-label={t.prevMonth} onClick={() => changeMonth(-1)} className="-ml-2 flex size-11 items-center justify-center rounded-full text-icon hover:bg-mint">{icon("m15 18-6-6 6-6")}</button>
               <h3 className="min-w-[150px] overflow-hidden whitespace-nowrap text-center text-lg font-semibold">
@@ -345,11 +345,11 @@ export function PlanMonth({
             <div className="flex flex-wrap items-end gap-2.5 rounded-2xl bg-mint p-2.5">
               <label className="flex flex-col gap-1 text-xs font-semibold text-ink-soft">
                 {p.rangeFrom}
-                <input type="date" value={range.from} min={today} onChange={(e) => e.target.value && setRange((r) => ({ ...r, from: e.target.value }))} className="h-11 rounded-xl border-[1.5px] border-line-strong bg-white px-2.5 text-sm font-medium text-ink" />
+                <input type="date" value={range.from} min={today} onChange={(e) => e.target.value && setRange((r) => ({ ...r, from: e.target.value }))} className="h-11 rounded-xl border-[1.5px] border-line-strong bg-surface px-2.5 text-sm font-medium text-ink" />
               </label>
               <label className="flex flex-col gap-1 text-xs font-semibold text-ink-soft">
                 {p.rangeTo}
-                <input type="date" value={range.to} min={range.from} onChange={(e) => e.target.value && setRange((r) => ({ ...r, to: e.target.value }))} className="h-11 rounded-xl border-[1.5px] border-line-strong bg-white px-2.5 text-sm font-medium text-ink" />
+                <input type="date" value={range.to} min={range.from} onChange={(e) => e.target.value && setRange((r) => ({ ...r, to: e.target.value }))} className="h-11 rounded-xl border-[1.5px] border-line-strong bg-surface px-2.5 text-sm font-medium text-ink" />
               </label>
               <button type="button" onClick={spread} disabled={!!rangeProblem} className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full bg-teal px-4 text-sm font-semibold text-white disabled:opacity-50">
                 {icon("M4 5v14M20 5v14M9 12h6M12 9l3 3-3 3M12 9l-3 3 3 3", 18)}
@@ -377,14 +377,14 @@ export function PlanMonth({
               </div>
             </SlideByDate>
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-ink-soft">
-              <span className="flex items-center gap-1.5"><span className="h-2.5 w-3.5 rounded-[3px] border border-[#6b7785] bg-[#e9edf0]" />{p.legendFixed}</span>
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-3.5 rounded-[3px] border border-subtle bg-neutral-card" />{p.legendFixed}</span>
               <span className="flex items-center gap-1.5"><span className="h-2.5 w-3.5 rounded-[3px] border-[1.5px] border-teal bg-teal-tint" />{p.legendNew}</span>
-              <span className="flex items-center gap-1.5"><span className="h-2.5 w-3.5 rounded-[3px] border border-[#b87a00] bg-sun-tint" />{p.legendEvent}</span>
+              <span className="flex items-center gap-1.5"><span className="h-2.5 w-3.5 rounded-[3px] border border-event bg-sun-tint" />{p.legendEvent}</span>
               <span>{p.legendAll}</span>
             </div>
           </section>
 
-          <section className="order-3 flex min-w-0 flex-col gap-3 rounded-[20px] bg-white p-4 lg:order-none">
+          <section className="order-3 flex min-w-0 flex-col gap-3 rounded-[20px] bg-surface p-4 lg:order-none">
             <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-0.5">
               <h3 className="text-[15px] font-semibold">{fill(p.rhythmTitle, { month: months[month.month - 1] })}</h3>
               <p className="text-[13px] text-ink-soft">{summary}</p>
@@ -398,15 +398,15 @@ export function PlanMonth({
                     <div key={step.date} data-flip={step.date} className="flex shrink-0 items-center">
                       {step.gap !== null && (
                         <span className="flex shrink-0 items-center">
-                          <span className="h-0.5 w-1.5 bg-[#c9d8d5]" />
+                          <span className="h-0.5 w-1.5 bg-line-strong" />
                           <span title={step.longest ? p.longest : undefined} className={`whitespace-nowrap rounded-full px-2 py-[3px] text-[11px] font-semibold ${step.longest ? "bg-sun-tint text-sun-ink" : "bg-mint text-ink-soft"}`}>{gapText(step.gap)}</span>
-                          <span className="h-0.5 w-1.5 bg-[#c9d8d5]" />
+                          <span className="h-0.5 w-1.5 bg-line-strong" />
                         </span>
                       )}
-                      <div className={`flex w-[78px] shrink-0 flex-col items-center gap-[3px] rounded-[14px] border-[1.5px] px-[5px] py-2 transition-colors duration-300 ${isNew ? "border-teal bg-teal-tint" : "border-[#c9d8d5] bg-[#f4f9f8]"}`}>
+                      <div className={`flex w-[78px] shrink-0 flex-col items-center gap-[3px] rounded-[14px] border-[1.5px] px-[5px] py-2 transition-colors duration-300 ${isNew ? "border-teal bg-teal-tint" : "border-line-strong bg-mint-soft"}`}>
                         <span className="text-[11px] font-semibold leading-tight text-ink-soft">{t.weekdaysShort[weekdayIndex(step.date)]}</span>
                         <span className="text-xl font-semibold leading-none">{Number(step.date.slice(8))}</span>
-                        {ids.map((code) => <span key={code} title={code} className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-white px-1.5 py-0.5 font-mono text-[10px] font-medium">{shortChip(code)}</span>)}
+                        {ids.map((code) => <span key={code} title={code} className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-surface px-1.5 py-0.5 font-mono text-[10px] font-medium">{shortChip(code)}</span>)}
                       </div>
                     </div>
                   );
@@ -414,9 +414,9 @@ export function PlanMonth({
               </div>
             )}
             <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs text-ink-soft">
-              <span className="flex items-center gap-1.5"><span className="size-3 rounded border-[1.5px] border-[#c9d8d5] bg-[#f4f9f8]" />{p.legendFixed}</span>
+              <span className="flex items-center gap-1.5"><span className="size-3 rounded border-[1.5px] border-line-strong bg-mint-soft" />{p.legendFixed}</span>
               <span className="flex items-center gap-1.5"><span className="size-3 rounded border-[1.5px] border-teal bg-teal-tint" />{p.legendNewShort}</span>
-              <span className="flex items-center gap-1.5"><span className="size-3 rounded-full border border-[#b87a00] bg-sun-tint" />{p.longest}</span>
+              <span className="flex items-center gap-1.5"><span className="size-3 rounded-full border border-event bg-sun-tint" />{p.longest}</span>
               {flow.steps.length > 4 && <span className="ml-auto">{p.scrollHint}</span>}
             </div>
           </section>
@@ -425,12 +425,12 @@ export function PlanMonth({
 
       <div className="flex flex-wrap items-center gap-2.5">
         <p className="flex-[1_1_260px] text-sm leading-snug text-ink-soft">{p.footer}</p>
-        <button type="button" onClick={onClose} className="min-h-12 rounded-full bg-white px-[22px] text-[15px] font-semibold">{p.cancel}</button>
+        <button type="button" onClick={onClose} className="min-h-12 rounded-full bg-surface px-[22px] text-[15px] font-semibold">{p.cancel}</button>
         <button
           type="button"
           disabled={!stagedIds.length || pending}
           onClick={save}
-          className={`min-h-12 rounded-full px-[26px] text-[15px] font-semibold transition-colors duration-200 ${stagedIds.length ? "bg-sun text-ink" : "bg-[#e3ecea] text-icon"}`}
+          className={`min-h-12 rounded-full px-[26px] text-[15px] font-semibold transition-colors duration-200 ${stagedIds.length ? "bg-sun text-ink" : "bg-line text-icon"}`}
         >
           {stagedIds.length === 0 ? p.saveNone : stagedIds.length === 1 ? p.save1 : fill(p.saveN, { n: stagedIds.length })}
         </button>

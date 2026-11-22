@@ -5,7 +5,7 @@ import { useOptimistic, useRef, useState, useTransition } from "react";
 import { addPersonalTask, deletePersonalTask, setPersonalDone } from "@/app/actions/personal";
 import { MiniCalendar } from "@/components/mini-calendar";
 import { DaySwitcher, EventChips, lineButton } from "@/components/day-header";
-import { useFlip } from "@/components/motion";
+import { Collapse, scrollIntoViewSoftly, useFlip, useIsWide } from "@/components/motion";
 import { TaskCard, type StatusOption } from "@/components/task-card";
 import { Toast, useToast } from "@/components/toast";
 import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
@@ -59,6 +59,14 @@ export function MyTasksView({
   const pathname = usePathname();
   const { message, show } = useToast();
   const [sideOpen, setSideOpen] = useState(false);
+  const wide = useIsWide();
+  const sidePanel = useRef<HTMLDivElement>(null);
+  // On phones the calendar opens above the list; glide up to it when it opens.
+  const toggleSide = () => {
+    const next = !sideOpen;
+    setSideOpen(next);
+    if (next) scrollIntoViewSoftly(sidePanel.current);
+  };
   const isToday = date === today;
   const events = specialDaysOn(date, specialDays);
   const list = useRef<HTMLDivElement>(null);
@@ -80,9 +88,11 @@ export function MyTasksView({
   const total = day.overdue.length + day.due.length + day.finished.length;
 
   return (
-    <div className="flex flex-wrap items-start gap-6">
-      <aside className={`${sideOpen ? "flex" : "hidden"} min-w-0 flex-[1_1_300px] flex-col gap-5 lg:flex lg:max-w-[340px]`}>
-        <section aria-label={t.calendar} className="rounded-[28px] bg-white px-5 pb-[18px] pt-[22px]">
+    <div className="flex flex-wrap items-start gap-x-6 lg:gap-y-6">
+      <div ref={sidePanel} className="min-w-0 flex-[1_1_300px] scroll-mt-3 max-lg:basis-full lg:max-w-[340px]">
+      <Collapse open={sideOpen} keepMounted inertWhenClosed={!wide} className="zk-collapse-lg-open">
+      <aside className="flex flex-col gap-5 pb-5 lg:pb-0">
+        <section aria-label={t.calendar} className="rounded-[28px] bg-surface px-5 pb-[18px] pt-[22px]">
           <MiniCalendar
             year={shownMonth.year}
             month={shownMonth.month}
@@ -102,7 +112,7 @@ export function MyTasksView({
           />
           <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted">
             <span className="flex items-center gap-1.5"><span className="size-[5px] rounded-full bg-teal" />{t.legendMine}</span>
-            <span className="flex items-center gap-1.5"><span className="h-1 w-2.5 rounded-sm bg-[#b87a00]" />{t.legendEvent}</span>
+            <span className="flex items-center gap-1.5"><span className="h-1 w-2.5 rounded-sm bg-event" />{t.legendEvent}</span>
           </div>
         </section>
 
@@ -124,9 +134,11 @@ export function MyTasksView({
           </div>
         </section>
       </aside>
+      </Collapse>
+      </div>
 
       <main className="flex min-w-0 flex-[999_1_520px] flex-col gap-5">
-        <header className="flex flex-col gap-2.5 rounded-[28px] bg-white px-3.5 py-3 sm:px-[22px] sm:py-[18px]">
+        <header className="flex flex-col gap-2.5 rounded-[28px] bg-surface px-3.5 py-3 sm:px-[22px] sm:py-[18px]">
           <DaySwitcher
             date={date}
             today={today}
@@ -134,7 +146,7 @@ export function MyTasksView({
             t={taskT}
             months={months}
             actions={
-              <button type="button" onClick={() => setSideOpen((v) => !v)} aria-expanded={sideOpen} className={`${lineButton} lg:hidden`}>
+              <button type="button" onClick={toggleSide} aria-expanded={sideOpen} className={`${lineButton} lg:hidden`}>
                 {icon("M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M3 10h18", 15)}
                 {t.calendar}
               </button>
@@ -143,7 +155,7 @@ export function MyTasksView({
           <EventChips events={events} t={taskT} />
         </header>
 
-        <div ref={list} className="flex flex-col gap-[26px] rounded-[28px] bg-white p-4 sm:p-[22px]">
+        <div ref={list} className="flex flex-col gap-[26px] rounded-[28px] bg-surface p-4 sm:p-[22px]">
           {visible.map((section) => (
             <section key={section.key} className="flex flex-col gap-3">
               <div data-flip={`heading-${section.key}`} className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
@@ -202,6 +214,7 @@ function PersonalTasks({
   onAdded: () => void;
 }) {
   const [adding, setAdding] = useState(false);
+  const formBox = useRef<HTMLDivElement>(null);
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
   const [time, setTime] = useState("");
@@ -223,12 +236,12 @@ function PersonalTasks({
       setAdding(false);
       onAdded();
     });
-  const field = "h-12 rounded-2xl border-[1.5px] border-line-strong bg-white px-3.5 text-[15px] font-normal";
+  const field = "h-12 rounded-2xl border-[1.5px] border-line-strong bg-surface px-3.5 text-[15px] font-normal";
   const chip = (on: boolean) =>
-    `flex min-h-10 items-center gap-1.5 rounded-full border-2 px-3.5 text-[13px] font-semibold transition-colors duration-200 ${on ? "border-teal bg-teal-tint" : "border-transparent bg-white hover:bg-mint-soft"}`;
+    `flex min-h-10 items-center gap-1.5 rounded-full border-2 px-3.5 text-[13px] font-semibold transition-colors duration-200 ${on ? "border-teal bg-teal-tint" : "border-transparent bg-surface hover:bg-mint-soft"}`;
 
   return (
-    <section aria-label={t.personal} className="flex flex-col gap-4 rounded-[28px] bg-white p-4 sm:p-[22px]">
+    <section aria-label={t.personal} className="flex flex-col gap-4 rounded-[28px] bg-surface p-4 sm:p-[22px]">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <div className="flex flex-[1_1_240px] flex-col gap-1">
           <h2 className="text-base font-semibold">{t.personal}</h2>
@@ -237,19 +250,28 @@ function PersonalTasks({
             {t.personalHint}
           </span>
         </div>
-        <button type="button" aria-expanded={adding} onClick={() => setAdding((v) => !v)} className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full bg-sun px-4 text-sm font-semibold">
+        <button
+          type="button"
+          aria-expanded={adding}
+          onClick={() => {
+            setAdding((v) => !v);
+            if (!adding) setTimeout(() => scrollIntoViewSoftly(formBox.current, "center"), 60);
+          }}
+          className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full bg-sun px-4 text-sm font-semibold"
+        >
           {icon(adding ? "M6 6l12 12M18 6 6 18" : "M12 5v14M5 12h14", 16)}
           {t.add}
         </button>
       </div>
 
-      {adding && (
+      <Collapse open={adding}>
+        <div ref={formBox} className="scroll-mt-4">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             save();
           }}
-          className="zk-fade-up flex flex-col gap-3 rounded-[22px] bg-mint p-4"
+          className="flex flex-col gap-3 rounded-[22px] bg-mint p-4"
         >
           <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
             {t.what}
@@ -289,10 +311,11 @@ function PersonalTasks({
           </p>
           <div className="flex flex-wrap gap-2.5">
             <button type="submit" disabled={pending} className="min-h-11 rounded-full bg-sun px-5 text-sm font-semibold">{t.save}</button>
-            <button type="button" onClick={() => { setAdding(false); setProblem(null); }} className="min-h-11 rounded-full bg-white px-5 text-sm font-semibold">{t.cancel}</button>
+            <button type="button" onClick={() => { setAdding(false); setProblem(null); }} className="min-h-11 rounded-full bg-surface px-5 text-sm font-semibold">{t.cancel}</button>
           </div>
         </form>
-      )}
+        </div>
+      </Collapse>
 
       <div ref={box} className="flex flex-col gap-2">
         {items.map((p) => (
@@ -330,9 +353,9 @@ function PersonalRow({ item, date, t, taskT, onError }: { item: PersonalTask; da
     </span>
   );
   return (
-    <div data-flip={item.id} className={`flex min-h-[52px] items-center gap-1 rounded-[18px] border-[1.5px] border-dashed border-[#6b7785] pr-1.5 transition-colors duration-300 ${isDone ? "bg-[#f0f5f3]" : "bg-white"}`}>
+    <div data-flip={item.id} className={`flex min-h-[52px] items-center gap-1 rounded-[18px] border-[1.5px] border-dashed border-subtle pr-1.5 transition-colors duration-300 ${isDone ? "bg-done" : "bg-surface"}`}>
       <button type="button" aria-pressed={isDone} onClick={toggle} className="flex min-h-[50px] min-w-0 flex-1 items-center gap-3 py-2.5 pl-3.5 text-left">
-        <span className={`flex size-6 shrink-0 items-center justify-center rounded-lg border-[1.5px] text-white transition-colors duration-200 ${isDone ? "border-teal bg-teal" : "border-[#6b7785] bg-white"}`}>
+        <span className={`flex size-6 shrink-0 items-center justify-center rounded-lg border-[1.5px] text-white transition-colors duration-200 ${isDone ? "border-teal bg-teal" : "border-subtle bg-surface"}`}>
           {isDone && (
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="zk-pop">
               <path d="m5 12 5 5L20 7" />

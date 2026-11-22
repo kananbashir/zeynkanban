@@ -28,7 +28,7 @@ function SortableRow({ id, children }: { id: string; children: (handle: Handle, 
       {...listeners}
       aria-label={label}
       title={label}
-      className="flex size-10 shrink-0 cursor-grab touch-none items-center justify-center rounded-xl bg-white text-icon active:cursor-grabbing"
+      className="flex size-10 shrink-0 cursor-grab touch-none items-center justify-center rounded-xl bg-surface text-icon active:cursor-grabbing"
     >
       <GripIcon />
     </button>

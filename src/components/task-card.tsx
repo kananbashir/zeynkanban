@@ -158,22 +158,22 @@ export function TaskCard({
     <article
       data-task={task.id}
       data-flip={task.id}
-      className={`relative flex flex-col gap-2.5 rounded-[22px] border-[1.5px] p-3.5 transition-[background-color] duration-500 sm:gap-3 sm:px-5 sm:py-[18px] ${task.contentArchived ? "border-dashed border-[#6b7785]" : "border-transparent"} ${open ? "z-20" : "z-0"}`}
-      style={{ background }}
+      className={`zk-card relative flex flex-col gap-2.5 rounded-[22px] border-[1.5px] p-3.5 transition-[background-color] duration-500 sm:gap-3 sm:px-5 sm:py-[18px] ${task.contentArchived ? "border-dashed border-subtle" : "border-transparent"} ${open ? "z-20" : "z-0"}`}
+      style={{ "--card": background, "--tint": task.contentArchived || status.finished ? "var(--color-subtle)" : status.deleted ? "var(--color-subtle)" : status.color } as React.CSSProperties}
     >
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-ink/12 pb-3">
-        <span className="rounded-lg bg-white px-2 py-1 font-mono text-xs font-medium">{task.contentCode}</span>
+        <span className="rounded-lg bg-surface px-2 py-1 font-mono text-xs font-medium">{task.contentCode}</span>
         {showCustomer && (
           <span className="flex items-center gap-1.5 text-sm font-semibold">
             <span className="size-2.5 rounded-full border-[1.5px] border-black/25" style={{ background: task.customerColor }} />
             {task.customerName}
           </span>
         )}
-        {task.contentArchived && <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.archivedContent}</span>}
+        {task.contentArchived && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.archivedContent}</span>}
         {lateDays > 0 && (
-          <span className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-danger">{lateDays === 1 ? t.dayOverdue : fill(t.daysOverdue, { n: lateDays })}</span>
+          <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-bold text-danger">{lateDays === 1 ? t.dayOverdue : fill(t.daysOverdue, { n: lateDays })}</span>
         )}
-        {!task.assigneeId && <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.draft}</span>}
+        {!task.assigneeId && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.draft}</span>}
         <div className="relative ml-auto">
           <button
             type="button"
@@ -182,16 +182,16 @@ export function TaskCard({
             aria-expanded={open}
             aria-label={fill(t.statusAria, { name: statusLabel })}
             onClick={() => setOpen((v) => !v)}
-            className="flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-full bg-white pl-2.5 pr-2 text-xs font-semibold disabled:cursor-default sm:min-h-11 sm:gap-2 sm:pl-3.5 sm:pr-3 sm:text-[13px]"
+            className="flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-full bg-surface pl-2.5 pr-2 text-xs font-semibold disabled:cursor-default sm:min-h-11 sm:gap-2 sm:pl-3.5 sm:pr-3 sm:text-[13px]"
           >
-            <span className="size-[9px] rounded-full transition-colors duration-500" style={{ background: status.deleted ? "#6b7785" : status.color }} />
+            <span className="size-[9px] rounded-full transition-colors duration-500" style={{ background: status.deleted ? "var(--color-subtle)" : status.color }} />
             <span>{statusLabel}</span>
             {canChangeStatus && <Icon d="m6 9 6 6 6-6" />}
           </button>
           {open && (
             <>
               <button type="button" aria-label={t.form.close} tabIndex={-1} className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
-              <div className="absolute right-0 top-[38px] z-20 flex min-w-[190px] flex-col gap-0.5 rounded-[18px] bg-white p-1.5 shadow-[0_12px_32px_rgba(24,35,47,0.18)] sm:top-[50px] sm:min-w-[210px]">
+              <div className="absolute right-0 top-[38px] z-20 flex min-w-[190px] flex-col gap-0.5 rounded-[18px] bg-surface p-1.5 shadow-[0_12px_32px_rgba(24,35,47,0.18)] sm:top-[50px] sm:min-w-[210px]">
                 {statuses.map((s) => (
                   <button
                     key={s.id}
@@ -210,7 +210,7 @@ export function TaskCard({
         </div>
       </div>
       <h3 className="text-[17px] font-semibold sm:text-xl">{typeLabel}</h3>
-      {task.description && <p className="max-w-[70ch] whitespace-pre-line text-sm leading-normal text-[#2b3644]">{task.description}</p>}
+      {task.description && <p className="max-w-[70ch] whitespace-pre-line text-sm leading-normal text-ink-body">{task.description}</p>}
       <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1.5 border-t border-ink/12 pt-2 text-[13px] text-ink-soft">
         {showAssignee && <span className="flex items-center gap-2">
           {task.assigneeId ? (
@@ -239,7 +239,7 @@ export function TaskCard({
           aria-expanded={notesOpen}
           aria-busy={loadingNotes}
           onClick={toggleNotes}
-          className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold transition-colors sm:min-h-10 ${notesOpen ? "bg-white text-ink" : "text-ink hover:bg-white/60"} ml-auto`}
+          className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold transition-colors sm:min-h-10 ${notesOpen ? "bg-surface text-ink" : "text-ink hover:bg-surface/60"} ml-auto`}
         >
           {loadingNotes ? (
             <span className="size-4 shrink-0 animate-spin rounded-full border-2 border-ink/20 border-t-ink" aria-hidden="true" />
@@ -247,7 +247,7 @@ export function TaskCard({
             <Icon d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM8 9h8M8 13h5" />
           )}
           {t.notes.button}
-          {notesCount > 0 && <span key={notesCount} className="zk-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1.5 text-[11px] font-bold tabular-nums">{notesCount}</span>}
+          {notesCount > 0 && <span key={notesCount} className="zk-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-surface px-1.5 text-[11px] font-bold tabular-nums">{notesCount}</span>}
         </button>
         {editHref ? (
           <Link href={editHref} className="flex min-h-9 items-center gap-1.5 rounded-full py-0 pl-3 pr-1.5 text-[13px] font-semibold text-ink sm:min-h-11">
@@ -340,7 +340,7 @@ function NotesPanel({
   };
 
   return (
-    <section aria-label={n.title} className="flex flex-col rounded-[18px] bg-white/80 p-3 sm:p-3.5">
+    <section aria-label={n.title} className="flex flex-col rounded-[18px] bg-surface/80 p-3 sm:p-3.5">
       <Collapse open={visible.length === 0}>
         <p className="pb-2.5 text-[13px] text-muted">{n.empty}</p>
       </Collapse>
@@ -349,7 +349,7 @@ function NotesPanel({
           <li key={note.key}>
             <Collapse open={!note.leaving} appear={note.appear}>
               <div className={`flex items-start gap-2.5 pb-2.5 transition-opacity duration-300 ${note.pending ? "opacity-60" : ""}`}>
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: note.authorId ? avatarColor(note.authorId) : "#6b7785" }}>
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: note.authorId ? avatarColor(note.authorId) : "var(--color-subtle)" }}>
                   {initials(note.author || "?")}
                 </span>
                 <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -357,7 +357,7 @@ function NotesPanel({
                     <span className="font-semibold">{note.mine ? n.you : note.author}</span>
                     <span className="text-xs text-muted">{note.when}</span>
                   </span>
-                  <p className="whitespace-pre-line text-sm leading-snug text-[#2b3644] [overflow-wrap:anywhere]">{note.body}</p>
+                  <p className="whitespace-pre-line text-sm leading-snug text-ink-body [overflow-wrap:anywhere]">{note.body}</p>
                 </div>
                 {note.canDelete && !note.pending && (
                   <button type="button" aria-label={n.remove} title={n.remove} disabled={note.leaving} onClick={() => remove(note)} className="flex size-8 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
@@ -394,7 +394,7 @@ function NotesPanel({
                 add();
               }
             }}
-            className="min-h-11 min-w-0 flex-[1_1_220px] resize-none rounded-[14px] border-[1.5px] border-line-strong bg-white px-3 py-2.5 text-sm"
+            className="min-h-11 min-w-0 flex-[1_1_220px] resize-none rounded-[14px] border-[1.5px] border-line-strong bg-surface px-3 py-2.5 text-sm"
           />
           <button type="submit" disabled={!text.trim() || full} className="min-h-11 rounded-full bg-teal px-4 text-[13px] font-semibold text-white transition-opacity disabled:opacity-50">
             {n.add}

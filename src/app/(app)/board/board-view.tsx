@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import { MiniCalendar } from "@/components/mini-calendar";
 import { DaySwitcher, EventChips } from "@/components/day-header";
-import { SegmentedControl, useFlip } from "@/components/motion";
+import { Collapse, SegmentedControl, scrollIntoViewSoftly, useFlip, useIsWide } from "@/components/motion";
 import { avatarColor, TaskCard, type StatusOption } from "@/components/task-card";
 import { Toast, useToast } from "@/components/toast";
 import { initials } from "@/components/top-bar";
@@ -53,6 +53,14 @@ export function BoardView({
   const [customerFilter, setCustomerFilter] = useState<string[]>([]);
   const [peopleFilter, setPeopleFilter] = useState<string[]>([]);
   const [sideOpen, setSideOpen] = useState(false);
+  const wide = useIsWide();
+  const sidePanel = useRef<HTMLDivElement>(null);
+  // On phones the calendar opens above the list; glide up to it when it opens.
+  const toggleSide = () => {
+    const next = !sideOpen;
+    setSideOpen(next);
+    if (next) scrollIntoViewSoftly(sidePanel.current);
+  };
   const b = t.board;
   const list = useRef<HTMLDivElement>(null);
   useFlip(list);
@@ -92,14 +100,16 @@ export function BoardView({
 
   const toggle = (list: string[], set: (v: string[]) => void, id: string) => set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
   const filterRow = (on: boolean) => (on ? "bg-mint" : "hover:bg-mint-soft");
-  const box = (on: boolean) => (on ? "border-teal bg-teal" : "border-[#6b7785] bg-white");
+  const box = (on: boolean) => (on ? "border-teal bg-teal" : "border-subtle bg-surface");
   const check = <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 5 5L20 7" /></svg>;
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-start gap-6">
-        <aside className={`${sideOpen ? "flex" : "hidden"} min-w-0 flex-[1_1_300px] flex-col gap-5 lg:flex lg:max-w-[340px]`}>
-          <section aria-label={b.title} className="rounded-[28px] bg-white px-5 pb-[18px] pt-[22px]">
+      <div className="flex flex-wrap items-start gap-x-6 lg:gap-y-6">
+        <div ref={sidePanel} className="min-w-0 flex-[1_1_300px] scroll-mt-3 max-lg:basis-full lg:max-w-[340px]">
+        <Collapse open={sideOpen} keepMounted inertWhenClosed={!wide} className="zk-collapse-lg-open">
+        <aside className="flex flex-col gap-5 pb-5 lg:pb-0">
+          <section aria-label={b.title} className="rounded-[28px] bg-surface px-5 pb-[18px] pt-[22px]">
             <MiniCalendar
               year={shownMonth.year}
               month={shownMonth.month}
@@ -119,7 +129,7 @@ export function BoardView({
             />
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted">
               <span className="flex items-center gap-1.5"><span className="size-[5px] rounded-full bg-teal" />{t.calendarTasks}</span>
-              <span className="flex items-center gap-1.5"><span className="h-1 w-2.5 rounded-sm bg-[#b87a00]" />{t.calendarEvent}</span>
+              <span className="flex items-center gap-1.5"><span className="h-1 w-2.5 rounded-sm bg-event" />{t.calendarEvent}</span>
             </div>
           </section>
 
@@ -138,13 +148,13 @@ export function BoardView({
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               {peopleToday.slice(0, 8).map((p) => (
-                <span key={p.id} title={p.name} className="flex size-8 items-center justify-center rounded-full bg-white text-[11px] font-bold text-teal-deep">{initials(p.name)}</span>
+                <span key={p.id} title={p.name} className="flex size-8 items-center justify-center rounded-full bg-surface text-[11px] font-bold text-teal-deep">{initials(p.name)}</span>
               ))}
               <span className="ml-1 text-xs text-teal-tint">{peopleToday.length === 0 ? b.nobody : peopleToday.length === 1 ? b.personWorking : fill(b.peopleWorking, { n: peopleToday.length })}</span>
             </div>
           </section>
 
-          <section aria-label={b.customers} className="flex flex-col gap-2.5 rounded-[28px] bg-white px-5 py-[22px]">
+          <section aria-label={b.customers} className="flex flex-col gap-2.5 rounded-[28px] bg-surface px-5 py-[22px]">
             <h2 className="text-lg font-semibold">{b.customers}</h2>
             <div className="flex flex-col gap-1">
               {customers.map((c) => {
@@ -166,7 +176,7 @@ export function BoardView({
             </div>
           </section>
 
-          <section aria-label={b.assignees} className="flex flex-col gap-2.5 rounded-[28px] bg-white px-5 py-[22px]">
+          <section aria-label={b.assignees} className="flex flex-col gap-2.5 rounded-[28px] bg-surface px-5 py-[22px]">
             <h2 className="text-lg font-semibold">{b.assignees}</h2>
             <div className="flex flex-col gap-1">
               {people.map((p) => {
@@ -188,13 +198,15 @@ export function BoardView({
             )}
           </section>
         </aside>
+        </Collapse>
+        </div>
 
         <main className="flex min-w-0 flex-[999_1_520px] flex-col gap-5">
-          <header className="flex flex-wrap items-center gap-x-[18px] gap-y-2.5 rounded-[28px] bg-white px-3.5 py-3 sm:px-[22px] sm:py-[18px]">
+          <header className="flex flex-wrap items-center gap-x-[18px] gap-y-2.5 rounded-[28px] bg-surface px-3.5 py-3 sm:px-[22px] sm:py-[18px]">
             <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto">
               <div className="flex items-center gap-2">
                 <span className="flex-1 text-[13px] font-semibold text-teal-deep">{b.title}</span>
-                <button type="button" onClick={() => setSideOpen((v) => !v)} aria-expanded={sideOpen} className="flex min-h-11 items-center gap-2 rounded-full bg-mint px-3.5 text-[13px] font-semibold lg:hidden">
+                <button type="button" onClick={toggleSide} aria-expanded={sideOpen} className="flex min-h-11 items-center gap-2 rounded-full bg-mint px-3.5 text-[13px] font-semibold lg:hidden">
                   {b.filters}
                 </button>
               </div>
@@ -202,7 +214,7 @@ export function BoardView({
               <EventChips events={events} t={t} />
             </div>
             <div className="ml-auto flex w-full min-w-0 flex-wrap items-center gap-2.5 sm:w-auto">
-              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={b.search} aria-label={b.search} className="h-11 min-w-0 flex-[1_1_180px] rounded-full border-[1.5px] border-line-strong bg-white px-4 text-sm" />
+              <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={b.search} aria-label={b.search} className="h-11 min-w-0 flex-[1_1_180px] rounded-full border-[1.5px] border-line-strong bg-surface px-4 text-sm" />
               <SegmentedControl
                 label={b.showLabel}
                 value={segment}
@@ -219,7 +231,7 @@ export function BoardView({
             </div>
           </header>
 
-          <div ref={list} className="flex flex-col gap-[26px] rounded-[28px] bg-white p-4 sm:p-[22px]">
+          <div ref={list} className="flex flex-col gap-[26px] rounded-[28px] bg-surface p-4 sm:p-[22px]">
             {visible.map((section) => (
               <section key={section.key} className="flex flex-col gap-3">
                 <div data-flip={`heading-${section.key}`} className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">

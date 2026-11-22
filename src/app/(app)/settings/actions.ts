@@ -18,6 +18,7 @@ import {
   statusDeleteProblem,
   unfinishProblem,
 } from "@/lib/settings-rules";
+import { decryptCode } from "@/lib/codes";
 import { found, insertUserWithCode, isUniqueViolation, replaceCode } from "@/lib/users";
 
 export type Result = { ok: true } | { ok: false; error: ErrorKey };
@@ -71,14 +72,23 @@ export async function setUserActive(id: string, active: boolean): Promise<Result
 
 export async function newUserCode(id: string): Promise<Result & { code?: string }> {
   await requireRole("admin");
-  const code = await replaceCode(id, async (codeHash) => {
-    const rows = await db.update(users).set({ codeHash, updatedAt: new Date() }).where(eq(users.id, id));
+  const code = await replaceCode(id, async (stored) => {
+    const rows = await db.update(users).set({ ...stored, updatedAt: new Date() }).where(eq(users.id, id));
     return found(rows);
   });
   if (!code) return fail("notFound");
   await endSessionsOf(id); // the old code, and everyone logged in with it, stops working
   revalidatePath("/settings");
   return { ok: true, code };
+}
+
+/** Shows a person's current code to an admin (from its encrypted copy). */
+export async function revealUserCode(id: string): Promise<Result & { code?: string }> {
+  await requireRole("admin");
+  const [user] = await db.select({ codeSecret: users.codeSecret }).from(users).where(eq(users.id, id));
+  if (!user) return fail("notFound");
+  const code = decryptCode(user.codeSecret);
+  return code ? { ok: true, code } : fail("codeUnknown");
 }
 
 /* ---------- Statuses ---------- */

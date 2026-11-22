@@ -5,7 +5,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import type { ErrorKey } from "@/i18n/dictionaries";
-import { generateCode, hashCode } from "@/lib/codes";
+import { encryptCode, generateCode, hashCode } from "@/lib/codes";
 import { cleanName } from "@/lib/settings-rules";
 
 export type SetupState = { code: string | null; error: ErrorKey | "taken" | null };
@@ -21,7 +21,7 @@ export async function createFirstAdmin(_previous: SetupState, formData: FormData
   const created = await db.transaction(async (tx) => {
     const [rows] = (await tx.execute(sql`select count(*) as n from ${users} for update`)) as unknown as [{ n: number | string }[]];
     if (Number(rows[0]?.n ?? 0) > 0) return false;
-    await tx.insert(users).values({ id: randomUUID(), name: clean.value, role: "admin", codeHash: hashCode(code) });
+    await tx.insert(users).values({ id: randomUUID(), name: clean.value, role: "admin", codeHash: hashCode(code), codeSecret: encryptCode(code) });
     return true;
   });
   return created ? { code, error: null } : { code: null, error: "taken" };

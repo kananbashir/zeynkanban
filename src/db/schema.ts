@@ -17,6 +17,8 @@ export const users = mysqlTable("users", {
   role: mysqlEnum("role", ROLES).notNull().default("employee"),
   /** HMAC of the access code. The code itself is never stored. */
   codeHash: varchar("code_hash", { length: 64 }).notNull().unique(),
+  /** The code itself, encrypted with a key made from AUTH_SECRET, so an admin can show it again. Empty for codes made before this existed. */
+  codeSecret: varchar("code_secret", { length: 200 }),
   active: boolean("active").notNull().default(true),
   createdAt: createdAt(),
   updatedAt: now("updated_at"),

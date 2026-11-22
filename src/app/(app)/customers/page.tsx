@@ -12,7 +12,7 @@ export default async function CustomersPage() {
   const { t } = await getDictionary();
   const admin = user.role === "admin";
   return (
-    <main className="flex flex-col items-center gap-2 rounded-[28px] bg-white px-4 py-16 text-center">
+    <main className="flex flex-col items-center gap-2 rounded-[28px] bg-surface px-4 py-16 text-center">
       <h1 className="text-xl font-semibold">{t.customers.emptyTitle}</h1>
       <p className="max-w-[48ch] text-sm text-muted">{admin ? t.customers.emptyAdmin : t.customers.emptyManager}</p>
       {admin && (

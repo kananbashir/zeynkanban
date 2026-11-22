@@ -59,7 +59,7 @@ export function TaskPeek({ t, errors }: { t: Dictionary["tasks"]; errors: Dictio
           <CloseButton label={t.form.close} onClick={close} />
         </div>
         {!current ? (
-          <div className="h-[180px] animate-pulse rounded-[22px] bg-white/70" />
+          <div className="h-[180px] animate-pulse rounded-[22px] bg-surface/70" />
         ) : current.peek ? (
           <div className="zk-fade-up flex flex-col gap-3">
             <TaskCard
@@ -75,13 +75,13 @@ export function TaskPeek({ t, errors }: { t: Dictionary["tasks"]; errors: Dictio
               onChanged={() => load(id)}
             />
             {!current.peek.editHref && (
-              <Link href={`/my-tasks?date=${current.peek.task.dueDate}`} onClick={close} className="self-start rounded-full bg-white px-4 py-2.5 text-sm font-semibold">
+              <Link href={`/my-tasks?date=${current.peek.task.dueDate}`} onClick={close} className="self-start rounded-full bg-surface px-4 py-2.5 text-sm font-semibold">
                 {t.peek.showDay}
               </Link>
             )}
           </div>
         ) : (
-          <p className="rounded-[22px] bg-white px-4 py-8 text-center text-sm text-ink-soft">{current.error}</p>
+          <p className="rounded-[22px] bg-surface px-4 py-8 text-center text-sm text-ink-soft">{current.error}</p>
         )}
       </Dialog>
       <Toast message={message} />

@@ -19,10 +19,10 @@ export function useToast() {
 
 export function Toast({ message }: { message: { text: string; tone: "info" | "error" } | null }) {
   return (
-    <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-4 bottom-6 z-40 flex justify-center">
+    <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-4 bottom-[calc(96px+env(safe-area-inset-bottom))] z-40 flex justify-center lg:bottom-6">
       {message && (
         <span
-          className={`max-w-[520px] rounded-2xl px-[18px] py-3 text-sm text-white shadow-[0_12px_32px_rgba(24,35,47,0.25)] ${message.tone === "error" ? "bg-danger" : "bg-ink"}`}
+          className={`max-w-[520px] rounded-2xl px-[18px] py-3 text-sm shadow-[0_12px_32px_rgba(24,35,47,0.25)] ${message.tone === "error" ? "bg-danger text-surface" : "bg-ink text-surface"}`}
         >
           {message.text}
         </span>

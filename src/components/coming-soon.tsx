@@ -5,7 +5,7 @@ export function ComingSoon({ title, heading, text }: { title: string; heading: s
   return (
     <main className="flex flex-col gap-5">
       <h1 className="text-[28px] font-semibold leading-tight">{title}</h1>
-      <div className="flex flex-col items-center gap-2 rounded-[28px] bg-white px-4 py-16 text-center">
+      <div className="flex flex-col items-center gap-2 rounded-[28px] bg-surface px-4 py-16 text-center">
         <span className="flex size-14 items-center justify-center rounded-full bg-mint text-teal-deep">
           <Icon name="hammer" />
         </span>

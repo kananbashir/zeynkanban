@@ -80,7 +80,7 @@ export function DashboardView({
 
   return (
     <main className="flex flex-col gap-5">
-      <header className="flex flex-wrap items-center gap-x-[18px] gap-y-2.5 rounded-[28px] bg-white p-4 md:px-[22px] md:py-5">
+      <header className="flex flex-wrap items-center gap-x-[18px] gap-y-2.5 rounded-[28px] bg-surface p-4 md:px-[22px] md:py-5">
         <div className="flex min-w-0 flex-col gap-1">
           <span className="text-[13px] font-semibold text-teal-deep">{t.title}</span>
           <div className="flex min-w-0 items-center gap-1">
@@ -189,7 +189,7 @@ export function DashboardView({
 
 function Tile({ label, value, sub }: { label: ReactNode; value: number; sub: string }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5 rounded-[24px] bg-white p-4 md:p-5">
+    <div className="flex min-w-0 flex-col gap-1.5 rounded-[24px] bg-surface p-4 md:p-5">
       <span className="text-[13px] font-medium text-icon">{label}</span>
       <span className="text-[28px] font-semibold leading-[1.1] md:text-[34px]">
         <Num value={value} />
@@ -201,7 +201,7 @@ function Tile({ label, value, sub }: { label: ReactNode; value: number; sub: str
 
 function Card({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
   return (
-    <section aria-label={title} className="flex min-w-0 flex-col gap-[18px] rounded-[28px] bg-white p-4 md:p-[22px]">
+    <section aria-label={title} className="flex min-w-0 flex-col gap-[18px] rounded-[28px] bg-surface p-4 md:p-[22px]">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <h2 className="flex-1 text-lg font-semibold">{title}</h2>
         <span className="text-xs text-muted">{hint}</span>
@@ -233,7 +233,7 @@ function BarRow({ lead, name, total, finished, max, link, t }: { lead: ReactNode
           </Link>
         )}
       </div>
-      <div role="img" aria-label={tip} className="zk-grow-x flex h-2.5 gap-0.5 rounded-[4px] bg-[#f4f9f8]">
+      <div role="img" aria-label={tip} className="zk-grow-x flex h-2.5 gap-0.5 rounded-[4px] bg-mint-soft">
         {finished > 0 && <span className="transition-[width] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]" style={{ width: `${(finished / max) * 100}%`, background: FINISHED, borderRadius: open ? "4px 0 0 4px" : 4 }} />}
         {open > 0 && <span className="transition-[width] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]" style={{ width: `${(open / max) * 100}%`, background: OPEN, borderRadius: finished ? "0 4px 4px 0" : 4 }} />}
       </div>
@@ -246,7 +246,7 @@ function StatusCard({ statuses, total, t, taskT }: { statuses: DashboardData["st
   const aria = statuses.map((s) => `${label(s)} ${s.count}`).join(", ");
   return (
     <Card title={t.statuses} hint={t.statusesHint}>
-      <div role="img" aria-label={aria} className="zk-grow-x flex h-2 gap-0.5 overflow-hidden rounded-full bg-[#f4f9f8]">
+      <div role="img" aria-label={aria} className="zk-grow-x flex h-2 gap-0.5 overflow-hidden rounded-full bg-mint-soft">
         {statuses
           .filter((s) => s.count > 0)
           .map((s) => (
@@ -286,13 +286,13 @@ function DayChart({ period, today, perDay, specialDays, t, taskT }: { period: Pe
   const events = specialDaysOn(shown, specialDays);
 
   return (
-    <section aria-label={t.perDay} className="flex min-w-0 flex-col gap-3.5 rounded-[28px] bg-white p-4 md:p-[22px]">
+    <section aria-label={t.perDay} className="flex min-w-0 flex-col gap-3.5 rounded-[28px] bg-surface p-4 md:p-[22px]">
       <div className="flex flex-wrap items-center gap-x-[18px] gap-y-2">
         <h2 className="flex-1 text-lg font-semibold">{t.perDay}</h2>
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-icon">
           <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-[3px]" style={{ background: FINISHED }} />{t.legendFinished}</span>
           <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-[3px]" style={{ background: OPEN }} />{t.legendOpen}</span>
-          <span className="flex items-center gap-1.5"><span className="h-1 w-2.5 rounded-sm bg-[#b87a00]" />{t.legendEvent}</span>
+          <span className="flex items-center gap-1.5"><span className="h-1 w-2.5 rounded-sm bg-event" />{t.legendEvent}</span>
         </div>
       </div>
 
@@ -304,7 +304,7 @@ function DayChart({ period, today, perDay, specialDays, t, taskT }: { period: Pe
             {events.length ? ` · ${events.map((e) => e.name).join(", ")}` : ""}
           </span>
         </span>
-        <Link href={`/board?date=${shown}`} className="ml-auto flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-white px-3 text-[13px] font-semibold">
+        <Link href={`/board?date=${shown}`} className="ml-auto flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-surface px-3 text-[13px] font-semibold">
           {t.openDay}
           {icon("M7 17 17 7M7 7h10v10", 16)}
         </Link>
@@ -333,7 +333,7 @@ function DayChart({ period, today, perDay, specialDays, t, taskT }: { period: Pe
                   onMouseLeave={() => setHover(null)}
                   onFocus={() => setHover(iso)}
                   onBlur={() => setHover(null)}
-                  className={`flex min-w-0 flex-1 flex-col items-center justify-end rounded-t-lg transition-colors duration-200 ${iso === selected ? "bg-mint" : iso === hover ? "bg-[#f4f9f8]" : ""}`}
+                  className={`flex min-w-0 flex-1 flex-col items-center justify-end rounded-t-lg transition-colors duration-200 ${iso === selected ? "bg-mint" : iso === hover ? "bg-mint-soft" : ""}`}
                 >
                   <span className="zk-grow-y flex h-full w-3/5 max-w-5 flex-col justify-end">
                     <span className="transition-[height] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]" style={{ height: h(open), background: OPEN, borderRadius: "4px 4px 0 0", marginBottom: open && x.finished ? 2 : 0 }} />
@@ -354,7 +354,7 @@ function DayChart({ period, today, perDay, specialDays, t, taskT }: { period: Pe
                 <span className={`whitespace-nowrap rounded-full px-[5px] py-0.5 text-[11px] tabular-nums ${isToday ? "bg-teal font-semibold text-white" : "font-medium text-muted"} ${major ? "" : "hidden lg:inline"}`}>
                   {week ? `${taskT.weekdaysShort[weekdayIndex(iso)]} ${dom}` : dom}
                 </span>
-                {specialDaysOn(iso, specialDays).length > 0 && <span className="h-1 w-2.5 rounded-sm bg-[#b87a00]" />}
+                {specialDaysOn(iso, specialDays).length > 0 && <span className="h-1 w-2.5 rounded-sm bg-event" />}
               </span>
             );
           })}

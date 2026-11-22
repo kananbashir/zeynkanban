@@ -95,7 +95,7 @@ export function ContentsTab({
             aria-expanded={open}
             aria-label={fill(taskT.contents.showTasks, { code: item.code })}
             onClick={() => setExpanded((list) => (open ? list.filter((x) => x !== item.id) : [...list, item.id]))}
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-white text-icon"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface text-icon"
           >
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d={open ? "m6 9 6 6 6-6" : "m9 18 6-6-6-6"} /></svg>
           </button>
@@ -106,11 +106,11 @@ export function ContentsTab({
               <InlineText mono value={item.code} label={t.editId} onSave={(next) => run(() => renameContent(item.id, next))} />
             )}
           </div>
-          <span className="whitespace-nowrap rounded-full bg-white px-2.5 py-1 text-xs font-semibold">{item.typeName}</span>
+          <span className="whitespace-nowrap rounded-full bg-surface px-2.5 py-1 text-xs font-semibold">{item.typeName}</span>
           <span className="whitespace-nowrap text-[13px] text-ink-soft">{publish ? fill(taskT.form.publishes, { date: shortDate(publish, taskT) }) : taskT.form.noPublish}</span>
           <span className="flex items-center gap-2 whitespace-nowrap text-[13px] text-ink-soft tabular-nums">
             {live.length > 0 && (
-              <span className="flex h-1.5 w-16 overflow-hidden rounded-full bg-[#cfe7e4]"><span className="bg-teal" style={{ width: `${Math.round((done / live.length) * 100)}%` }} /></span>
+              <span className="flex h-1.5 w-16 overflow-hidden rounded-full bg-track"><span className="bg-teal" style={{ width: `${Math.round((done / live.length) * 100)}%` }} /></span>
             )}
             {live.length ? fill(taskT.contents.progress, { done, total: live.length }) : t.noTasks}
           </span>
@@ -121,14 +121,14 @@ export function ContentsTab({
           )}
         </div>
         {open && (
-          <div className="flex flex-col rounded-2xl bg-white px-3.5 py-1.5">
+          <div className="flex flex-col rounded-2xl bg-surface px-3.5 py-1.5">
             {own.map((x, i) => (
               <div key={x.id} className={`flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5 text-[13px] text-ink-soft ${i ? "border-t border-line" : ""}`}>
                 <span className="flex-[1_1_150px] text-sm font-semibold text-ink">{x.typeDeleted ? fill(taskT.deletedType, { name: x.typeName }) : x.typeName}</span>
                 <span className="flex flex-[1_1_150px] items-center gap-2">{x.assigneeName ?? taskT.noAssignee}</span>
                 <span className="whitespace-nowrap">{shortDate(x.dueDate, taskT)}</span>
                 <span className="flex min-w-[130px] items-center gap-1.5 whitespace-nowrap font-semibold text-ink">
-                  <span className="size-[9px] rounded-full" style={{ background: x.archived ? "#6b7785" : x.statusColor }} />
+                  <span className="size-[9px] rounded-full" style={{ background: x.archived ? "var(--color-subtle)" : x.statusColor }} />
                   {x.archived ? taskT.contents.archivedTask : x.statusDeleted ? fill(taskT.deletedStatus, { name: x.statusName }) : x.statusName}
                 </span>
                 {x.archived && canArchive && (

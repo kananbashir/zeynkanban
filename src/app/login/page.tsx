@@ -31,11 +31,12 @@ export default async function LoginPage() {
           <div className="flex max-w-[460px] flex-col gap-3.5">
             <Image src="/logo-full.png" alt="" width={720} height={451} priority className="-ml-2 -mt-2 mb-2.5 h-auto w-[230px]" />
             <h2 className="text-balance text-[40px] font-semibold leading-[1.1]">{t.login.tagline}</h2>
-            <p className="text-base leading-[1.55] text-teal-tint">{t.login.taglineSub}</p>
+            <p className="text-base leading-[1.55] text-[#d9f0ee]">{t.login.taglineSub}</p>
           </div>
           <div className="flex max-w-[480px] flex-col gap-3">
             {SAMPLE_CARDS.map((card, i) => (
-              <div key={card.id} className={`flex flex-col gap-2.5 rounded-[22px] px-[18px] py-4 text-ink ${card.bg} ${card.indent}`}>
+              // The green panel looks the same in both themes, so these sample cards keep fixed colours.
+              <div key={card.id} className={`flex flex-col gap-2.5 rounded-[22px] px-[18px] py-4 text-on-pastel ${card.bg} ${card.indent}`}>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-lg bg-white px-2 py-1 font-mono text-xs font-medium">{card.id}</span>
                   <span className="text-[13px] font-semibold">{card.customer}</span>
@@ -55,7 +56,7 @@ export default async function LoginPage() {
             <LanguageSwitch locale={locale} label={t.common.language} />
           </div>
           <div className="flex flex-1 items-center justify-center">
-            <div className="flex w-full max-w-[460px] flex-col gap-6 rounded-[28px] bg-white px-5 py-[26px] md:p-10">
+            <div className="flex w-full max-w-[460px] flex-col gap-6 rounded-[28px] bg-surface px-5 py-[26px] md:p-10">
               <div className="flex items-center gap-3">
                 <Image src="/logo-mark.png" alt="" width={256} height={256} className="size-[52px] rounded-[18px]" />
                 <span className="text-lg font-semibold">{t.brand}</span>

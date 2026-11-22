@@ -142,7 +142,7 @@ export function TaskForm({
     });
   }
 
-  const card = "flex flex-col gap-3 rounded-[20px] bg-white p-4";
+  const card = "flex flex-col gap-3 rounded-[20px] bg-surface p-4";
   return (
     <Dialog label={task ? f.editTitle : f.addTitle} onClose={onClose} wide>
       <form onSubmit={save} className="flex flex-col gap-4">
@@ -192,7 +192,7 @@ export function TaskForm({
                   {contentOptions.map((c) => (
                     <button key={c.id} type="button" aria-pressed={contentId === c.id} onClick={() => setContentId(c.id)} className={`flex min-h-11 flex-wrap items-center gap-x-2.5 gap-y-1 rounded-[14px] border-2 px-3 py-1.5 text-left ${pick(contentId === c.id)}`}>
                       <span className="font-mono text-[13px] font-medium">{c.code}</span>
-                      <span className="whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-xs font-semibold">{c.typeName}</span>
+                      <span className="whitespace-nowrap rounded-full bg-surface px-2 py-0.5 text-xs font-semibold">{c.typeName}</span>
                       <span className="ml-auto whitespace-nowrap text-xs text-ink-soft">{c.publishDate ? fill(f.publishes, { date: shortDate(c.publishDate, t) }) : f.noPublish}</span>
                     </button>
                   ))}
@@ -302,7 +302,7 @@ export function TaskForm({
               />
               <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted">
                 <span>{f.legendLoad}</span>
-                <span className="flex items-center gap-1.5"><span className="size-3 rounded border border-[#b87a00] bg-sun-tint" />{t.calendarEvent}</span>
+                <span className="flex items-center gap-1.5"><span className="size-3 rounded border border-event bg-sun-tint" />{t.calendarEvent}</span>
               </div>
             </section>
 
@@ -318,7 +318,7 @@ export function TaskForm({
                 return (
                   <div key={personId || "none"} className="flex flex-col gap-1.5 border-t border-line pt-2.5">
                     <div className="flex items-center gap-2">
-                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ background: personId ? avatarColor(personId) : "#6b7785" }}>{personId ? initials(person?.name ?? list[0].assigneeName ?? "?") : "?"}</span>
+                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ background: personId ? avatarColor(personId) : "var(--color-subtle)" }}>{personId ? initials(person?.name ?? list[0].assigneeName ?? "?") : "?"}</span>
                       <span className="flex-1 text-sm font-semibold">{personId ? (person?.name ?? list[0].assigneeName) : t.customer.noAssigneeGroup}</span>
                       <span className="text-xs text-ink-soft">{list.length === 1 ? t.task1 : fill(t.tasksN, { n: list.length })}</span>
                     </div>

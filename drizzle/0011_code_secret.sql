@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `code_secret` varchar(200);

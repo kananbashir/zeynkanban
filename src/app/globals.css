@@ -21,6 +21,19 @@
   --color-danger: #b3261e;
   --color-neutral-card: #e9edf0;
 
+  /* Added for light and dark themes (each has a dark value below) */
+  --color-surface: #ffffff; /* cards and fields */
+  --color-subtle: #6b7785; /* dashed borders, empty switches, "nobody" avatars */
+  --color-event: #b87a00; /* holiday and special-event markers */
+  --color-ink-body: #2b3644; /* longer text such as task descriptions */
+  --color-scrim: rgb(24 35 47 / 0.45); /* behind pop-up windows */
+  --color-range: #f4fbfa; /* days inside the planner's spread range */
+  --color-range-line: #bfe3df;
+  --color-filled-line: #9fcfcb;
+  --color-track: #cfe7e4; /* empty part of small progress bars */
+  --color-done: #f0f5f3; /* finished items */
+  --color-on-pastel: #18232f; /* text on customer colours and other pastels, in both themes */
+
   /* Pastel card colours */
   --color-pastel-pink: #f9d5f0;
   --color-pastel-peach: #f8dfc4;
@@ -39,6 +52,65 @@
 
 html {
   color-scheme: light;
+}
+
+/*
+ * Dark theme. Set on <html> as data-dark: by the server when someone chose Dark, and by a small
+ * script in the page head when they chose System and the device is in dark mode (src/app/layout.tsx).
+ */
+html[data-dark] {
+  color-scheme: dark;
+  --color-sage: #0b1215;
+  --color-mint: #131d22;
+  --color-mint-soft: #18242a;
+  --color-surface: #1c282f;
+  --color-teal: #0f8f89;
+  --color-teal-deep: #72d3cb;
+  --color-teal-tint: #153d3b;
+  --color-sun-tint: #3a3115;
+  --color-sun-ink: #f3d57a;
+  --color-ink: #e6edf1;
+  --color-ink-soft: #b9c4cc;
+  --color-muted: #8f9ba6;
+  --color-icon: #a5b1ba;
+  --color-line: #2a383f;
+  --color-line-strong: #3b4c54;
+  --color-danger: #ff8f85;
+  --color-neutral-card: #253138;
+  --color-subtle: #7f8b96;
+  --color-event: #e3a73a;
+  --color-ink-body: #d3dbe1;
+  --color-scrim: rgb(0 0 0 / 0.62);
+  --color-range: #17302f;
+  --color-range-line: #2f5a56;
+  --color-filled-line: #3e7470;
+  --color-track: #23413e;
+  --color-done: #1f2b31;
+}
+/* Yellow stays yellow, so what sits on it stays dark. */
+html[data-dark] .bg-sun {
+  color: var(--color-on-pastel);
+}
+/* Task cards: a dark tint of the status colour instead of the light pastel. */
+.zk-card {
+  background: var(--card);
+}
+html[data-dark] .zk-card {
+  background: color-mix(in oklab, var(--tint) 22%, var(--color-surface));
+}
+/* Notification icons: pastel circle in light; in dark, a dim circle with the pastel as the icon colour. */
+.zk-tint {
+  background: var(--tint-bg);
+  color: var(--tint-ink);
+}
+html[data-dark] .zk-tint {
+  background: color-mix(in oklab, var(--tint-bg) 16%, var(--color-surface));
+  color: var(--tint-bg);
+}
+/* Switching theme fades colours instead of flashing. */
+html.zk-theme-switching,
+html.zk-theme-switching * {
+  transition: background-color 0.35s ease, border-color 0.35s ease, color 0.35s ease !important;
 }
 
 body {
@@ -123,4 +195,17 @@ select {
 .zk-collapse > div {
   min-height: 0;
   overflow: hidden;
+}
+.zk-collapse[data-settled="true"] > div {
+  overflow: visible;
+}
+/* Panels that are collapsible on phones but always open on wide screens. */
+@media (min-width: 1024px) {
+  .zk-collapse.zk-collapse-lg-open {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .zk-collapse.zk-collapse-lg-open > div {
+    overflow: visible;
+  }
 }

@@ -47,7 +47,7 @@ export function StatusesSection({ statuses, t, errors }: { statuses: Status[]; t
                 aria-label={fill(s.colorOf, { name: status.name })}
                 aria-expanded={colorOpen === status.id}
                 onClick={() => setColorOpen(colorOpen === status.id ? null : status.id)}
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white"
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface"
               >
                 <span className="size-4 rounded-full" style={{ background: status.color }} />
               </button>
@@ -91,7 +91,7 @@ export function StatusesSection({ statuses, t, errors }: { statuses: Status[]; t
                     type="button"
                     aria-pressed={status.color === color}
                     onClick={() => run(() => setStatusColor(status.id, color), () => setColorOpen(null))}
-                    className={`flex min-h-10 items-center gap-2 rounded-full bg-white px-3 text-[13px] font-semibold ${status.color === color ? "ring-2 ring-teal" : ""}`}
+                    className={`flex min-h-10 items-center gap-2 rounded-full bg-surface px-3 text-[13px] font-semibold ${status.color === color ? "ring-2 ring-teal" : ""}`}
                   >
                     <span className="size-3.5 rounded-full" style={{ background: color }} />
                     {s.colors[COLOR_NAMES[i]]}

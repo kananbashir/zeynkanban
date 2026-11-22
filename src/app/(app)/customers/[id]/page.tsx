@@ -100,9 +100,9 @@ export default async function CustomerPage({
 
   return (
     <main className="flex flex-col gap-5">
-      <header className="flex flex-wrap items-center gap-x-[18px] gap-y-3.5 rounded-[28px] bg-white p-4 md:px-[22px] md:py-5">
+      <header className="flex flex-wrap items-center gap-x-[18px] gap-y-3.5 rounded-[28px] bg-surface p-4 md:px-[22px] md:py-5">
         <div className="flex min-w-0 flex-[1_1_260px] items-center gap-3.5">
-          <span className="flex size-14 shrink-0 items-center justify-center rounded-[18px] text-[22px] font-bold text-ink" style={{ background: customer.color }}>
+          <span className="flex size-14 shrink-0 items-center justify-center rounded-[18px] text-[22px] font-bold text-on-pastel" style={{ background: customer.color }}>
             {customer.name.charAt(0).toLocaleUpperCase("az")}
           </span>
           <div className="flex min-w-0 flex-col gap-1.5">

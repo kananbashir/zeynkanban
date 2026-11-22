@@ -108,7 +108,7 @@ export function InfoTab({
             <MonthPicker label={f.contractEnd} value={end || ym({ year: new Date().getFullYear(), month: new Date().getMonth() + 1 })} onChange={setEnd} months={t.months} monthLabel={f.month} yearLabel={f.year} years={years} />
           </div>
           {preview && (
-            <div className="flex flex-col gap-1.5 rounded-[18px] bg-white px-4 py-3.5">
+            <div className="flex flex-col gap-1.5 rounded-[18px] bg-surface px-4 py-3.5">
               <span className="text-base font-semibold">{fill(t.newContract, { period: preview.label })}</span>
               <span className="text-[13px] leading-normal text-ink-soft">
                 {fill(t.newIdsUse, { code: preview.code, example: `${info.shortName}-vid-${preview.code}-1` })}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 
 const reducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -46,12 +46,12 @@ export function SegmentedControl({
     return () => observer.disconnect();
   }, [value, items.length]);
 
-  const pillColor = tone === "teal" ? "bg-teal" : "bg-white shadow-[0_1px_3px_rgba(24,35,47,0.14)]";
+  const pillColor = tone === "teal" ? "bg-teal" : "bg-surface shadow-[0_1px_3px_rgba(24,35,47,0.14)]";
   const activeText = tone === "teal" ? "text-white" : "text-ink";
   const idleText = tone === "teal" ? "text-icon" : "text-ink-soft";
 
   return (
-    <div ref={box} role="group" aria-label={label} className={`relative flex gap-1 rounded-full p-1 ${tone === "teal" ? "bg-white" : "bg-mint"} ${className}`}>
+    <div ref={box} role="group" aria-label={label} className={`relative flex gap-1 rounded-full p-1 ${tone === "teal" ? "bg-surface" : "bg-mint"} ${className}`}>
       {pill && (
         <span
           aria-hidden="true"
@@ -161,28 +161,73 @@ export function useFlip(container: RefObject<HTMLElement | null>) {
 
 /**
  * Opens and closes its content by animating the height (and fading), instead of popping in and out.
- * The content stays mounted while it closes, then is removed.
+ * The content stays mounted while it closes, then is removed (or kept, with keepMounted, e.g. for a
+ * panel that is always open on wide screens: add `zk-collapse-lg-open`). While moving it clips its
+ * content; once open it stops clipping, so focus outlines and shadows show in full.
  */
-export function Collapse({ open, children, className = "", appear = false }: { open: boolean; children: ReactNode; className?: string; appear?: boolean }) {
-  const [mounted, setMounted] = useState(open);
+export function Collapse({
+  open,
+  children,
+  className = "",
+  appear = false,
+  keepMounted = false,
+  inertWhenClosed = false,
+}: {
+  open: boolean;
+  children: ReactNode;
+  className?: string;
+  appear?: boolean;
+  keepMounted?: boolean;
+  /** Make closed content unreachable by keyboard (only below the "lg" width when the panel is always open on wide screens). */
+  inertWhenClosed?: boolean;
+}) {
+  const [mounted, setMounted] = useState(open || keepMounted);
   const [expanded, setExpanded] = useState(open && !appear);
+  const [settled, setSettled] = useState(open && !appear);
   if (open && !mounted) setMounted(true);
   useEffect(() => {
     if (open) {
       const frame = requestAnimationFrame(() => setExpanded(true));
-      return () => cancelAnimationFrame(frame);
+      const timer = setTimeout(() => setSettled(true), reducedMotion() ? 0 : 320);
+      return () => {
+        cancelAnimationFrame(frame);
+        clearTimeout(timer);
+      };
     }
-    const frame = requestAnimationFrame(() => setExpanded(false));
-    const timer = setTimeout(() => setMounted(false), reducedMotion() ? 0 : 320);
+    const frame = requestAnimationFrame(() => {
+      setSettled(false);
+      setExpanded(false);
+    });
+    const timer = keepMounted ? 0 : setTimeout(() => setMounted(false), reducedMotion() ? 0 : 320);
     return () => {
       cancelAnimationFrame(frame);
       clearTimeout(timer);
     };
-  }, [open]);
+  }, [open, keepMounted]);
   if (!mounted) return null;
   return (
-    <div data-open={expanded} className={`zk-collapse ${className}`}>
+    <div data-open={expanded} data-settled={settled} inert={inertWhenClosed && !open ? true : undefined} className={`zk-collapse ${inertWhenClosed ? "zk-collapse-inert" : ""} ${className}`}>
       <div>{children}</div>
     </div>
   );
+}
+
+const WIDE = "(min-width: 1024px)";
+/** True on wide screens (the "lg" layout), where side panels are always shown. */
+export function useIsWide(): boolean {
+  return useSyncExternalStore(
+    (change) => {
+      const query = window.matchMedia(WIDE);
+      query.addEventListener("change", change);
+      return () => query.removeEventListener("change", change);
+    },
+    () => window.matchMedia(WIDE).matches,
+    () => true,
+  );
+}
+
+/** Glides the page so the element comes into view (instantly when the person prefers less motion). */
+export function scrollIntoViewSoftly(element: HTMLElement | null, block: ScrollLogicalPosition = "start") {
+  if (!element) return;
+  requestAnimationFrame(() => element.scrollIntoView({ behavior: reducedMotion() ? "auto" : "smooth", block }));
 }

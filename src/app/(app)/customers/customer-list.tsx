@@ -18,7 +18,7 @@ export function CustomerList({ customers, canAdd, t }: { customers: Customer[]; 
   const hasArchived = customers.some((c) => c.archived);
 
   return (
-    <aside aria-label={t.listTitle} className="flex min-w-0 flex-col gap-2.5 rounded-[28px] bg-white px-4 py-4 lg:w-[300px] lg:shrink-0 lg:px-5 lg:py-[22px]">
+    <aside aria-label={t.listTitle} className="flex min-w-0 flex-col gap-2.5 rounded-[28px] bg-surface px-4 py-4 lg:w-[300px] lg:shrink-0 lg:px-5 lg:py-[22px]">
       <div className="flex items-center gap-2">
         <h2 className="flex-1 text-lg font-semibold">{t.listTitle}</h2>
         {canAdd && (
@@ -33,7 +33,7 @@ export function CustomerList({ customers, canAdd, t }: { customers: Customer[]; 
       {visible.length > 0 && (
         <select
           aria-label={t.listTitle}
-          className="h-12 rounded-[14px] border-[1.5px] border-line-strong bg-white px-3 text-[15px] font-semibold lg:hidden"
+          className="h-12 rounded-[14px] border-[1.5px] border-line-strong bg-surface px-3 text-[15px] font-semibold lg:hidden"
           value={currentId}
           onChange={(e) => router.push(`/customers/${e.target.value}`)}
         >

@@ -107,7 +107,7 @@ export function TasksTab({
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-start gap-5">
-        <section aria-label={t.calendarTasks} className="w-full rounded-[28px] bg-white px-5 pb-[18px] pt-[22px] lg:w-[320px] lg:shrink-0">
+        <section aria-label={t.calendarTasks} className="w-full rounded-[28px] bg-surface px-5 pb-[18px] pt-[22px] lg:w-[320px] lg:shrink-0">
           <MiniCalendar
             year={shownMonth.year}
             month={shownMonth.month}
@@ -127,7 +127,7 @@ export function TasksTab({
           />
         </section>
 
-        <div ref={list} className="flex min-w-0 flex-[999_1_480px] flex-col gap-[22px] rounded-[28px] bg-white p-4 sm:p-[22px]">
+        <div ref={list} className="flex min-w-0 flex-[999_1_480px] flex-col gap-[22px] rounded-[28px] bg-surface p-4 sm:p-[22px]">
           <div className="flex flex-col gap-2.5">
             <DaySwitcher date={date} today={today} onGo={(iso) => go({ date: iso })} t={t} months={months} heading="h2" titleClass="text-lg sm:text-[22px]" />
             <div className="flex flex-wrap items-center gap-2">
@@ -160,14 +160,14 @@ export function TasksTab({
       </div>
 
       {drafts.length > 0 && (
-        <section aria-label={c.drafts} className="flex flex-col gap-3.5 rounded-[28px] bg-white p-4 sm:p-[22px]">
+        <section aria-label={c.drafts} className="flex flex-col gap-3.5 rounded-[28px] bg-surface p-4 sm:p-[22px]">
           <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
             <h3 className="flex-1 text-base font-semibold">{fill(c.drafts, { n: drafts.length })}</h3>
             <span className="text-[13px] text-muted">{c.draftsHint}</span>
           </div>
           <div className="flex flex-col gap-2">
             {drafts.map((d) => (
-              <div key={d.id} className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-[18px] border-[1.5px] border-dashed border-[#6b7785] py-2 pl-3.5 pr-2">
+              <div key={d.id} className="flex flex-wrap items-center gap-x-3.5 gap-y-1.5 rounded-[18px] border-[1.5px] border-dashed border-subtle py-2 pl-3.5 pr-2">
                 <span className="rounded-lg bg-mint px-2 py-1 font-mono text-xs font-medium">{d.contentCode}</span>
                 <span className="text-sm font-semibold">{d.typeDeleted ? fill(t.deletedType, { name: d.typeName }) : d.typeName}</span>
                 <span className="text-[13px] text-ink-soft">{dayLabel(d.dueDate, fmt, currentYear)}</span>
@@ -178,11 +178,11 @@ export function TasksTab({
         </section>
       )}
 
-      <div className="fixed bottom-[max(28px,env(safe-area-inset-bottom))] right-[max(20px,env(safe-area-inset-right))] z-20 flex flex-col items-end gap-2.5">
+      <div className="fixed bottom-[calc(96px+env(safe-area-inset-bottom))] right-[max(20px,env(safe-area-inset-right))] z-20 lg:bottom-[max(28px,env(safe-area-inset-bottom))] flex flex-col items-end gap-2.5">
         {fab && (
           <div className="flex flex-col items-end gap-2">
-            <button type="button" onClick={() => { setFab(false); setPlanning(true); }} className="flex min-h-12 items-center gap-2.5 rounded-full bg-white px-[18px] text-sm font-semibold shadow-[0_8px_24px_rgba(24,35,47,0.18)]">{c.planMonth}</button>
-            <button type="button" onClick={() => { setFab(false); setForm({ task: null }); }} className="flex min-h-12 items-center gap-2.5 rounded-full bg-white px-[18px] text-sm font-semibold shadow-[0_8px_24px_rgba(24,35,47,0.18)]">{c.addTask}</button>
+            <button type="button" onClick={() => { setFab(false); setPlanning(true); }} className="flex min-h-12 items-center gap-2.5 rounded-full bg-surface px-[18px] text-sm font-semibold shadow-[0_8px_24px_rgba(24,35,47,0.18)]">{c.planMonth}</button>
+            <button type="button" onClick={() => { setFab(false); setForm({ task: null }); }} className="flex min-h-12 items-center gap-2.5 rounded-full bg-surface px-[18px] text-sm font-semibold shadow-[0_8px_24px_rgba(24,35,47,0.18)]">{c.addTask}</button>
           </div>
         )}
         <button type="button" aria-label={c.fab} aria-expanded={fab} onClick={() => setFab((v) => !v)} className="flex size-16 items-center justify-center rounded-full bg-sun text-ink shadow-[0_10px_28px_rgba(24,35,47,0.25)]">
@@ -255,9 +255,9 @@ export function TasksTab({
             <CloseButton label={t.form.close} onClick={() => setWhole(null)} />
           </div>
           {groups.map(({ id, list }) => (
-            <section key={id || "none"} className="flex flex-col rounded-[20px] bg-white px-4 pb-1.5 pt-3.5">
+            <section key={id || "none"} className="flex flex-col rounded-[20px] bg-surface px-4 pb-1.5 pt-3.5">
               <div className="flex items-center gap-2.5 pb-2">
-                <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: id ? avatarColor(id) : "#6b7785" }}>{id ? initials(list[0].assigneeName ?? "?") : "?"}</span>
+                <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: id ? avatarColor(id) : "var(--color-subtle)" }}>{id ? initials(list[0].assigneeName ?? "?") : "?"}</span>
                 <h3 className="flex-1 text-[15px] font-semibold">{id ? list[0].assigneeName : c.noAssigneeGroup}</h3>
                 <span className="text-[13px] text-ink-soft">{list.length === 1 ? t.task1 : fill(t.tasksN, { n: list.length })}</span>
               </div>
@@ -271,7 +271,7 @@ export function TasksTab({
               ))}
             </section>
           ))}
-          {groups.length === 0 && <p className="rounded-[20px] bg-white px-4 py-7 text-center text-sm text-muted">{c.nothingScheduled}</p>}
+          {groups.length === 0 && <p className="rounded-[20px] bg-surface px-4 py-7 text-center text-sm text-muted">{c.nothingScheduled}</p>}
         </Dialog>
       )}
       <Toast message={message} />
