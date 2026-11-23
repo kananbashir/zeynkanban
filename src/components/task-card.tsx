@@ -18,7 +18,7 @@ import { AddBriefButton, BriefTag, BriefWindow } from "./content-brief";
 import { DeadlineStrip } from "./deadline-strip";
 import { initials } from "./top-bar";
 
-export type StatusOption = { id: string; name: string; color: string; isFinished: boolean };
+export type StatusOption = { id: string; name: string; color: string; isFinished: boolean; isCancelled?: boolean; isPostponed?: boolean };
 
 /** The colour of a person's avatar (the same everywhere). */
 export const avatarColor = personColor;
@@ -135,13 +135,16 @@ export function TaskCard({
   const [statusId, setStatusId] = useOptimistic(task.statusId);
   const chosen = statusId !== task.statusId ? statuses.find((s) => s.id === statusId) : undefined;
   const status = chosen
-    ? { name: chosen.name, color: chosen.color, finished: chosen.isFinished, deleted: false }
-    : { name: task.statusName, color: task.statusColor, finished: task.finished, deleted: task.statusDeleted };
+    ? { name: chosen.name, color: chosen.color, finished: chosen.isFinished && !chosen.isCancelled, cancelled: !!chosen.isCancelled, postponed: !!chosen.isPostponed && !chosen.isFinished && !chosen.isCancelled, deleted: false }
+    : { name: task.statusName, color: task.statusColor, finished: task.finished, cancelled: task.cancelled, postponed: task.postponed, deleted: task.statusDeleted };
+  const closed = status.finished || status.cancelled;
+  // Only admins and managers (who can edit tasks) may cancel or postpone.
+  const choices = canWriteBrief ? statuses : statuses.filter((s) => !s.isCancelled && !s.isPostponed);
   const end = taskEnd(task); // the deadline, or the task's day without one
-  const lateDays = !status.finished && end < today ? daysBetween(end, today) : 0;
+  const lateDays = !closed && !status.postponed && end < today ? daysBetween(end, today) : 0;
   const statusLabel = status.deleted ? fill(t.deletedStatus, { name: status.name }) : status.name;
   const typeLabel = task.typeDeleted ? fill(t.deletedType, { name: task.typeName }) : task.typeName;
-  const background = task.contentArchived ? ARCHIVED_BACKGROUND : cardBackground(status.color, status.finished);
+  const background = task.contentArchived ? ARCHIVED_BACKGROUND : cardBackground(status.color, closed);
 
   function choose(next: string) {
     setOpen(false);
@@ -166,7 +169,7 @@ export function TaskCard({
       data-task={task.id}
       data-flip={task.id}
       className={`zk-card relative flex flex-col gap-2.5 rounded-[22px] border-[1.5px] p-3.5 transition-[background-color] duration-500 sm:gap-3 sm:px-5 sm:py-[18px] ${task.contentArchived ? "border-dashed border-subtle" : "border-transparent"} ${open ? "z-20" : "z-0"}`}
-      style={{ "--card": background, "--tint": task.contentArchived || status.finished ? "var(--color-subtle)" : status.deleted ? "var(--color-subtle)" : status.color } as React.CSSProperties}
+      style={{ "--card": background, "--tint": task.contentArchived || closed ? "var(--color-subtle)" : status.deleted ? "var(--color-subtle)" : status.color } as React.CSSProperties}
     >
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-ink/12 pb-3">
         <span className="rounded-lg bg-surface px-2 py-1 font-mono text-xs font-medium">{task.contentCode}</span>
@@ -200,7 +203,7 @@ export function TaskCard({
             <>
               <button data-no-press type="button" aria-label={t.form.close} tabIndex={-1} className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
               <div className="absolute right-0 top-[38px] z-20 flex min-w-[190px] flex-col gap-0.5 rounded-[18px] bg-surface p-1.5 shadow-[0_12px_32px_rgba(24,35,47,0.18)] sm:top-[50px] sm:min-w-[210px]">
-                {statuses.map((s) => (
+                {choices.map((s) => (
                   <button
                     key={s.id}
                     type="button"
@@ -221,7 +224,7 @@ export function TaskCard({
       {task.description && <p className="max-w-[70ch] whitespace-pre-line text-sm leading-normal text-ink-body">{task.description}</p>}
       {task.deadline && (
         // A status just picked as finished has no finish day from the server yet: that is today.
-        <DeadlineStrip start={task.dueDate} end={task.deadline} today={today} finished={status.finished} finishedOn={task.finished ? task.finishedOn : status.finished ? today : null} t={t} />
+        <DeadlineStrip start={task.dueDate} end={task.deadline} today={today} finished={status.finished} cancelled={status.cancelled} postponed={status.postponed} finishedOn={task.finished ? task.finishedOn : status.finished ? today : null} t={t} />
       )}
       <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1.5 border-t border-ink/12 pt-2 text-[13px] text-ink-soft">
         {(showAssignee || task.assignees.length > 1) && (
@@ -241,7 +244,7 @@ export function TaskCard({
         {!task.deadline && (
           <span className="flex items-center gap-1.5">
             <Icon d={CAL} />
-            {fill(status.finished ? t.wasDue : t.due, { date: shortDate(end, t) })}
+            {fill(closed ? t.wasDue : t.due, { date: shortDate(end, t) })}
           </span>
         )}
         {task.note && (

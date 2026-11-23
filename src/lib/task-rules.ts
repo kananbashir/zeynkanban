@@ -1,7 +1,7 @@
 // Which group a task belongs to on a day view, and how statuses are shown. Pure, tested in task-rules.test.ts.
 
-export type DayTask = { dueDate: string; deadline?: string | null; finished: boolean; finishedOn: string | null };
-export type Section = "overdue" | "due" | "finished";
+export type DayTask = { dueDate: string; deadline?: string | null; finished: boolean; finishedOn: string | null; cancelled?: boolean; postponed?: boolean };
+export type Section = "overdue" | "due" | "postponed" | "finished" | "cancelled";
 
 /** The day a task must be finished by: its deadline, or its own day when it has none. */
 export function taskEnd(task: { dueDate: string; deadline?: string | null }): string {
@@ -17,14 +17,18 @@ export function personalShownOn(task: { dueDate: string; done: boolean }, viewDa
  * On the day being viewed:
  * - finished tasks show on the day they were finished;
  * - unfinished tasks show on every day from their day to their deadline (just their day without one);
- * - when viewing today, unfinished tasks whose deadline has passed also show, as overdue.
+ * - when viewing today, unfinished tasks whose deadline has passed also show, as overdue;
+ * - cancelled tasks are closed like finished ones: they show only on the day they were cancelled;
+ * - postponed tasks show where they would otherwise be, but as postponed, never overdue.
  */
 export function sectionFor(task: DayTask, viewDate: string, today: string): Section | null {
   const end = taskEnd(task);
+  if (task.cancelled) return (task.finishedOn ?? end) === viewDate ? "cancelled" : null;
   if (task.finished) return (task.finishedOn ?? end) === viewDate ? "finished" : null;
-  if (task.dueDate <= viewDate && viewDate <= end) return "due";
-  if (viewDate === today && end < today) return "overdue";
-  return null;
+  const shown = (task.dueDate <= viewDate && viewDate <= end) || (viewDate === today && end < today);
+  if (!shown) return null;
+  if (task.postponed) return "postponed";
+  return end < viewDate ? "overdue" : "due";
 }
 
 /** How many tasks fall on each day from `from` to `to`; a task with a deadline counts on every day it spans. */

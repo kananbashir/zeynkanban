@@ -36,6 +36,8 @@ export async function runReminders(now = new Date()): Promise<number> {
         hasAssignees,
         eq(tasks.archived, false),
         eq(statuses.isFinished, false),
+        eq(statuses.isCancelled, false), // no reminders for cancelled or postponed tasks
+        eq(statuses.isPostponed, false),
         gte(taskEndColumn, today),
         lte(taskEndColumn, addDays(today, 5)),
       ),

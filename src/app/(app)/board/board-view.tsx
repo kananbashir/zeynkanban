@@ -80,11 +80,11 @@ export function BoardView({
     return [task.contentCode, task.typeName, task.customerName, task.assignees.map((p) => p.name).join(" "), task.description, task.note].join(" ").toLocaleLowerCase("az").includes(q);
   };
   const filtered = useMemo(
-    () => ({ overdue: day.overdue.filter(matches), due: day.due.filter(matches), finished: day.finished.filter(matches) }),
+    () => ({ overdue: day.overdue.filter(matches), due: day.due.filter(matches), postponed: day.postponed.filter(matches), finished: day.finished.filter(matches), cancelled: day.cancelled.filter(matches) }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [day, query, customerFilter, peopleFilter],
   );
-  const all = [...day.overdue, ...day.due, ...day.finished];
+  const all = [...day.overdue, ...day.due, ...day.postponed, ...day.finished, ...day.cancelled];
   const total = all.length;
   const isToday = date === today;
   const events = specialDaysOn(date, specialDays);
@@ -93,7 +93,9 @@ export function BoardView({
   const sections: { key: Section; label: string; color: string; hint?: string }[] = [
     { key: "overdue", label: t.sections.overdue, color: "text-danger", hint: t.overdueHint },
     { key: "due", label: isToday ? t.sections.due : t.sections.dueOn, color: "text-ink" },
+    { key: "postponed", label: t.sections.postponed, color: "text-sun-ink" },
     { key: "finished", label: isToday ? t.sections.finished : t.sections.finishedOn, color: "text-teal-deep" },
+    { key: "cancelled", label: isToday ? t.sections.cancelled : t.sections.cancelledOn, color: "text-muted" },
   ];
   const visible = sections.filter((s) => (segment === "all" || segment === s.key) && filtered[s.key].length > 0);
   const peopleToday = people.filter((p) => all.some((task) => task.assignees.some((a) => a.id === p.id)));
@@ -139,7 +141,7 @@ export function BoardView({
               <span className="text-[26px] font-semibold">{total === 1 ? t.task1 : fill(t.tasksN, { n: total })}</span>
             </div>
             <div className="grid grid-cols-3 gap-2">
-              {[[day.overdue.length, b.overdue], [day.due.length, b.open], [day.finished.length, b.finished]].map(([n, label]) => (
+              {[[day.overdue.length, b.overdue], [day.due.length, b.open], [day.postponed.length, b.postponed], [day.finished.length, b.finished], [day.cancelled.length, b.cancelled]].map(([n, label]) => (
                 <div key={label} className="flex flex-col gap-0.5"><span className="text-xl font-semibold">{n}</span><span className="text-xs text-teal-tint">{label}</span></div>
               ))}
             </div>
@@ -213,7 +215,7 @@ export function BoardView({
               <DaySwitcher date={date} today={today} onGo={(iso) => go({ date: iso })} t={t} months={months} />
               <EventChips events={events} t={t} />
             </div>
-            <div className="ml-auto flex w-full min-w-0 flex-wrap items-center gap-2.5 sm:w-auto">
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-2.5">
               <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={b.search} aria-label={b.search} className="h-11 min-w-0 flex-[1_1_180px] rounded-full border-[1.5px] border-line-strong bg-surface px-4 text-sm" />
               <SegmentedControl
                 label={b.showLabel}
@@ -222,10 +224,10 @@ export function BoardView({
                 stretch
                 className="w-full overflow-x-auto sm:w-auto"
                 itemClassName="min-h-10 px-2 text-[13px] sm:px-3.5 sm:text-sm"
-                items={(["all", "overdue", "due", "finished"] as Segment[]).map((key) => ({
+                items={(["all", "overdue", "due", "postponed", "finished", "cancelled"] as Segment[]).map((key) => ({
                   key,
                   label: b.segments[key],
-                  count: key === "all" ? filtered.overdue.length + filtered.due.length + filtered.finished.length : filtered[key].length,
+                  count: key === "all" ? Object.values(filtered).reduce((n, list) => n + list.length, 0) : filtered[key].length,
                 }))}
               />
             </div>

@@ -116,7 +116,7 @@ export function DashboardView({
         </div>
       </header>
 
-      <section aria-label={t.totals} className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+      <section aria-label={t.totals} className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-6">
         <Tile label={t.tasks} value={data.total} sub={compare} />
         <Tile label={t.finished} value={data.finished} sub={data.total ? fill(t.finishedSub, { p: percent(data.finished, data.total) }) : t.noTasks} />
         <Tile
@@ -129,6 +129,8 @@ export function DashboardView({
           value={data.overdue}
           sub={t.overdueSub}
         />
+        <Tile label={<span className="text-sun-ink">{t.postponed}</span>} value={data.postponed} sub={t.postponedSub} />
+        <Tile label={t.cancelled} value={data.cancelled} sub={t.cancelledSub} />
         <Tile label={t.drafts} value={data.drafts} sub={t.draftsSub} />
       </section>
 

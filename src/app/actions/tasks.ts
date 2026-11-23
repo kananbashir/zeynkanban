@@ -215,20 +215,29 @@ async function notifyChanges(id: string, before: { assigneeIds: string[]; dueDat
   push(rows);
 }
 
-/** Admins and managers can change any task's status; employees only tasks they are on. */
+/**
+ * Admins and managers can change any task's status; employees only tasks they are on, and not to a
+ * status that counts as cancelled or postponed.
+ */
 export async function setTaskStatus(id: string, statusId: string): Promise<Result> {
   const me = await requireUser();
   const [task] = await db
-    .select({ wasFinished: statuses.isFinished, finishedAt: tasks.finishedAt, statusId: tasks.statusId, statusName: statuses.name, statusNameEn: statuses.nameEn })
+    .select({ wasFinished: statuses.isFinished, wasCancelled: statuses.isCancelled, finishedAt: tasks.finishedAt, statusId: tasks.statusId, statusName: statuses.name, statusNameEn: statuses.nameEn })
     .from(tasks)
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
     .where(eq(tasks.id, id));
   if (!task) return fail("notFound");
   const people = await assigneesOf(id);
   if (me.role === "employee" && !people.includes(me.id)) return fail("notAllowed");
-  const [status] = await db.select({ name: statuses.name, nameEn: statuses.nameEn, isFinished: statuses.isFinished, notifyReview: statuses.notifyReview }).from(statuses).where(and(eq(statuses.id, statusId), isNull(statuses.deletedAt)));
+  const [status] = await db
+    .select({ name: statuses.name, nameEn: statuses.nameEn, isFinished: statuses.isFinished, isCancelled: statuses.isCancelled, isPostponed: statuses.isPostponed, notifyReview: statuses.notifyReview })
+    .from(statuses)
+    .where(and(eq(statuses.id, statusId), isNull(statuses.deletedAt)));
   if (!status) return fail("notFound");
-  const finishedAt = status.isFinished ? (task.wasFinished && task.finishedAt ? task.finishedAt : new Date()) : null;
+  if (me.role === "employee" && (status.isCancelled || status.isPostponed)) return fail("notAllowed");
+  // Finished and cancelled tasks are closed: remember the day (kept when moving between closed statuses).
+  const closed = status.isFinished || status.isCancelled;
+  const finishedAt = closed ? ((task.wasFinished || task.wasCancelled) && task.finishedAt ? task.finishedAt : new Date()) : null;
   await db.update(tasks).set({ statusId, finishedAt, updatedAt: new Date() }).where(eq(tasks.id, id));
   if (task.statusId !== statusId) {
     const ref = await taskRef(id);

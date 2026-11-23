@@ -50,7 +50,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     content = <UsersSection users={list} meId={me.id} t={t.settings} errors={t.errors} roles={t.roles} />;
   } else if (section === "statuses") {
     const list = await db
-      .select({ id: statuses.id, name: statuses.name, nameEn: statuses.nameEn, color: statuses.color, isFinished: statuses.isFinished, notifyReview: statuses.notifyReview })
+      .select({ id: statuses.id, name: statuses.name, nameEn: statuses.nameEn, color: statuses.color, isFinished: statuses.isFinished, isCancelled: statuses.isCancelled, isPostponed: statuses.isPostponed, notifyReview: statuses.notifyReview })
       .from(statuses)
       .where(isNull(statuses.deletedAt))
       .orderBy(asc(statuses.position), asc(statuses.createdAt));

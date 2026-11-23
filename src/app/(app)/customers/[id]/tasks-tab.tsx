@@ -99,7 +99,9 @@ export function TasksTab({
   const sections: { key: Section; label: string; color: string; hint?: string }[] = [
     { key: "overdue", label: t.sections.overdue, color: "text-danger", hint: t.overdueHint },
     { key: "due", label: isToday ? t.sections.due : t.sections.dueOn, color: "text-ink" },
+    { key: "postponed", label: t.sections.postponed, color: "text-sun-ink" },
     { key: "finished", label: isToday ? t.sections.finished : t.sections.finishedOn, color: "text-teal-deep" },
+    { key: "cancelled", label: isToday ? t.sections.cancelled : t.sections.cancelledOn, color: "text-muted" },
   ];
   const visible = sections.filter((s) => day[s.key].length > 0);
   const events = specialDaysOn(date, specialDays);

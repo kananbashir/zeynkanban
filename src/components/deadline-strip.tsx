@@ -14,6 +14,8 @@ const LOOK = {
   late: { fill: "bg-danger", ring: "border-danger", label: "text-danger", chip: "bg-danger/15 text-danger" },
   done: { fill: "bg-teal/45", ring: "border-teal", label: "text-teal-deep", chip: "bg-teal-tint text-teal-deep" },
   doneLate: { fill: "bg-teal/45", ring: "border-teal", label: "text-teal-deep", chip: "bg-ink/8 text-ink-soft" },
+  cancelled: { fill: "bg-ink/20", ring: "border-ink/40", label: "text-ink-soft", chip: "bg-ink/8 text-ink-soft" },
+  postponed: { fill: "bg-event/60", ring: "border-event", label: "text-sun-ink", chip: "bg-sun-tint text-sun-ink" },
 };
 
 /**
@@ -21,13 +23,35 @@ const LOOK = {
  * saying what matters now: starts in n days, n days left, due today, n days late, or done (early,
  * on time or late). On a narrow card the chip moves under the bar.
  */
-export function DeadlineStrip({ start, end, today, finished, finishedOn, t }: { start: string; end: string; today: string; finished: boolean; finishedOn: string | null; t: T }) {
+export function DeadlineStrip({
+  start,
+  end,
+  today,
+  finished,
+  cancelled = false,
+  postponed = false,
+  finishedOn,
+  t,
+}: {
+  start: string;
+  end: string;
+  today: string;
+  finished: boolean;
+  cancelled?: boolean;
+  postponed?: boolean;
+  finishedOn: string | null;
+  t: T;
+}) {
   const s = t.strip;
-  const state = deadlineState({ dueDate: start, deadline: end, finished, finishedOn }, today, daysBetween);
-  const look = state.kind === "done" ? LOOK[state.how === "late" ? "doneLate" : "done"] : LOOK[state.kind];
+  const state = deadlineState({ dueDate: start, deadline: end, finished: finished || cancelled, finishedOn }, today, daysBetween);
+  // Cancelled: no more counting. Postponed: still open, never shown as late.
+  const look = cancelled ? LOOK.cancelled : postponed && state.kind !== "upcoming" ? LOOK.postponed : state.kind === "done" ? LOOK[state.how === "late" ? "doneLate" : "done"] : LOOK[state.kind];
   const plural = (one: string, many: string, n: number) => (n === 1 ? one : fill(many, { n }));
-  const chip =
-    state.kind === "upcoming"
+  const chip = cancelled
+    ? s.cancelled
+    : postponed && state.kind !== "upcoming"
+      ? s.postponed
+      : state.kind === "upcoming"
       ? plural(s.startsTomorrow, s.startsIn, state.n)
       : state.kind === "running"
         ? plural(s.left1, s.leftN, state.n)
@@ -42,7 +66,7 @@ export function DeadlineStrip({ start, end, today, finished, finishedOn, t }: { 
                 : state.how === "onTime"
                   ? s.onTime
                   : s.done;
-  const showToday = state.kind === "running" || state.kind === "lastDay";
+  const showToday = !cancelled && (state.kind === "running" || state.kind === "lastDay");
   const pct = state.progress * 100;
   // The "Today" word stays inside the bar's ends instead of spilling over the dates.
   const labelAt = pct < 15 ? "left-[-4px]" : pct > 85 ? "right-[-4px]" : "left-1/2 -translate-x-1/2";

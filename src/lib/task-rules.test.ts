@@ -34,6 +34,18 @@ describe("day sections", () => {
     expect(sectionFor(task, "2026-11-25", "2026-11-25")).toBeNull();
     expect(sectionFor({ ...task, finishedOn: null }, "2026-11-26", "2026-11-27")).toBe("finished");
   });
+  it("shows a cancelled task only on the day it was cancelled, never as overdue", () => {
+    const task = { dueDate: "2026-11-18", finished: false, finishedOn: "2026-11-19", cancelled: true };
+    expect(sectionFor(task, "2026-11-19", today)).toBe("cancelled");
+    expect(sectionFor(task, "2026-11-18", today)).toBeNull();
+    expect(sectionFor(task, today, today)).toBeNull();
+  });
+  it("shows a postponed task on its day and on today's view, as postponed rather than overdue", () => {
+    const task = { dueDate: "2026-11-18", finished: false, finishedOn: null, postponed: true };
+    expect(sectionFor(task, "2026-11-18", today)).toBe("postponed");
+    expect(sectionFor(task, today, today)).toBe("postponed");
+    expect(sectionFor(task, "2026-11-19", today)).toBeNull();
+  });
   it("ignores a deadline that isn't after the task's day", () => {
     expect(taskEnd({ dueDate: "2026-11-23", deadline: null })).toBe("2026-11-23");
     expect(taskEnd({ dueDate: "2026-11-23", deadline: "2026-11-20" })).toBe("2026-11-23");

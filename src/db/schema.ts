@@ -64,6 +64,10 @@ export const statuses = mysqlTable("statuses", {
   isFinished: boolean("is_finished").notNull().default(false),
   /** Moving a task into this status tells admins and managers it is ready for review. */
   notifyReview: boolean("notify_review").notNull().default(false),
+  /** Tasks in this status were called off: closed like finished ones, never overdue, counted as cancelled. Only admins and managers can choose it. */
+  isCancelled: boolean("is_cancelled").notNull().default(false),
+  /** Tasks in this status are postponed: still open but never overdue, counted as postponed. Only admins and managers can choose it. */
+  isPostponed: boolean("is_postponed").notNull().default(false),
   position: int("position").notNull().default(0),
   deletedAt: datetime("deleted_at", { mode: "date", fsp: 3 }),
   createdAt: createdAt(),

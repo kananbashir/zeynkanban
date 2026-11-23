@@ -29,6 +29,10 @@ export type TaskView = {
   statusColor: string;
   statusDeleted: boolean;
   finished: boolean;
+  /** In a status that counts as cancelled (closed, never overdue). */
+  cancelled: boolean;
+  /** In a status that counts as postponed (open, never overdue). */
+  postponed: boolean;
   /** The people on the task, in the order they were picked; none means it is a draft. */
   assignees: Person[];
   /** The task's day: it shows from here. */
@@ -69,6 +73,8 @@ function select(where: SQL | undefined) {
       statusColor: statuses.color,
       statusDeletedAt: statuses.deletedAt,
       finished: statuses.isFinished,
+      cancelled: statuses.isCancelled,
+      postponed: statuses.isPostponed,
       assignees: assigneesColumn,
       dueDate: tasks.dueDate,
       deadline: tasks.deadline,
@@ -112,7 +118,9 @@ function toView(row: Row, locale: Locale): TaskView {
     statusName: localName(row.statusName, row.statusNameEn, locale),
     statusColor: row.statusColor,
     statusDeleted: !!row.statusDeletedAt,
-    finished: row.finished,
+    finished: row.finished && !row.cancelled,
+    cancelled: row.cancelled,
+    postponed: row.postponed && !row.finished && !row.cancelled,
     assignees: parseAssignees(row.assignees),
     dueDate: row.dueDate,
     deadline: row.deadline && row.deadline > row.dueDate ? row.deadline : null,
@@ -147,7 +155,7 @@ export async function dayTasks(date: string, today: string, filter: { customerId
     and(gte(tasks.finishedAt, new Date(`${addDays(date, -1)}T00:00:00Z`)), lt(tasks.finishedAt, new Date(`${addDays(date, 2)}T00:00:00Z`))),
   );
   const rows = (await select(and(...conditions, around))).map((row) => toView(row, locale));
-  const out: DayTasks = { overdue: [], due: [], finished: [] };
+  const out: DayTasks = { overdue: [], due: [], postponed: [], finished: [], cancelled: [] };
   for (const task of rows) {
     const section = sectionFor(task, date, today);
     if (section) out[section].push(task);
@@ -192,7 +200,7 @@ export async function wholeDay(date: string): Promise<TaskView[]> {
 export async function liveStatuses() {
   const locale = await getLocale();
   const rows = await db
-    .select({ id: statuses.id, name: statuses.name, nameEn: statuses.nameEn, color: statuses.color, isFinished: statuses.isFinished })
+    .select({ id: statuses.id, name: statuses.name, nameEn: statuses.nameEn, color: statuses.color, isFinished: statuses.isFinished, isCancelled: statuses.isCancelled, isPostponed: statuses.isPostponed })
     .from(statuses)
     .where(isNull(statuses.deletedAt))
     .orderBy(asc(statuses.position), asc(statuses.createdAt));

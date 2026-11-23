@@ -82,10 +82,12 @@ export function MyTasksView({
   const sections: { key: Section; label: string; color: string; hint?: string }[] = [
     { key: "overdue", label: taskT.sections.overdue, color: "text-danger", hint: taskT.overdueHint },
     { key: "due", label: isToday ? taskT.sections.due : taskT.sections.dueOn, color: "text-ink" },
+    { key: "postponed", label: taskT.sections.postponed, color: "text-sun-ink" },
     { key: "finished", label: isToday ? taskT.sections.finished : taskT.sections.finishedOn, color: "text-teal-deep" },
+    { key: "cancelled", label: isToday ? taskT.sections.cancelled : taskT.sections.cancelledOn, color: "text-muted" },
   ];
   const visible = sections.filter((s) => day[s.key].length > 0);
-  const total = day.overdue.length + day.due.length + day.finished.length;
+  const total = day.overdue.length + day.due.length + day.postponed.length + day.finished.length + day.cancelled.length;
 
   return (
     <div className="flex flex-wrap items-start gap-x-6 lg:gap-y-6">
@@ -122,7 +124,7 @@ export function MyTasksView({
             <span key={total} className="zk-fade-up text-[26px] font-semibold">{total === 1 ? taskT.task1 : fill(taskT.tasksN, { n: total })}</span>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {([[day.overdue.length, t.overdue], [day.due.length, t.open], [day.finished.length, t.finished]] as const).map(([n, label]) => (
+            {([[day.overdue.length, t.overdue], [day.due.length, t.open], [day.postponed.length, t.postponed], [day.finished.length, t.finished], [day.cancelled.length, t.cancelled]] as const).map(([n, label]) => (
               <div key={label} className="flex flex-col gap-0.5">
                 <span key={n} className="zk-fade-up text-xl font-semibold">{n}</span>
                 <span className="text-xs text-teal-tint">{label}</span>

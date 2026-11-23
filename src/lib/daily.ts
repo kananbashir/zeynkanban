@@ -8,6 +8,9 @@ import { addDays, APP_TIME_ZONE, todayIso } from "./dates";
 import { deliverPush, notify, pruneNotifications, refOnly, staffIds, taskRef } from "./notify";
 import { isUniqueViolation } from "./users";
 
+/** Tasks that can still become late: not finished, cancelled or postponed. */
+const stillOpen = and(eq(statuses.isFinished, false), eq(statuses.isCancelled, false), eq(statuses.isPostponed, false));
+
 /** Up to this many overdue tasks are announced one by one; more become a single notification. */
 const OVERDUE_ONE_BY_ONE = 3;
 export const DAILY_HOUR = 9;
@@ -59,7 +62,7 @@ async function overdueAlerts(since: string, today: string) {
     .innerJoin(taskTypes, eq(taskTypes.id, tasks.taskTypeId))
     .innerJoin(contents, eq(contents.id, tasks.contentId))
     .innerJoin(customers, eq(customers.id, tasks.customerId))
-    .where(and(eq(tasks.archived, false), hasAssignees, eq(statuses.isFinished, false), gte(taskEndColumn, since), lt(taskEndColumn, today)))
+    .where(and(eq(tasks.archived, false), hasAssignees, stillOpen, gte(taskEndColumn, since), lt(taskEndColumn, today)))
     .orderBy(asc(taskEndColumn));
   if (!rows.length) return [];
   const staff = await staffIds();
@@ -81,7 +84,7 @@ async function deadlineAlerts(today: string) {
     .select({ taskId: tasks.id, from: tasks.dueDate, createdBy: tasks.createdBy })
     .from(tasks)
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
-    .where(and(eq(tasks.archived, false), hasAssignees, eq(statuses.isFinished, false), isNotNull(tasks.deadline), gt(tasks.deadline, tasks.dueDate), eq(tasks.deadline, addDays(today, 1))));
+    .where(and(eq(tasks.archived, false), hasAssignees, stillOpen, isNotNull(tasks.deadline), gt(tasks.deadline, tasks.dueDate), eq(tasks.deadline, addDays(today, 1))));
   const out = [];
   for (const row of rows) {
     const ref = await taskRef(row.taskId);
@@ -94,7 +97,7 @@ async function deadlineAlerts(today: string) {
 
 async function summaries(today: string) {
   const live = and(eq(tasks.archived, false), hasAssignees);
-  const unfinishedLate = and(live, eq(statuses.isFinished, false), lt(taskEndColumn, today));
+  const unfinishedLate = and(live, stillOpen, lt(taskEndColumn, today));
   const count = sql<number>`count(*)`.mapWith(Number);
 
   const [[dueToday], [late], [drafts], people] = await Promise.all([
@@ -112,7 +115,7 @@ async function summaries(today: string) {
       .select({
         id: taskAssignees.userId,
         today: sql<number>`sum(${tasks.dueDate} <= ${today} and ${taskEndColumn} >= ${today})`.mapWith(Number),
-        late: sql<number>`sum(${taskEndColumn} < ${today} and ${statuses.isFinished} = false)`.mapWith(Number),
+        late: sql<number>`sum(${taskEndColumn} < ${today} and ${statuses.isFinished} = false and ${statuses.isCancelled} = false and ${statuses.isPostponed} = false)`.mapWith(Number),
       })
       .from(taskAssignees)
       .innerJoin(tasks, eq(tasks.id, taskAssignees.taskId))

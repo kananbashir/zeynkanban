@@ -23,6 +23,8 @@ export async function dashboardData(period: Period, today: string, locale: Local
         statusId: tasks.statusId,
         contentTypeId: contents.contentTypeId,
         finished: statuses.isFinished,
+        cancelled: statuses.isCancelled,
+        postponed: statuses.isPostponed,
       })
       .from(tasks)
       .innerJoin(statuses, eq(statuses.id, tasks.statusId))
@@ -50,6 +52,8 @@ export async function dashboardData(period: Period, today: string, locale: Local
     finished: s.finished,
     overdue: s.overdue,
     drafts: s.drafts,
+    cancelled: s.cancelled,
+    postponed: s.postponed,
     previousTotal: previous?.n ?? 0,
     perDay: s.perDay,
     // People who can be assigned, plus anyone deactivated who still has tasks in the period.

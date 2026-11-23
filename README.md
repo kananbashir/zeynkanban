@@ -65,7 +65,7 @@ The login code boxes are animated the way Animate UI's Input OTP describes, buil
 ## Settings (admin only)
 
 - **Users, roles and codes**: add people, rename them, change their role, give them a new code, deactivate or reactivate them. A new code logs the person out everywhere and their old code stops working. A deactivated person is logged out at once and can't log in; their tasks and history stay. Nobody can change their own role or deactivate themselves, so there is always at least one admin.
-- **Statuses**: rename, recolour, reorder by dragging, mark which ones count as finished, add and delete. New tasks start with the first status. At least one status must count as finished. A deleted status is only marked as deleted, so tasks that used it can show "Deleted status (its name)" and stay finished if it counted as finished.
+- **Statuses**: rename, recolour, reorder by dragging, mark which ones count as finished, add and delete. New tasks start with the first status. At least one status must count as finished. A status can instead **count as cancelled** (the task is closed like a finished one, shows only on the day it was cancelled, and is never overdue) or **count as postponed** (the task stays on its day, shows under "Postponed" instead of overdue, and gets no reminders). Only admins and managers can move a task into either; employees don't see those statuses on their cards. A deleted status is only marked as deleted, so tasks that used it can show "Deleted status (its name)" and stay finished if it counted as finished.
 - **Task types**: rename, reorder by dragging, add and delete (deleted ones are kept the same way). "Post publishing" is the type the month planner uses, so it can be renamed but not deleted.
 - **Content types**: a short code (it goes inside content IDs, as in `thrive-vid-nd26-1`) and a name. Archived, never deleted.
 - **Holidays and special events**: date, name, holiday or special event, and whether it repeats every year.
@@ -91,7 +91,7 @@ A new installation starts with four statuses (Ediləcək / To do, İcrada / In p
   - Once written, a dark **Brief** tag follows the content ID on all its cards. Everyone on those tasks can read it (links open in a new tab and show their site); admins and managers can also edit or delete it. Employees only see briefs of content IDs they have a task on, and links can only be web addresses.
 - **A task with nobody on it is a draft**: it shows in the customer's Drafts box only, never on the managing board.
 - **Day views** (managing board, customer Tasks tab, My tasks): unfinished tasks show on their date, or on every day from their date to their deadline; on today's view, unfinished tasks whose deadline has passed also show as overdue; finished tasks show on the day they were finished. "Today" is taken in Baku time (`APP_TIME_ZONE`).
-- **Managing board** (admin, manager): calendar, day summary, filters by customer and person, search, and status changes from each card. "Open task" opens the task form on the customer's page.
+- **Managing board** (admin, manager): calendar, day summary (overdue, open, postponed, finished, cancelled), filters by customer and person, search, the All / Overdue / Due / Postponed / Finished / Cancelled filter, and status changes from each card. "Open task" opens the task form on the customer's page.
 - **Task form** (customer page, yellow button): type (or "Other…", optionally saved to the list), content ID with its publish date, the people on it (each with their load that day), description, note, and a calendar showing how many tasks each day already has, with holidays marked and that day's tasks grouped by person (each with its content ID).
 - Tasks are archived, never deleted (admin only), and can be restored from the Contents tab, where each content ID shows its publish date, progress and tasks.
 - **Notes**: each task card has a Notes button. The people on the task, admins and managers can read and add notes (up to 10 per task); everyone can delete their own, and admins can delete any. Content IDs are always listed in counting order (…-2 before …-10).
@@ -112,7 +112,7 @@ Opened from the customer page (yellow button → Plan month, or "Generate IDs an
 
 The first page for admins and managers. It shows counts and charts for a month (the default) or a week, never task details. Arrows move to the previous or next period, and "Go to this month/week" comes back.
 
-- **Totals**: tasks (compared with the period before), finished (and their share), overdue (unfinished and past their date), and drafts waiting for an assignee.
+- **Totals**: tasks (compared with the period before), finished (and their share), overdue (unfinished and past their date), and drafts waiting for an assignee, plus postponed and cancelled tasks (neither counts as overdue; cancelled ones don't count as finished).
 - **Tasks per day**: finished and open tasks for each day, with holidays and special events marked. Pick or hover a day to read its numbers; "Open this day" opens it on the managing board.
 - **Team workload**, **Customers**, **Tasks by status** and **Content types**: how the period's tasks split up, each bar showing finished and open.
 
@@ -228,6 +228,7 @@ Every change that reaches the live site gets a new version number in `package.js
 
 | Version | What changed |
 |---|---|
+| 0.13.0 | Statuses that count as cancelled or postponed, shown in the day summary, the board filter and the dashboard; wider board search; the brief's "Add field" list opens upwards when there is no room below |
 | 0.12.0 | Content briefs on content IDs, with their starting fields in Settings → Content brief |
 | 0.11.0 | Timeline strip on cards with a deadline; "1 day left" notifications; content IDs in the task form's day list; log out only in Settings, after a confirmation |
 | 0.10.0 | Deadlines: a task shows every day from its date to its deadline until it is finished |

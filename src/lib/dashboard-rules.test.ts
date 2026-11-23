@@ -35,6 +35,10 @@ describe("summarize", () => {
   it("overdue means unfinished before today", () => {
     expect(s.overdue).toBe(1);
   });
+  it("counts cancelled and postponed apart; neither is ever overdue or finished", () => {
+    const r = summarize([row({ dueDate: "2026-11-10", cancelled: true, finished: true }), row({ dueDate: "2026-11-10", postponed: true }), row({ dueDate: "2026-11-10" })], "2026-11-20");
+    expect([r.total, r.cancelled, r.postponed, r.overdue, r.finished]).toEqual([3, 1, 1, 1, 0]);
+  });
   it("groups by day, person, customer, status and content type", () => {
     expect(s.perDay["2026-11-20"]).toEqual({ total: 2, finished: 1 });
     expect(s.byPerson.b).toEqual({ total: 1, finished: 0 });

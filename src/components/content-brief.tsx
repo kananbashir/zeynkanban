@@ -251,8 +251,16 @@ function BriefEditor({ brief, isNew, t, onCancel, onSave }: { brief: BriefView; 
   const keepTyping = useCallback(() => setAskReset(false), []);
   const focusNext = useRef<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
+  // The menu opens downwards, or upwards when there isn't room below the button on the screen.
+  const [menuUp, setMenuUp] = useState(false);
   useLayoutEffect(() => {
-    if (menu) popIn(menuRef.current, "translateY(-6px) scale(0.96)");
+    if (!menu || !menuRef.current || !addRef.current) return;
+    const button = addRef.current.getBoundingClientRect();
+    const height = menuRef.current.offsetHeight + 12;
+    const up = button.bottom + height > window.innerHeight && button.top - height > 0;
+    setMenuUp(up);
+    popIn(menuRef.current, up ? "translateY(6px) scale(0.96)" : "translateY(-6px) scale(0.96)");
   }, [menu]);
 
   const update = (id: string, patch: Partial<Draft>) => {
@@ -325,6 +333,7 @@ function BriefEditor({ brief, isNew, t, onCancel, onSave }: { brief: BriefView; 
         <div className="relative">
           <button
             type="button"
+            ref={addRef}
             aria-expanded={menu}
             aria-haspopup="true"
             onClick={() => setMenu((v) => !v)}
@@ -340,7 +349,7 @@ function BriefEditor({ brief, isNew, t, onCancel, onSave }: { brief: BriefView; 
                 ref={menuRef}
                 role="menu"
                 aria-label={b.addField}
-                className="absolute left-0 right-0 top-[calc(100%+6px)] z-20 mx-auto flex w-[min(360px,100%)] flex-col gap-0.5 rounded-[18px] bg-surface p-1.5 shadow-[0_14px_40px_rgba(24,35,47,0.22)]"
+                className={`absolute left-0 right-0 ${menuUp ? "bottom-[calc(100%+6px)]" : "top-[calc(100%+6px)]"} z-20 mx-auto flex w-[min(360px,100%)] flex-col gap-0.5 rounded-[18px] bg-surface p-1.5 shadow-[0_14px_40px_rgba(24,35,47,0.22)]`}
               >
                 {BRIEF_TYPES.map((type) => (
                   <button
