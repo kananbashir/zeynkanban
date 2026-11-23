@@ -22,7 +22,7 @@ Until its stage is built, a page shows "This page is being built".
 
 - **The site**: [Next.js](https://nextjs.org) with TypeScript. Pages live in `src/app`.
 - **The data**: a MySQL (or MariaDB) database, as offered by the hosting. Its structure is described in `src/db/schema.ts`, and each change to that structure is saved as a file in `drizzle/`.
-- **Hosting**: the Node.js app feature of the Turhost cPanel account, on `pm.zeynmedia.az`.
+- **Hosting**: [Railway](https://railway.com) runs the site and its MySQL database, on `project.zeynmedia.az`. The domain stays at Turhost, which keeps hosting the main website and e-mail; Turhost's hosting plans can't run Node.js apps.
 - **Interface text**: both languages live in `src/i18n/dictionaries.ts`.
 - **Design**: colours and fonts are defined once in `src/app/globals.css`.
 
@@ -196,15 +196,21 @@ Open http://localhost:3000. The first time, the setup page creates your admin an
 | `npm run user:create -- "Name" role` | Creates a person (`admin`, `manager` or `employee`) and prints their code |
 | `npm run user:code -- "Name"` | Gives an existing person a new code and prints it (e.g. a locked-out admin); part of the name is enough |
 
-## Installing on the hosting (Turhost cPanel)
+## The live site (Railway)
 
-The hosting runs a ready-made package; it never installs or builds anything itself.
+Railway builds the site from this GitHub repository and runs it with `npm start`; the database tables are created or updated on every start. The service needs these variables (set in Railway, never in the repository):
 
-1. Build the package: `npm run build`, then `npm run package`. The result is `release/zeynkanban.zip`.
-2. In cPanel, use **Deploy a Node.js App** on the `pm.zeynmedia.az` subdomain, upload the zip, and choose Node.js 20 or newer. The start file is `server.js`.
-3. Set these environment variables for the app:
-   - `DB_HOST` (usually `localhost`), `DB_NAME`, `DB_USER`, `DB_PASSWORD`: the MySQL database created in the hosting panel.
-   - `AUTH_SECRET`: a random string of at least 32 characters. Changing it later makes every existing access code stop working.
-   - `NODE_ENV`: `production`.
-   - `APP_STAGE`: `production` once the site is live on its real address (the About page then shows "Live" instead of "Beta").
-4. Start the app and open the address. The database tables are created on the first start, and the setup page asks for the first admin.
+- `DATABASE_URL`: the MySQL database's connection address (Railway provides it), or `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` separately.
+- `AUTH_SECRET`: a random string of at least 32 characters. Changing it later makes every existing access code stop working.
+- `APP_STAGE`: `production` (the About page then shows "Live" instead of "Beta").
+
+The address `project.zeynmedia.az` is a custom domain in Railway, with a DNS record for `project` in Turhost's cPanel (Zone Editor) pointing to it.
+
+### Updating the live site
+
+1. A change is pushed to GitHub on a work branch.
+2. Try it on your own computer: download the update and run `npm run local`. Your computer has its own database, so nothing you do there touches the live site.
+3. When it's good, merge the work branch into `main` on GitHub (a pull request, then "Merge").
+4. Railway sees the new `main`, builds it and swaps the site over in a few minutes. Data stays; database changes are applied automatically when the new version starts.
+
+If building a new version fails, Railway keeps the previous one running.

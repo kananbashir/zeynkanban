@@ -95,7 +95,7 @@ export async function deliverPush(rows: Row[]) {
   if (!subs.length) return;
   const roles = new Map((await db.select({ id: users.id, role: users.role }).from(users).where(inArray(users.id, [...new Set(subs.map((s) => s.userId))]))).map((u) => [u.id, u.role]));
   const keys = await vapidKeys();
-  const subject = process.env.VAPID_SUBJECT || "https://pm.zeynmedia.az";
+  const subject = process.env.VAPID_SUBJECT || "https://project.zeynmedia.az";
   const today = todayIso();
   const unread = new Map<string, number>();
   for (const id of new Set(subs.map((s) => s.userId))) {
