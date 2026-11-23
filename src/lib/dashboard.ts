@@ -5,6 +5,7 @@ import { contentTypes, contents, customers, statuses, tasks, users } from "@/db/
 import type { Locale } from "@/i18n/dictionaries";
 import { assigneesColumn, hasAssignees, parseAssignees } from "./assignees";
 import { localName } from "./names";
+import { taskEndColumn } from "./task-end";
 import { shiftPeriod, summarize, type Period, type Tally } from "./dashboard-rules";
 
 export type DashRow = Tally & { id: string; name: string };
@@ -15,7 +16,8 @@ export async function dashboardData(period: Period, today: string, locale: Local
   const [rows, [previous], statusRows, userRows, customerRows, typeRows] = await Promise.all([
     db
       .select({
-        dueDate: tasks.dueDate,
+        // A task counts on the day it is due: its deadline, or its own day without one.
+        dueDate: taskEndColumn,
         assignees: assigneesColumn,
         customerId: tasks.customerId,
         statusId: tasks.statusId,
@@ -25,11 +27,11 @@ export async function dashboardData(period: Period, today: string, locale: Local
       .from(tasks)
       .innerJoin(statuses, eq(statuses.id, tasks.statusId))
       .innerJoin(contents, eq(contents.id, tasks.contentId))
-      .where(and(eq(tasks.archived, false), gte(tasks.dueDate, period.from), lte(tasks.dueDate, period.to))),
+      .where(and(eq(tasks.archived, false), gte(taskEndColumn, period.from), lte(taskEndColumn, period.to))),
     db
       .select({ n: sql<number>`count(*)`.mapWith(Number) })
       .from(tasks)
-      .where(and(eq(tasks.archived, false), hasAssignees, gte(tasks.dueDate, before.from), lte(tasks.dueDate, before.to))),
+      .where(and(eq(tasks.archived, false), hasAssignees, gte(taskEndColumn, before.from), lte(taskEndColumn, before.to))),
     db.select({ id: statuses.id, name: statuses.name, nameEn: statuses.nameEn, color: statuses.color, deleted: sql<boolean>`${statuses.deletedAt} is not null`.mapWith(Boolean) }).from(statuses).orderBy(asc(statuses.position), asc(statuses.createdAt)),
     db.select({ id: users.id, name: users.name, active: users.active }).from(users).orderBy(asc(users.name)),
     db.select({ id: customers.id, name: customers.name, color: customers.color, archived: customers.archived }).from(customers).orderBy(asc(customers.name)),

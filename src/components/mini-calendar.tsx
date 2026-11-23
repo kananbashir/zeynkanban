@@ -18,6 +18,7 @@ export function MiniCalendar({
   onMonth,
   showCounts = false,
   cellHeight = 42,
+  rangeEnd,
 }: {
   year: number;
   month: number;
@@ -33,6 +34,8 @@ export function MiniCalendar({
   onMonth: (delta: number) => void;
   showCounts?: boolean;
   cellHeight?: number;
+  /** Highlights the days after `selected` up to this one (a task's span to its deadline). */
+  rangeEnd?: string | null;
 }) {
   const cells = monthGrid(year, month);
   const arrow = (d: string) => (
@@ -63,10 +66,13 @@ export function MiniCalendar({
           const n = counts[iso] ?? 0;
           const events = specialDaysOn(iso, specialDays);
           const sel = iso === selected;
+          const inRange = !!rangeEnd && iso > selected && iso <= rangeEnd;
           const isToday = iso === today;
           const look = sel
             ? "bg-teal text-white font-semibold"
-            : events.length && showCounts
+            : inRange
+              ? `bg-teal-tint text-teal-deep font-semibold ${iso === rangeEnd ? "ring-2 ring-inset ring-teal" : ""}`
+              : events.length && showCounts
               ? "bg-sun-tint text-ink font-medium"
               : isToday
                 ? "bg-sun-tint text-ink font-semibold"

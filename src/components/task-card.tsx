@@ -9,7 +9,7 @@ import { fill } from "@/i18n/format";
 import { daysBetween } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
 import { MAX_NOTES, NOTE_LENGTH } from "@/lib/note-rules";
-import { ARCHIVED_BACKGROUND, cardBackground } from "@/lib/task-rules";
+import { ARCHIVED_BACKGROUND, cardBackground, taskEnd } from "@/lib/task-rules";
 import type { TaskView } from "@/lib/tasks";
 import { useMe } from "./me";
 import { Collapse } from "./motion";
@@ -128,7 +128,8 @@ export function TaskCard({
   const status = chosen
     ? { name: chosen.name, color: chosen.color, finished: chosen.isFinished, deleted: false }
     : { name: task.statusName, color: task.statusColor, finished: task.finished, deleted: task.statusDeleted };
-  const lateDays = !status.finished && task.dueDate < today ? daysBetween(task.dueDate, today) : 0;
+  const end = taskEnd(task); // the deadline, or the task's day without one
+  const lateDays = !status.finished && end < today ? daysBetween(end, today) : 0;
   const statusLabel = status.deleted ? fill(t.deletedStatus, { name: status.name }) : status.name;
   const typeLabel = task.typeDeleted ? fill(t.deletedType, { name: task.typeName }) : task.typeName;
   const background = task.contentArchived ? ARCHIVED_BACKGROUND : cardBackground(status.color, status.finished);
@@ -225,7 +226,11 @@ export function TaskCard({
         )}
         <span className="flex items-center gap-1.5">
           <Icon d={CAL} />
-          {fill(status.finished ? t.wasDue : t.due, { date: shortDate(task.dueDate, t) })}
+          {status.finished
+            ? fill(t.wasDue, { date: shortDate(end, t) })
+            : task.deadline
+              ? fill(t.dueFrom, { date: shortDate(end, t), from: shortDate(task.dueDate, t) })
+              : fill(t.due, { date: shortDate(end, t) })}
         </span>
         {task.note && (
           <span className="flex min-w-0 items-center gap-1.5">

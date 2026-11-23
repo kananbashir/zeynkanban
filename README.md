@@ -52,7 +52,7 @@ A person who opens a page their role may not see is sent back to their own first
 
 Settings → **Appearance and language**, for every role, saved on the device: **Light**, **System** (follows the device's light or dark mode) or **Dark**, the language (Azərbaycan / English), a link to the About page, and Log out. The theme is applied before the page is drawn, so there is no flash.
 
-The **About** page shows the version and its stage (**Beta** until `APP_STAGE=production` is set on the hosting when the site goes live on its real address), what the site is for, what it does and who can do what. The version number comes from `package.json`.
+The **About** page shows the version and its stage (**Beta** until `APP_STAGE=production` is set on the hosting when the site goes live on its real address), what the site is for, what it does and who can do what. The version number comes from `package.json`; see [Versions](#versions).
 
 On phones, the main pages are in a bar along the bottom of the screen; About and Log out are in Settings. On wider screens they are in the rail on the left.
 
@@ -82,10 +82,11 @@ A new installation starts with four statuses (Ediləcək / To do, İcrada / In p
 
 ## Tasks and the managing board
 
-- Every task belongs to a content ID. It has a type, one or more assignees, a date, an optional description and note, and a status; new tasks start with the first status.
+- Every task belongs to a content ID. It has a type, one or more assignees, a date, an optional deadline, an optional description and note, and a status; new tasks start with the first status.
+- **Deadline**: a task can have a deadline after its date (same day, +1, +2, +3 days, +1 week, or any date). Until it is finished, it shows on every day from its date to its deadline, and only counts as overdue after the deadline. The card shows "Due 26 Nov · from 23 Nov". Moving the task's date moves its deadline with it. Reminders, overdue alerts and the dashboard go by the deadline.
 - **Several people on one task**: in the task form, tap each person to add or remove them. Everyone on a task sees it in My tasks, can change its status and add notes, and gets its notifications and reminders. The card shows the first name and "+N", with overlapping avatars: hover over one (or tap it on a phone, or reach it with Tab) and it rises with a little bounce while a label with the name glides from avatar to avatar. With "reduce motion" switched on in the device's settings, the avatar simply moves up and the label just fades in.
 - **A task with nobody on it is a draft**: it shows in the customer's Drafts box only, never on the managing board.
-- **Day views** (managing board, customer Tasks tab): unfinished tasks show on their due day; on today's view, unfinished tasks from earlier days also show as overdue; finished tasks show on the day they were finished. "Today" is taken in Baku time (`APP_TIME_ZONE`).
+- **Day views** (managing board, customer Tasks tab, My tasks): unfinished tasks show on their date, or on every day from their date to their deadline; on today's view, unfinished tasks whose deadline has passed also show as overdue; finished tasks show on the day they were finished. "Today" is taken in Baku time (`APP_TIME_ZONE`).
 - **Managing board** (admin, manager): calendar, day summary, filters by customer and person, search, and status changes from each card. "Open task" opens the task form on the customer's page.
 - **Task form** (customer page, yellow button): type (or "Other…", optionally saved to the list), content ID with its publish date, the people on it (each with their load that day), description, note, and a calendar showing how many tasks each day already has, with holidays marked and that day's tasks grouped by person.
 - Tasks are archived, never deleted (admin only), and can be restored from the Contents tab, where each content ID shows its publish date, progress and tasks.
@@ -111,7 +112,7 @@ The first page for admins and managers. It shows counts and charts for a month (
 - **Tasks per day**: finished and open tasks for each day, with holidays and special events marked. Pick or hover a day to read its numbers; "Open this day" opens it on the managing board.
 - **Team workload**, **Customers**, **Tasks by status** and **Content types**: how the period's tasks split up, each bar showing finished and open.
 
-Every task with someone on it counts on its due date, for each person on it (a task for two people counts once in the totals and once for each of them by person); archived tasks don't count. Drafts appear only in their own total, just as the managing board leaves them out.
+Every task with someone on it counts on its deadline (or its date when it has none), for each person on it (a task for two people counts once in the totals and once for each of them by person); archived tasks don't count. Drafts appear only in their own total, just as the managing board leaves them out.
 
 ## My tasks and personal tasks
 
@@ -138,7 +139,7 @@ The bell in the top bar shows how many notifications are unread; it checks again
 | A task became overdue | Admins and managers, at 09:00, for tasks that passed their date unfinished (more than 3 become one notification) |
 | Morning summary | Everyone at 09:00: the day's tasks, overdue and drafts (employees: their own; skipped when they have nothing) |
 
-**Task reminders**: the task form has "Reminders for the people on it": no reminder (the default), or any of 1, 3 and 5 days before the due date, at one chosen time (Baku time). Each reminder goes once to everyone on the task. Changing the due date or the time makes them all due again; adding or removing one leaves the others as they were. They aren't sent for finished or archived tasks, or once the due date has passed. A reminder whose moment has already passed when it is set goes out right away; if several are due at once, one notification covers them.
+**Task reminders**: the task form has "Reminders for the people on it": no reminder (the default), or any of 1, 3 and 5 days before the deadline (or the task's date when it has none), at one chosen time (Baku time). Each reminder goes once to everyone on the task. Changing the due date or the time makes them all due again; adding or removing one leaves the others as they were. They aren't sent for finished or archived tasks, or once the due date has passed. A reminder whose moment has already passed when it is set goes out right away; if several are due at once, one notification covers them.
 
 Nobody is notified about their own changes. Each person chooses what they want in the panel's settings, and can turn on **phone notifications on this device**. On an iPhone (iOS 16.4 or newer) the site must first be added to the home screen and opened from there. Phone notifications need the site on HTTPS (or `localhost` when testing on your own computer).
 
@@ -214,3 +215,12 @@ The address `project.zeynmedia.az` is a custom domain in Railway, with a DNS rec
 4. Railway sees the new `main`, builds it and swaps the site over in a few minutes. Data stays; database changes are applied automatically when the new version starts.
 
 If building a new version fails, Railway keeps the previous one running.
+
+## Versions
+
+Every change that reaches the live site gets a new version number in `package.json`, shown on the About page: the middle number goes up for new features, the last one for fixes only.
+
+| Version | What changed |
+|---|---|
+| 0.10.0 | Deadlines: a task shows every day from its date to its deadline until it is finished |
+| 0.9.0 | First live version: everything up to several people per task, the avatar group and English names |

@@ -13,6 +13,7 @@ import { cleanName } from "@/lib/settings-rules";
 import { countsByDay, wholeDay, type TaskView } from "@/lib/tasks";
 import { deliverPush, notify, refOnly, staffIds, taskRef } from "@/lib/notify";
 import { cleanReminders } from "@/lib/reminder-rules";
+import { taskEnd } from "@/lib/task-rules";
 import { found } from "@/lib/users";
 
 export type Result = { ok: true; id?: string } | { ok: false; error: ErrorKey };
@@ -38,10 +39,13 @@ export type TaskInput = {
   saveType?: boolean;
   /** The people on the task (none: a draft). */
   assigneeIds: string[];
+  /** The task's day: it shows from here. */
   dueDate: string;
+  /** Optional last day (after dueDate): the unfinished task shows every day until then. Null or the same day = none. */
+  deadline?: string | null;
   description: string;
   note: string;
-  /** Remind the assignee these many days before the due date (any of 1, 3, 5), at remindTime ("HH:MM"). Empty = no reminder. */
+  /** Remind the people on it these many days before the deadline (or the task's day) (any of 1, 3, 5), at remindTime ("HH:MM"). Empty = no reminder. */
   remindDays?: number[];
   remindTime?: string | null;
 };
@@ -67,6 +71,8 @@ async function resolveType(input: TaskInput): Promise<{ ok: true; id: string } |
 
 async function validate(input: TaskInput): Promise<ErrorKey | null> {
   if (!isIsoDateString(input.dueDate)) return "dateInvalid";
+  if (input.deadline && !isIsoDateString(input.deadline)) return "dateInvalid";
+  if (input.deadline && input.deadline < input.dueDate) return "deadlineBeforeDate";
   const [content] = await db.select({ customerId: contents.customerId }).from(contents).where(eq(contents.id, input.contentId));
   if (!content || content.customerId !== input.customerId) return "contentRequired";
   const people = cleanIds(input.assigneeIds);
@@ -93,6 +99,9 @@ async function assigneesOf(taskId: string): Promise<string[]> {
 
 const text = (value: unknown, max: number) => String(value ?? "").trim().slice(0, max);
 
+/** The deadline to store: only one after the task's day (validated above); otherwise none. */
+const deadlineOf = (input: TaskInput): string | null => (input.deadline && input.deadline > input.dueDate ? input.deadline : null);
+
 /** Creates a task. It starts with the first status; with nobody on it, it is a draft. */
 export async function createTask(input: TaskInput): Promise<Result> {
   const me = await requireRole("admin", "manager");
@@ -111,6 +120,7 @@ export async function createTask(input: TaskInput): Promise<Result> {
     taskTypeId: type.id,
     statusId: first.id,
     dueDate: input.dueDate,
+    deadline: deadlineOf(input),
     description: text(input.description, 5000) || null,
     note: text(input.note, 500),
     finishedAt: first.isFinished ? new Date() : null,
@@ -136,7 +146,7 @@ export async function updateTask(id: string, input: TaskInput): Promise<Result> 
   const type = await resolveType(input);
   if (!type.ok) return fail(type.error);
   const [row] = await db
-    .select({ dueDate: tasks.dueDate, description: tasks.description, note: tasks.note, remindTime: tasks.remindTime })
+    .select({ dueDate: tasks.dueDate, deadline: tasks.deadline, description: tasks.description, note: tasks.note, remindTime: tasks.remindTime })
     .from(tasks)
     .where(eq(tasks.id, id));
   const before = row ? { ...row, assigneeIds: await assigneesOf(id) } : null;
@@ -147,6 +157,7 @@ export async function updateTask(id: string, input: TaskInput): Promise<Result> 
       contentId: input.contentId,
       taskTypeId: type.id,
       dueDate: input.dueDate,
+      deadline: deadlineOf(input),
       description: text(input.description, 5000) || null,
       note: text(input.note, 500),
       remindTime: reminder.time,
@@ -155,7 +166,9 @@ export async function updateTask(id: string, input: TaskInput): Promise<Result> 
     .where(and(eq(tasks.id, id), eq(tasks.customerId, input.customerId)));
   if (!found(result)) return fail("notFound");
   await saveAssignees(id, cleanIds(input.assigneeIds));
-  await saveReminders(id, reminder.days, !before || before.dueDate !== input.dueDate || before.remindTime !== reminder.time);
+  // Reminders count back from the deadline (or the task's day): moving it makes them all due again.
+  const endBefore = before ? taskEnd(before) : null;
+  await saveReminders(id, reminder.days, !before || endBefore !== taskEnd({ dueDate: input.dueDate, deadline: deadlineOf(input) }) || before.remindTime !== reminder.time);
   if (before) await notifyChanges(id, before, me);
   return refresh();
 }
@@ -178,7 +191,7 @@ async function saveReminders(taskId: string, days: number[], timingChanged: bool
  * theirs, removed people who has it now, and people who stay on it what changed. Nobody is told
  * about their own edits.
  */
-async function notifyChanges(id: string, before: { assigneeIds: string[]; dueDate: string; description: string | null; note: string }, me: { id: string; name: string }) {
+async function notifyChanges(id: string, before: { assigneeIds: string[]; dueDate: string; deadline: string | null; description: string | null; note: string }, me: { id: string; name: string }) {
   const ref = await taskRef(id);
   if (!ref) return;
   const now = ref.assignees.map((p) => p.id);
@@ -192,7 +205,8 @@ async function notifyChanges(id: string, before: { assigneeIds: string[]; dueDat
   if (stayed.length) {
     const [current] = await db.select({ description: tasks.description, note: tasks.note }).from(tasks).where(eq(tasks.id, id));
     const change = {
-      ...(before.dueDate !== ref.due ? { dateFrom: before.dueDate, dateTo: ref.due } : {}),
+      // ref.due is when it is due now (deadline or day); tell them when that moved.
+      ...(taskEnd(before) !== ref.due ? { dateFrom: taskEnd(before), dateTo: ref.due } : {}),
       ...((before.description ?? "") !== (current?.description ?? "") ? { description: true } : {}),
       ...(before.note !== (current?.note ?? "") ? { note: current?.note ?? "" } : {}),
     };

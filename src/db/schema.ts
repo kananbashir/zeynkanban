@@ -185,7 +185,10 @@ export const tasks = mysqlTable(
     statusId: varchar("status_id", { length: 36 })
       .notNull()
       .references(() => statuses.id),
+    /** The task's day: it shows from here (and, without a deadline, it is due that day). */
     dueDate: date("due_date", { mode: "string" }).notNull(),
+    /** Optional last day, after dueDate: until then the unfinished task shows every day, then it is overdue. */
+    deadline: date("deadline", { mode: "string" }),
     description: text("description"),
     note: varchar("note", { length: 500 }).notNull().default(""),
     archived: boolean("archived").notNull().default(false),

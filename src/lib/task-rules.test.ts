@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, daysBetween, monthGrid, specialDaysOn, weekdayIndex, dateInZone, isIsoDateString } from "./dates";
-import { cardBackground, FINISHED_BACKGROUND, groupByPerson, personalShownOn, sectionFor } from "./task-rules";
+import { cardBackground, countPerDay, FINISHED_BACKGROUND, groupByPerson, personalShownOn, sectionFor, taskEnd } from "./task-rules";
 
 const today = "2026-11-20";
 
@@ -17,6 +17,31 @@ describe("day sections", () => {
     expect(sectionFor({ dueDate: "2026-11-18", finished: true, finishedOn: today }, today, today)).toBe("finished");
     expect(sectionFor({ dueDate: "2026-11-18", finished: true, finishedOn: today }, "2026-11-18", today)).toBeNull();
     expect(sectionFor({ dueDate: "2026-11-18", finished: true, finishedOn: null }, "2026-11-18", today)).toBe("finished");
+  });
+  it("shows a task with a deadline on every day up to it, then as overdue", () => {
+    // Created for 23 Nov, deadline 26 Nov (the example from the team).
+    const task = { dueDate: "2026-11-23", deadline: "2026-11-26", finished: false, finishedOn: null };
+    expect(sectionFor(task, "2026-11-22", "2026-11-22")).toBeNull();
+    for (const day of ["2026-11-23", "2026-11-24", "2026-11-25", "2026-11-26"]) expect(sectionFor(task, day, "2026-11-23")).toBe("due");
+    expect(sectionFor(task, "2026-11-26", "2026-11-26")).toBe("due"); // the deadline itself is not late yet
+    expect(sectionFor(task, "2026-11-27", "2026-11-26")).toBeNull();
+    expect(sectionFor(task, "2026-11-27", "2026-11-27")).toBe("overdue");
+    expect(sectionFor(task, "2026-11-25", "2026-11-27")).toBe("due"); // looking back at a day it spanned
+  });
+  it("shows a finished task with a deadline only on the day it was finished", () => {
+    const task = { dueDate: "2026-11-23", deadline: "2026-11-26", finished: true, finishedOn: "2026-11-24" };
+    expect(sectionFor(task, "2026-11-24", "2026-11-25")).toBe("finished");
+    expect(sectionFor(task, "2026-11-25", "2026-11-25")).toBeNull();
+    expect(sectionFor({ ...task, finishedOn: null }, "2026-11-26", "2026-11-27")).toBe("finished");
+  });
+  it("ignores a deadline that isn't after the task's day", () => {
+    expect(taskEnd({ dueDate: "2026-11-23", deadline: null })).toBe("2026-11-23");
+    expect(taskEnd({ dueDate: "2026-11-23", deadline: "2026-11-20" })).toBe("2026-11-23");
+    expect(taskEnd({ dueDate: "2026-11-23", deadline: "2026-11-26" })).toBe("2026-11-26");
+  });
+  it("counts a task on every day it spans, within the range asked for", () => {
+    const counts = countPerDay([{ dueDate: "2026-11-23", deadline: "2026-11-26" }, { dueDate: "2026-11-24" }, { dueDate: "2026-10-30", deadline: "2026-11-02" }], "2026-11-01", "2026-11-25", addDays);
+    expect(counts).toEqual({ "2026-11-01": 1, "2026-11-02": 1, "2026-11-23": 1, "2026-11-24": 2, "2026-11-25": 1 });
   });
   it("uses the neutral background for finished tasks", () => {
     expect(cardBackground("#2a7de1", true)).toBe(FINISHED_BACKGROUND);

@@ -3,6 +3,7 @@ import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { personalReminders, personalTasks, statuses, taskReminders, tasks } from "@/db/schema";
 import { addDays, APP_TIME_ZONE, todayIso } from "./dates";
+import { taskEndColumn } from "./task-end";
 import { hasAssignees } from "./assignees";
 import { deliverPush, notify, refOnly, taskRef } from "./notify";
 import { personalState, reminderState } from "./reminder-rules";
@@ -25,7 +26,7 @@ export async function runReminders(now = new Date()): Promise<number> {
   const today = todayIso();
   const clock = clockIn(now);
   const waiting = await db
-    .select({ taskId: tasks.id, dueDate: tasks.dueDate, remindTime: tasks.remindTime, daysBefore: taskReminders.daysBefore })
+    .select({ taskId: tasks.id, dueDate: taskEndColumn, remindTime: tasks.remindTime, daysBefore: taskReminders.daysBefore }) // counted back from the deadline (or the task's day)
     .from(taskReminders)
     .innerJoin(tasks, eq(tasks.id, taskReminders.taskId))
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
@@ -35,8 +36,8 @@ export async function runReminders(now = new Date()): Promise<number> {
         hasAssignees,
         eq(tasks.archived, false),
         eq(statuses.isFinished, false),
-        gte(tasks.dueDate, today),
-        lte(tasks.dueDate, addDays(today, 5)),
+        gte(taskEndColumn, today),
+        lte(taskEndColumn, addDays(today, 5)),
       ),
     );
   const due = new Map<string, { days: number[] }>();

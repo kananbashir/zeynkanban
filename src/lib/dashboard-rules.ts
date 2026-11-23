@@ -39,6 +39,7 @@ export function shiftPeriod(period: Period, by: number): Period {
 }
 
 export type CountRow = {
+  /** The day the task counts on: its deadline, or its own day without one. */
   dueDate: string;
   assigneeIds: string[];
   customerId: string;
