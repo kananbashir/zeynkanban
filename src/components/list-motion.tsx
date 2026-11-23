@@ -7,39 +7,59 @@ import { prefersReducedMotion, springOrFallback } from "@/lib/spring";
 // fades, a removed row shrinks away while the rows below glide up, and a message offers Undo.
 // With "reduce motion" switched on, rows simply appear and disappear.
 
-const soft = () => springOrFallback(380, 34, 0.52);
-const snappy = () => springOrFallback(600, 40, 0.38);
+/** Rows come and go easing in and out (slow start, slow finish), like the opening and closing panels. */
+const EASE_IN_OUT = "cubic-bezier(0.65, 0, 0.35, 1)";
 
-/** A new row: grows open from nothing, slides in, and a teal outline fades out. */
-export function growIn(el: HTMLElement | null) {
-  if (!el || prefersReducedMotion()) return;
-  const h = el.offsetHeight;
-  const margin = getComputedStyle(el).marginBottom;
-  el.animate(
-    [
-      { height: "0px", opacity: 0, marginBottom: "0px", transform: "translateY(-8px) scale(0.98)", overflow: "hidden" },
-      { height: `${h}px`, opacity: 1, marginBottom: margin, transform: "none", overflow: "hidden" },
-    ],
-    { duration: 560, easing: soft() },
-  );
-  el.animate([{ boxShadow: "inset 0 0 0 2.5px var(--color-teal)" }, { boxShadow: "inset 0 0 0 2.5px var(--color-teal)", offset: 0.5 }, { boxShadow: "inset 0 0 0 2.5px transparent" }], { duration: 1600 });
+/**
+ * The slot a row takes in its list: the row itself, or the list item around it (a sortable row's
+ * wrapper). Its share of the list's gap is animated too, so nothing jumps when it appears or goes.
+ */
+function slotOf(el: HTMLElement) {
+  const item = el.closest<HTMLElement>("[data-list-item]") ?? el;
+  const list = item.parentElement;
+  const gap = list ? parseFloat(getComputedStyle(list).rowGap) || 0 : 0;
+  // The gap sits after the row, or before it when it is the last one.
+  const side = item.nextElementSibling ? "marginBottom" : "marginTop";
+  return { item, gap: item.previousElementSibling || item.nextElementSibling ? gap : 0, side } as const;
 }
 
-/** A removed row: shrinks and fades; `done` runs when it is gone (at once with reduced motion). */
+/** A new row: its slot opens from nothing (gap included) while it fades in; then a teal outline fades out. */
+export function growIn(el: HTMLElement | null) {
+  if (!el || prefersReducedMotion()) return;
+  const { item, gap, side } = slotOf(el);
+  const h = item.offsetHeight;
+  item.animate(
+    [
+      { height: "0px", opacity: 0, [side]: `${-gap}px`, transform: "translateY(-6px) scale(0.985)", overflow: "hidden" },
+      { height: `${h}px`, opacity: 1, [side]: "0px", transform: "none", overflow: "hidden" },
+    ],
+    { duration: 440, easing: EASE_IN_OUT },
+  );
+  // The outline only once the row has its full size, so it never looks squashed.
+  el.animate([{ boxShadow: "inset 0 0 0 2.5px transparent" }, { boxShadow: "inset 0 0 0 2.5px var(--color-teal)", offset: 0.3 }, { boxShadow: "inset 0 0 0 2.5px var(--color-teal)", offset: 0.6 }, { boxShadow: "inset 0 0 0 2.5px transparent" }], { duration: 1500, delay: 380 });
+}
+
+/** A removed row: its slot closes to nothing (gap included) while it fades; `done` runs when it is gone. */
 export function shrinkOut(el: HTMLElement | null, done: () => void) {
   if (!el || prefersReducedMotion()) return done();
-  const h = el.offsetHeight;
-  const margin = getComputedStyle(el).marginBottom;
-  el.style.overflow = "hidden";
-  el.style.pointerEvents = "none";
-  const a = el.animate(
+  const { item, gap, side } = slotOf(el);
+  const h = item.offsetHeight;
+  item.style.pointerEvents = "none";
+  const a = item.animate(
     [
-      { height: `${h}px`, opacity: 1, marginBottom: margin, transform: "none" },
-      { height: "0px", opacity: 0, marginBottom: "0px", transform: "scale(0.97)" },
+      { height: `${h}px`, opacity: 1, [side]: "0px", transform: "none", overflow: "hidden" },
+      { height: "0px", opacity: 0, [side]: `${-gap}px`, transform: "scale(0.985)", overflow: "hidden" },
     ],
-    { duration: 420, easing: snappy(), fill: "forwards" },
+    { duration: 380, easing: EASE_IN_OUT, fill: "forwards" },
   );
-  a.onfinish = done;
+  a.onfinish = () => {
+    done();
+    // The slot may be reused by React for the next row: let it go back to normal.
+    requestAnimationFrame(() => {
+      a.cancel();
+      item.style.pointerEvents = "";
+    });
+  };
 }
 
 /** Runs growIn once, when the row first appears, if `fresh` (e.g. just added or brought back by Undo). */

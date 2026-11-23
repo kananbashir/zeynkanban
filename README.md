@@ -92,7 +92,7 @@ A new installation starts with four statuses (Ediləcək / To do, İcrada / In p
 - **A task with nobody on it is a draft**: it shows in the customer's Drafts box only, never on the managing board.
 - **Day views** (managing board, customer Tasks tab, My tasks): unfinished tasks show on their date, or on every day from their date to their deadline; on today's view, unfinished tasks whose deadline has passed also show as overdue; finished tasks show on the day they were finished. "Today" is taken in Baku time (`APP_TIME_ZONE`).
 - **Managing board** (admin, manager): calendar, day summary (overdue, open, postponed, finished, cancelled), filters by customer and person, search, the All / Overdue / Due / Postponed / Finished / Cancelled filter, and status changes from each card. "Open task" opens the task form on the customer's page.
-- **Task form** (customer page, yellow button): type (or "Other…", optionally saved to the list), content ID with its publish date, the people on it (each with their load that day), description, note, and a calendar showing how many tasks each day already has, with holidays marked and that day's tasks grouped by person (each with its content ID).
+- **Task form** (customer page, yellow button): type (or "Other…", optionally saved to the list), content ID with its publish date, the people on it (each with their load that day), description, note, and a calendar showing how many tasks each day already has, with holidays marked and that day's tasks grouped by person, in aligned columns: content ID, type and customer (long names shortened with "…"; on phones a small tile per task).
 - Tasks are archived, never deleted (admin only), and can be restored from the Contents tab, where each content ID shows its publish date, progress and tasks.
 - **Notes**: each task card has a Notes button. The people on the task, admins and managers can read and add notes (up to 10 per task); everyone can delete their own, and admins can delete any. Content IDs are always listed in counting order (…-2 before …-10).
 - A task whose status or type was deleted in Settings shows "Deleted status (name)" or "Deleted task type (name)".
@@ -228,6 +228,7 @@ Every change that reaches the live site gets a new version number in `package.js
 
 | Version | What changed |
 |---|---|
+| 0.13.1 | The task form's day list in tidy columns (content ID · type · customer; a small tile per task on phones); opening and closing panels (notes, the personal task form, brief fields, Settings rows) ease in and out with no jump; the personal task form no longer brings up the keyboard on phones |
 | 0.13.0 | Statuses that count as cancelled or postponed, shown in the day summary, the board filter and the dashboard; wider board search; the brief's "Add field" list opens upwards when there is no room below |
 | 0.12.0 | Content briefs on content IDs, with their starting fields in Settings → Content brief |
 | 0.11.0 | Timeline strip on cards with a deadline; "1 day left" notifications; content IDs in the task form's day list; log out only in Settings, after a confirmation |

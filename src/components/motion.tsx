@@ -159,11 +159,15 @@ export function useFlip(container: RefObject<HTMLElement | null>) {
   });
 }
 
+/** How long a panel takes to open or close (matches the .zk-collapse transition in globals.css). */
+const COLLAPSE_MS = 380;
+
 /**
- * Opens and closes its content by animating the height (and fading), instead of popping in and out.
- * The content stays mounted while it closes, then is removed (or kept, with keepMounted, e.g. for a
- * panel that is always open on wide screens: add `zk-collapse-lg-open`). While moving it clips its
- * content; once open it stops clipping, so focus outlines and shadows show in full.
+ * Opens and closes its content by animating the height (and fading), easing in and out, instead of
+ * popping in and out. The content stays mounted while it closes, then is removed (or kept, with
+ * keepMounted, e.g. for a panel that is always open on wide screens: add `zk-collapse-lg-open`).
+ * While moving it clips its content; once open it stops clipping, so focus outlines and shadows show
+ * in full. In a list with a gap, its share of the gap opens and closes with it, so nothing jumps.
  */
 export function Collapse({
   open,
@@ -184,11 +188,32 @@ export function Collapse({
   const [mounted, setMounted] = useState(open || keepMounted);
   const [expanded, setExpanded] = useState(open && !appear);
   const [settled, setSettled] = useState(open && !appear);
+  const box = useRef<HTMLDivElement>(null);
+  // The gap the parent list puts next to this panel, and the panel's own margin on that side.
+  const [gap, setGap] = useState<{ side: "marginTop" | "marginBottom"; size: number; base: number } | null>(null);
   if (open && !mounted) setMounted(true);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (!mounted || keepMounted || !el?.parentElement) return;
+    const style = getComputedStyle(el.parentElement);
+    const size = style.display.includes("flex") || style.display.includes("grid") ? parseFloat(style.rowGap) || 0 : 0;
+    if (!size || (!el.previousElementSibling && !el.nextElementSibling)) return setGap(null);
+    const side = el.previousElementSibling ? "marginTop" : "marginBottom";
+    // Measure and place it with transitions off, so the starting point is already "closed"
+    // (otherwise the browser would first animate from its plain margin and the gap would jump).
+    el.style.transition = "none";
+    el.style[side] = "";
+    const base = parseFloat(getComputedStyle(el)[side]) || 0;
+    el.style[side] = `${expanded ? base : -size}px`;
+    void el.offsetHeight;
+    el.style.transition = "";
+    setGap({ side, size, base });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, keepMounted]);
   useEffect(() => {
     if (open) {
       const frame = requestAnimationFrame(() => setExpanded(true));
-      const timer = setTimeout(() => setSettled(true), reducedMotion() ? 0 : 320);
+      const timer = setTimeout(() => setSettled(true), reducedMotion() ? 0 : COLLAPSE_MS);
       return () => {
         cancelAnimationFrame(frame);
         clearTimeout(timer);
@@ -198,15 +223,25 @@ export function Collapse({
       setSettled(false);
       setExpanded(false);
     });
-    const timer = keepMounted ? 0 : setTimeout(() => setMounted(false), reducedMotion() ? 0 : 320);
+    const timer = keepMounted ? 0 : setTimeout(() => setMounted(false), reducedMotion() ? 0 : COLLAPSE_MS);
     return () => {
       cancelAnimationFrame(frame);
       clearTimeout(timer);
     };
   }, [open, keepMounted]);
   if (!mounted) return null;
+  // Closed, it also takes back the list's gap (a negative margin), so opening and closing are seamless.
+  // (Closed, gap + margin add up to nothing, exactly as when it is not there at all.)
+  const style = gap ? { [gap.side]: `${expanded ? gap.base : -gap.size}px` } : undefined;
   return (
-    <div data-open={expanded} data-settled={settled} inert={inertWhenClosed && !open ? true : undefined} className={`zk-collapse ${inertWhenClosed ? "zk-collapse-inert" : ""} ${className}`}>
+    <div
+      ref={box}
+      data-open={expanded}
+      data-settled={settled}
+      inert={inertWhenClosed && !open ? true : undefined}
+      style={style}
+      className={`zk-collapse ${inertWhenClosed ? "zk-collapse-inert" : ""} ${className}`}
+    >
       <div>{children}</div>
     </div>
   );

@@ -191,7 +191,8 @@ select {
   grid-template-columns: minmax(0, 1fr); /* never wider than its place, so long names shorten with "…" instead of spilling over */
   grid-template-rows: 0fr;
   opacity: 0;
-  transition: grid-template-rows 0.3s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.22s ease;
+  /* Eases in and out; the margin carries the list's gap along (see Collapse in motion.tsx). */
+  transition: grid-template-rows 0.38s cubic-bezier(0.65, 0, 0.35, 1), margin 0.38s cubic-bezier(0.65, 0, 0.35, 1), opacity 0.3s ease-in-out;
 }
 .zk-collapse[data-open="true"] {
   grid-template-rows: 1fr;

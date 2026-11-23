@@ -371,19 +371,34 @@ export function TaskForm({
               {groups.map(({ id: personId, name: personName, list }) => {
                 const person = people.find((p) => p.id === personId);
                 return (
-                  <div key={personId || "none"} className="flex flex-col gap-1.5 border-t border-line pt-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="flex size-6 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ background: personId ? avatarColor(personId) : "var(--color-subtle)" }}>{personId ? initials(person?.name ?? personName) : "?"}</span>
-                      <span className="flex-1 text-sm font-semibold">{personId ? (person?.name ?? personName) : t.customer.noAssigneeGroup}</span>
-                      <span className="text-xs text-ink-soft">{list.length === 1 ? t.task1 : fill(t.tasksN, { n: list.length })}</span>
+                  <div key={personId || "none"} className="flex flex-col gap-1.5 border-t border-line pt-3">
+                    <div className="flex items-center gap-2.5">
+                      {personId ? (
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: avatarColor(personId) }}>{initials(person?.name ?? personName)}</span>
+                      ) : (
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full border-[1.5px] border-dashed border-subtle text-[11px] font-bold text-muted">?</span>
+                      )}
+                      <span className="min-w-0 flex-1 truncate text-sm font-semibold">{personId ? (person?.name ?? personName) : t.customer.noAssigneeGroup}</span>
+                      <span className="rounded-full bg-mint-soft px-2 py-0.5 text-xs font-bold text-muted">{list.length}</span>
                     </div>
-                    {list.map((x) => (
-                      <div key={x.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-8 text-[13px] text-ink-soft">
-                        <span className="rounded-md bg-mint px-1.5 py-0.5 font-mono text-xs font-medium text-ink">{x.contentCode}</span>
-                        <span className="flex-[1_1_120px] font-medium text-ink">{x.typeName}</span>
-                        <span className="flex items-center gap-1.5"><span className="size-[9px] rounded-full border-[1.5px] border-black/25" style={{ background: x.customerColor }} />{x.customerName}</span>
-                      </div>
-                    ))}
+                    {/* Wide: three aligned columns (content ID · type · customer). Phone: a small tile per task. */}
+                    <div className="flex flex-col gap-1.5 sm:gap-0">
+                      {list.map((x) => (
+                        <div
+                          key={x.id}
+                          className={`flex items-center gap-3 rounded-[12px] px-2.5 py-2 sm:grid sm:grid-cols-[176px_minmax(0,1fr)_minmax(0,160px)] sm:rounded-none sm:border-t sm:border-line sm:bg-transparent sm:px-1 sm:first:border-t-0 ${personId ? "bg-mint-soft" : "border-[1.5px] border-dashed border-line-strong sm:border-x-0 sm:border-b-0 sm:border-solid"}`}
+                        >
+                          <span data-code className="order-2 ml-auto shrink-0 whitespace-nowrap rounded-[7px] border border-line bg-surface px-1.5 py-0.5 font-mono text-[11.5px] font-medium text-ink sm:order-first sm:ml-0 sm:justify-self-start">{x.contentCode}</span>
+                          <span className="order-1 flex min-w-0 flex-1 flex-col sm:contents">
+                            <span data-type className="truncate text-[13.5px] font-semibold text-ink">{x.typeName}</span>
+                            <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted sm:text-[12.5px]">
+                              <span className="size-2 shrink-0 rounded-full border-[1.5px] border-black/20" style={{ background: x.customerColor }} />
+                              <span data-customer className="truncate">{x.customerName}</span>
+                            </span>
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 );
               })}

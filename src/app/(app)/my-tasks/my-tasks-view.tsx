@@ -217,6 +217,7 @@ function PersonalTasks({
 }) {
   const [adding, setAdding] = useState(false);
   const formBox = useRef<HTMLDivElement>(null);
+  const titleBox = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
   const [time, setTime] = useState("");
@@ -257,7 +258,12 @@ function PersonalTasks({
           aria-expanded={adding}
           onClick={() => {
             setAdding((v) => !v);
-            if (!adding) setTimeout(() => scrollIntoViewSoftly(formBox.current, "center"), 60);
+            if (!adding) {
+              setTimeout(() => scrollIntoViewSoftly(formBox.current, "center"), 60);
+              // With a mouse, typing can start at once. On phones and tablets the first box is not focused,
+              // so the keyboard doesn't jump up before the form has even opened.
+              if (window.matchMedia("(pointer: fine)").matches) setTimeout(() => titleBox.current?.focus({ preventScroll: true }), 400);
+            }
           }}
           className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full bg-sun px-4 text-sm font-semibold"
         >
@@ -277,7 +283,7 @@ function PersonalTasks({
         >
           <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
             {t.what}
-            <input autoFocus autoComplete="off" maxLength={200} value={title} onChange={(e) => { setTitle(e.target.value); setProblem(null); }} className={field} />
+            <input ref={titleBox} autoComplete="off" maxLength={200} value={title} onChange={(e) => { setTitle(e.target.value); setProblem(null); }} className={field} />
           </label>
           <div className="flex flex-wrap gap-3">
             <label className="flex min-w-0 flex-[1_1_240px] flex-col gap-1.5 text-[13px] font-semibold">
