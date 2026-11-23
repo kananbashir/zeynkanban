@@ -1,0 +1,1 @@
+ALTER TABLE `notifications` MODIFY COLUMN `kind` enum('assigned','moved','changed','review','overdue','summary','status','reminder','note','personal','deadline') NOT NULL;

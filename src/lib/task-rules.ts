@@ -68,3 +68,28 @@ export function groupByPerson<T extends { assignees: { id: string; name: string 
   }
   return [...groups.values()].sort((a, b) => (a.id === "" ? 1 : b.id === "" ? -1 : b.list.length - a.list.length || a.name.localeCompare(b.name)));
 }
+
+export type DeadlineState =
+  | { kind: "upcoming"; n: number; progress: 0 }
+  | { kind: "running"; n: number; progress: number }
+  | { kind: "lastDay"; n: 0; progress: 1 }
+  | { kind: "late"; n: number; progress: 1 }
+  | { kind: "done"; how: "early" | "onTime" | "late" | "unknown"; n: number; progress: 1 };
+
+/**
+ * Where a task with a deadline stands today, for the card's timeline strip: not started yet, n days
+ * left (and how much of the time has passed), the last day, n days late, or finished (early, on time
+ * or late, by the day it was finished).
+ */
+export function deadlineState(task: { dueDate: string; deadline: string; finished: boolean; finishedOn: string | null }, today: string, daysBetween: (a: string, b: string) => number): DeadlineState {
+  const start = task.dueDate, end = task.deadline;
+  if (task.finished) {
+    if (!task.finishedOn) return { kind: "done", how: "unknown", n: 0, progress: 1 };
+    const d = daysBetween(task.finishedOn, end);
+    return { kind: "done", how: d > 0 ? "early" : d < 0 ? "late" : "onTime", n: Math.abs(d), progress: 1 };
+  }
+  if (today < start) return { kind: "upcoming", n: daysBetween(today, start), progress: 0 };
+  if (today === end) return { kind: "lastDay", n: 0, progress: 1 };
+  if (today > end) return { kind: "late", n: daysBetween(end, today), progress: 1 };
+  return { kind: "running", n: daysBetween(today, end), progress: daysBetween(start, today) / daysBetween(start, end) };
+}

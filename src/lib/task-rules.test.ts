@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, daysBetween, monthGrid, specialDaysOn, weekdayIndex, dateInZone, isIsoDateString } from "./dates";
-import { cardBackground, countPerDay, FINISHED_BACKGROUND, groupByPerson, personalShownOn, sectionFor, taskEnd } from "./task-rules";
+import { cardBackground, countPerDay, deadlineState, FINISHED_BACKGROUND, groupByPerson, personalShownOn, sectionFor, taskEnd } from "./task-rules";
 
 const today = "2026-11-20";
 
@@ -38,6 +38,18 @@ describe("day sections", () => {
     expect(taskEnd({ dueDate: "2026-11-23", deadline: null })).toBe("2026-11-23");
     expect(taskEnd({ dueDate: "2026-11-23", deadline: "2026-11-20" })).toBe("2026-11-23");
     expect(taskEnd({ dueDate: "2026-11-23", deadline: "2026-11-26" })).toBe("2026-11-26");
+  });
+  it("works out the timeline strip: before, during, last day, late, finished", () => {
+    const task = { dueDate: "2026-11-22", deadline: "2026-11-24", finished: false, finishedOn: null };
+    const at = (today: string, t = task) => deadlineState(t, today, daysBetween);
+    expect(at("2026-11-20")).toEqual({ kind: "upcoming", n: 2, progress: 0 });
+    expect(at("2026-11-22")).toEqual({ kind: "running", n: 2, progress: 0 });
+    expect(at("2026-11-23")).toEqual({ kind: "running", n: 1, progress: 0.5 });
+    expect(at("2026-11-24")).toEqual({ kind: "lastDay", n: 0, progress: 1 });
+    expect(at("2026-11-26")).toEqual({ kind: "late", n: 2, progress: 1 });
+    expect(at("2026-11-30", { ...task, finished: true, finishedOn: "2026-11-23" })).toMatchObject({ kind: "done", how: "early", n: 1 });
+    expect(at("2026-11-30", { ...task, finished: true, finishedOn: "2026-11-24" })).toMatchObject({ kind: "done", how: "onTime" });
+    expect(at("2026-11-30", { ...task, finished: true, finishedOn: "2026-11-27" })).toMatchObject({ kind: "done", how: "late", n: 3 });
   });
   it("counts a task on every day it spans, within the range asked for", () => {
     const counts = countPerDay([{ dueDate: "2026-11-23", deadline: "2026-11-26" }, { dueDate: "2026-11-24" }, { dueDate: "2026-10-30", deadline: "2026-11-02" }], "2026-11-01", "2026-11-25", addDays);

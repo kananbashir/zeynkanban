@@ -7,6 +7,12 @@ const ref = { taskId: "t1", type: "Video edit", code: "thrive-vid-nd26-3", custo
 const text = (d: Parameters<typeof notificationText>[0], staff = false) => notificationText(d, staff, "2026-11-22", en.notifications, en.tasks);
 
 describe("notificationText", () => {
+  it("says one day is left before a deadline", () => {
+    const x = text({ kind: "deadline", from: "2026-11-20", ...ref, due: "2026-11-23" });
+    expect(x.title).toBe("1 day left until the deadline");
+    expect(x.b).toBe("Deadline 23 Nov · started 20 Nov");
+    expect(x.taskId).toBe("t1");
+  });
   it("assigned, due today", () => {
     const x = text({ kind: "assigned", by: "Aysel", ...ref });
     expect([x.title, x.a, x.b, x.href, x.taskId, x.notes]).toEqual(["New task assigned to you", "Video edit · thrive-vid-nd26-3 · Thrive", "By Aysel · due today", "/my-tasks?task=t1", "t1", false]);

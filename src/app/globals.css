@@ -91,6 +91,10 @@ html[data-dark] {
 html[data-dark] .bg-sun {
   color: var(--color-on-pastel);
 }
+/* The dark theme's red is light, so text on it is dark (white would be hard to read). */
+html[data-dark] .bg-danger {
+  color: var(--color-on-pastel);
+}
 /* Task cards: a dark tint of the status colour instead of the light pastel. */
 .zk-card {
   background: var(--card);

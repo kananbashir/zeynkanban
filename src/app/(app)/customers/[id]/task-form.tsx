@@ -378,7 +378,8 @@ export function TaskForm({
                       <span className="text-xs text-ink-soft">{list.length === 1 ? t.task1 : fill(t.tasksN, { n: list.length })}</span>
                     </div>
                     {list.map((x) => (
-                      <div key={x.id} className="flex flex-wrap items-center gap-x-3 gap-y-0.5 pl-8 text-[13px] text-ink-soft">
+                      <div key={x.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-8 text-[13px] text-ink-soft">
+                        <span className="rounded-md bg-mint px-1.5 py-0.5 font-mono text-xs font-medium text-ink">{x.contentCode}</span>
                         <span className="flex-[1_1_120px] font-medium text-ink">{x.typeName}</span>
                         <span className="flex items-center gap-1.5"><span className="size-[9px] rounded-full border-[1.5px] border-black/25" style={{ background: x.customerColor }} />{x.customerName}</span>
                       </div>

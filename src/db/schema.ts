@@ -289,7 +289,7 @@ export const taskReminders = mysqlTable(
   (t) => [primaryKey({ columns: [t.taskId, t.daysBefore] })],
 );
 
-export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder", "note", "personal"] as const;
+export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder", "note", "personal", "deadline"] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 /**

@@ -14,6 +14,7 @@ import type { TaskView } from "@/lib/tasks";
 import { useMe } from "./me";
 import { Collapse } from "./motion";
 import { AvatarGroup, personColor } from "./avatar-group";
+import { DeadlineStrip } from "./deadline-strip";
 import { initials } from "./top-bar";
 
 export type StatusOption = { id: string; name: string; color: string; isFinished: boolean };
@@ -209,6 +210,10 @@ export function TaskCard({
       </div>
       <h3 className="text-[17px] font-semibold sm:text-xl">{typeLabel}</h3>
       {task.description && <p className="max-w-[70ch] whitespace-pre-line text-sm leading-normal text-ink-body">{task.description}</p>}
+      {task.deadline && (
+        // A status just picked as finished has no finish day from the server yet: that is today.
+        <DeadlineStrip start={task.dueDate} end={task.deadline} today={today} finished={status.finished} finishedOn={task.finished ? task.finishedOn : status.finished ? today : null} t={t} />
+      )}
       <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1.5 border-t border-ink/12 pt-2 text-[13px] text-ink-soft">
         {(showAssignee || task.assignees.length > 1) && (
           <span className="flex min-w-0 items-center gap-2">
@@ -224,14 +229,12 @@ export function TaskCard({
             )}
           </span>
         )}
-        <span className="flex items-center gap-1.5">
-          <Icon d={CAL} />
-          {status.finished
-            ? fill(t.wasDue, { date: shortDate(end, t) })
-            : task.deadline
-              ? fill(t.dueFrom, { date: shortDate(end, t), from: shortDate(task.dueDate, t) })
-              : fill(t.due, { date: shortDate(end, t) })}
-        </span>
+        {!task.deadline && (
+          <span className="flex items-center gap-1.5">
+            <Icon d={CAL} />
+            {fill(status.finished ? t.wasDue : t.due, { date: shortDate(end, t) })}
+          </span>
+        )}
         {task.note && (
           <span className="flex min-w-0 items-center gap-1.5">
             <Icon d={NOTE} />

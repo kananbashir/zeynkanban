@@ -1,11 +1,11 @@
 import "server-only";
-import { and, asc, eq, gte, inArray, lt, lte, sql } from "drizzle-orm";
+import { and, asc, eq, gt, gte, inArray, isNotNull, lt, lte, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { appValues, contents, customers, statuses, taskAssignees, taskTypes, tasks, users } from "@/db/schema";
 import { taskEndColumn } from "./task-end";
 import { assigneesColumn, hasAssignees, noAssignees, parseAssignees } from "./assignees";
 import { addDays, APP_TIME_ZONE, todayIso } from "./dates";
-import { deliverPush, notify, pruneNotifications, staffIds } from "./notify";
+import { deliverPush, notify, pruneNotifications, refOnly, staffIds, taskRef } from "./notify";
 import { isUniqueViolation } from "./users";
 
 /** Up to this many overdue tasks are announced one by one; more become a single notification. */
@@ -44,7 +44,7 @@ async function work(today: string): Promise<boolean> {
   const since = last && last.value < today ? (last.value > addDays(today, -14) ? last.value : addDays(today, -14)) : addDays(today, -1);
   await db.insert(appValues).values({ key: "daily:last", value: today }).onDuplicateKeyUpdate({ set: { value: today } });
 
-  const rows = [...(await overdueAlerts(since, today)), ...(await summaries(today))];
+  const rows = [...(await overdueAlerts(since, today)), ...(await deadlineAlerts(today)), ...(await summaries(today))];
   await deliverPush(rows);
   await pruneNotifications();
   return true;
@@ -68,6 +68,26 @@ async function overdueAlerts(since: string, today: string) {
   for (const { assignees, typeEn, ...task } of rows) {
     const names = parseAssignees(assignees).map((p) => p.name).join(", ");
     out.push(...(await notify(staff, "overdue", { kind: "overdue", ...task, ...(typeEn ? { typeEn } : {}), assignee: names || null }, task.taskId)));
+  }
+  return out;
+}
+
+/**
+ * One day before a deadline: the people on the task and whoever created it (the assigner) hear that
+ * one day is left. Only for tasks that have a deadline after their day, still unfinished.
+ */
+async function deadlineAlerts(today: string) {
+  const rows = await db
+    .select({ taskId: tasks.id, from: tasks.dueDate, createdBy: tasks.createdBy })
+    .from(tasks)
+    .innerJoin(statuses, eq(statuses.id, tasks.statusId))
+    .where(and(eq(tasks.archived, false), hasAssignees, eq(statuses.isFinished, false), isNotNull(tasks.deadline), gt(tasks.deadline, tasks.dueDate), eq(tasks.deadline, addDays(today, 1))));
+  const out = [];
+  for (const row of rows) {
+    const ref = await taskRef(row.taskId);
+    if (!ref) continue;
+    const people = [...ref.assignees.map((p) => p.id), ...(row.createdBy ? [row.createdBy] : [])];
+    out.push(...(await notify(people, "deadline", { kind: "deadline", from: row.from, ...refOnly(ref) }, row.taskId)));
   }
   return out;
 }

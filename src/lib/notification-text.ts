@@ -16,6 +16,8 @@ export type NotificationData =
   | ({ kind: "overdue"; assignee: string | null } & TaskRef)
   | ({ kind: "status"; from: string; to: string; fromEn?: string; toEn?: string; by: string } & TaskRef)
   | ({ kind: "reminder" } & TaskRef)
+  /** One day before a task's deadline, to the people on it and whoever created it. */
+  | ({ kind: "deadline"; from: string } & TaskRef)
   | ({ kind: "note"; by: string; body: string } & TaskRef)
   | { kind: "personal"; title: string; due: string; time: string | null }
   | { kind: "overdueMany"; count: number }
@@ -81,6 +83,8 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
       const b = left < 0 ? fill(t.wasDue, { date: date(d.due) }) : left === 0 ? t.remindToday : left === 1 ? t.remindTomorrow : fill(t.remindIn, { n: left, date: date(d.due) });
       return { title: t.kinds.reminder, a, b, href, icon: "reminder", ...open };
     }
+    case "deadline":
+      return { title: t.kinds.deadline, a, b: fill(t.deadlineLine, { date: date(d.due), from: date(d.from) }), href, icon: "reminder", ...open };
     case "changed": {
       const parts: string[] = [];
       if (d.dateFrom && d.dateTo) parts.push(fill(t.dateMoved, { from: date(d.dateFrom), to: date(d.dateTo) }));
@@ -116,6 +120,7 @@ export const PREF_OF = {
   reminder: "reminder",
   note: "notes",
   personal: "reminder",
+  deadline: "reminder",
 } as const;
 export type PrefKey = (typeof PREF_OF)[keyof typeof PREF_OF];
 export const STAFF_PREFS: PrefKey[] = ["assigned", "changed", "notes", "reminder", "summary", "review", "status", "overdue"];
