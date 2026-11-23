@@ -1,7 +1,12 @@
 // Which group a task belongs to on a day view, and how statuses are shown. Pure, tested in task-rules.test.ts.
 
-export type DayTask = { dueDate: string; finished: boolean; finishedOn: string | null };
-export type Section = "overdue" | "due" | "finished";
+export type DayTask = { dueDate: string; deadline?: string | null; finished: boolean; finishedOn: string | null; cancelled?: boolean; postponed?: boolean };
+export type Section = "overdue" | "due" | "postponed" | "finished" | "cancelled";
+
+/** The day a task must be finished by: its deadline, or its own day when it has none. */
+export function taskEnd(task: { dueDate: string; deadline?: string | null }): string {
+  return task.deadline && task.deadline > task.dueDate ? task.deadline : task.dueDate;
+}
 
 /** A personal task shows on its own day; on today's view, unfinished ones from earlier days show too. */
 export function personalShownOn(task: { dueDate: string; done: boolean }, viewDate: string, today: string): boolean {
@@ -11,14 +16,29 @@ export function personalShownOn(task: { dueDate: string; done: boolean }, viewDa
 /**
  * On the day being viewed:
  * - finished tasks show on the day they were finished;
- * - unfinished tasks show on their due day;
- * - when viewing today, unfinished tasks from earlier days also show, as overdue.
+ * - unfinished tasks show on every day from their day to their deadline (just their day without one);
+ * - when viewing today, unfinished tasks whose deadline has passed also show, as overdue;
+ * - cancelled tasks are closed like finished ones: they show only on the day they were cancelled;
+ * - postponed tasks show where they would otherwise be, but as postponed, never overdue.
  */
 export function sectionFor(task: DayTask, viewDate: string, today: string): Section | null {
-  if (task.finished) return (task.finishedOn ?? task.dueDate) === viewDate ? "finished" : null;
-  if (task.dueDate === viewDate) return "due";
-  if (viewDate === today && task.dueDate < today) return "overdue";
-  return null;
+  const end = taskEnd(task);
+  if (task.cancelled) return (task.finishedOn ?? end) === viewDate ? "cancelled" : null;
+  if (task.finished) return (task.finishedOn ?? end) === viewDate ? "finished" : null;
+  const shown = (task.dueDate <= viewDate && viewDate <= end) || (viewDate === today && end < today);
+  if (!shown) return null;
+  if (task.postponed) return "postponed";
+  return end < viewDate ? "overdue" : "due";
+}
+
+/** How many tasks fall on each day from `from` to `to`; a task with a deadline counts on every day it spans. */
+export function countPerDay(tasks: { dueDate: string; deadline?: string | null }[], from: string, to: string, addDays: (iso: string, n: number) => string): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const task of tasks) {
+    const end = taskEnd(task);
+    for (let d = task.dueDate < from ? from : task.dueDate; d <= end && d <= to; d = addDays(d, 1)) out[d] = (out[d] ?? 0) + 1;
+  }
+  return out;
 }
 
 /** Pale card backgrounds that match each status colour (finished tasks always use the neutral one). */
@@ -51,4 +71,29 @@ export function groupByPerson<T extends { assignees: { id: string; name: string 
     }
   }
   return [...groups.values()].sort((a, b) => (a.id === "" ? 1 : b.id === "" ? -1 : b.list.length - a.list.length || a.name.localeCompare(b.name)));
+}
+
+export type DeadlineState =
+  | { kind: "upcoming"; n: number; progress: 0 }
+  | { kind: "running"; n: number; progress: number }
+  | { kind: "lastDay"; n: 0; progress: 1 }
+  | { kind: "late"; n: number; progress: 1 }
+  | { kind: "done"; how: "early" | "onTime" | "late" | "unknown"; n: number; progress: 1 };
+
+/**
+ * Where a task with a deadline stands today, for the card's timeline strip: not started yet, n days
+ * left (and how much of the time has passed), the last day, n days late, or finished (early, on time
+ * or late, by the day it was finished).
+ */
+export function deadlineState(task: { dueDate: string; deadline: string; finished: boolean; finishedOn: string | null }, today: string, daysBetween: (a: string, b: string) => number): DeadlineState {
+  const start = task.dueDate, end = task.deadline;
+  if (task.finished) {
+    if (!task.finishedOn) return { kind: "done", how: "unknown", n: 0, progress: 1 };
+    const d = daysBetween(task.finishedOn, end);
+    return { kind: "done", how: d > 0 ? "early" : d < 0 ? "late" : "onTime", n: Math.abs(d), progress: 1 };
+  }
+  if (today < start) return { kind: "upcoming", n: daysBetween(today, start), progress: 0 };
+  if (today === end) return { kind: "lastDay", n: 0, progress: 1 };
+  if (today > end) return { kind: "late", n: daysBetween(end, today), progress: 1 };
+  return { kind: "running", n: daysBetween(today, end), progress: daysBetween(start, today) / daysBetween(start, end) };
 }

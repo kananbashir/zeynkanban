@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
-import { bigint, boolean, date, datetime, index, int, mysqlEnum, mysqlTable, primaryKey, text, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { bigint, boolean, date, datetime, index, int, mediumtext, mysqlEnum, mysqlTable, primaryKey, text, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 // MySQL has no UUID type, so ids are UUID strings created by the app.
 const id = () => varchar("id", { length: 36 }).primaryKey().$defaultFn(() => randomUUID());
@@ -64,6 +64,10 @@ export const statuses = mysqlTable("statuses", {
   isFinished: boolean("is_finished").notNull().default(false),
   /** Moving a task into this status tells admins and managers it is ready for review. */
   notifyReview: boolean("notify_review").notNull().default(false),
+  /** Tasks in this status were called off: closed like finished ones, never overdue, counted as cancelled. Only admins and managers can choose it. */
+  isCancelled: boolean("is_cancelled").notNull().default(false),
+  /** Tasks in this status are postponed: still open but never overdue, counted as postponed. Only admins and managers can choose it. */
+  isPostponed: boolean("is_postponed").notNull().default(false),
   position: int("position").notNull().default(0),
   deletedAt: datetime("deleted_at", { mode: "date", fsp: 3 }),
   createdAt: createdAt(),
@@ -185,7 +189,10 @@ export const tasks = mysqlTable(
     statusId: varchar("status_id", { length: 36 })
       .notNull()
       .references(() => statuses.id),
+    /** The task's day: it shows from here (and, without a deadline, it is due that day). */
     dueDate: date("due_date", { mode: "string" }).notNull(),
+    /** Optional last day, after dueDate: until then the unfinished task shows every day, then it is overdue. */
+    deadline: date("deadline", { mode: "string" }),
     description: text("description"),
     note: varchar("note", { length: 500 }).notNull().default(""),
     archived: boolean("archived").notNull().default(false),
@@ -257,6 +264,39 @@ export const taskNotes = mysqlTable(
   (t) => [index("task_notes_task_idx").on(t.taskId, t.createdAt)],
 );
 
+/**
+ * The fields every new content brief starts with (Settings → Content brief, admins only). Each has a
+ * name and a hint (the grey text in the empty box) in Azerbaijani and, optionally, English.
+ * Hidden fields are not added to new briefs but can still be picked from "Add field".
+ */
+export const BRIEF_FIELD_TYPES = ["short", "long", "links", "checklist", "date"] as const;
+export const briefFields = mysqlTable("brief_fields", {
+  id: id(),
+  position: int("position").notNull().default(0),
+  label: varchar("label", { length: 60 }).notNull(),
+  labelEn: varchar("label_en", { length: 60 }),
+  type: mysqlEnum("type", BRIEF_FIELD_TYPES).notNull(),
+  hint: varchar("hint", { length: 200 }).notNull().default(""),
+  hintEn: varchar("hint_en", { length: 200 }),
+  visible: boolean("visible").notNull().default(true),
+  createdAt: createdAt(),
+});
+
+/**
+ * What a content ID is really about, for everyone working on its tasks: a list of fields (goal,
+ * key message, script, links to materials…) as JSON, see src/lib/brief-rules.ts. One per content ID.
+ */
+export const contentBriefs = mysqlTable("content_briefs", {
+  contentId: varchar("content_id", { length: 36 })
+    .primaryKey()
+    .references(() => contents.id),
+  fields: mediumtext("fields").notNull(),
+  createdBy: varchar("created_by", { length: 36 }).references(() => users.id),
+  updatedBy: varchar("updated_by", { length: 36 }).references(() => users.id),
+  createdAt: createdAt(),
+  updatedAt: now("updated_at"),
+});
+
 /** Who works on a task: one or more people, in the order they were picked. A task with nobody is a draft. */
 export const taskAssignees = mysqlTable(
   "task_assignees",
@@ -286,7 +326,7 @@ export const taskReminders = mysqlTable(
   (t) => [primaryKey({ columns: [t.taskId, t.daysBefore] })],
 );
 
-export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder", "note", "personal"] as const;
+export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder", "note", "personal", "deadline", "brief"] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 /**

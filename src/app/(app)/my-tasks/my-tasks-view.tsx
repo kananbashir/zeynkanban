@@ -82,10 +82,12 @@ export function MyTasksView({
   const sections: { key: Section; label: string; color: string; hint?: string }[] = [
     { key: "overdue", label: taskT.sections.overdue, color: "text-danger", hint: taskT.overdueHint },
     { key: "due", label: isToday ? taskT.sections.due : taskT.sections.dueOn, color: "text-ink" },
+    { key: "postponed", label: taskT.sections.postponed, color: "text-sun-ink" },
     { key: "finished", label: isToday ? taskT.sections.finished : taskT.sections.finishedOn, color: "text-teal-deep" },
+    { key: "cancelled", label: isToday ? taskT.sections.cancelled : taskT.sections.cancelledOn, color: "text-muted" },
   ];
   const visible = sections.filter((s) => day[s.key].length > 0);
-  const total = day.overdue.length + day.due.length + day.finished.length;
+  const total = day.overdue.length + day.due.length + day.postponed.length + day.finished.length + day.cancelled.length;
 
   return (
     <div className="flex flex-wrap items-start gap-x-6 lg:gap-y-6">
@@ -122,7 +124,7 @@ export function MyTasksView({
             <span key={total} className="zk-fade-up text-[26px] font-semibold">{total === 1 ? taskT.task1 : fill(taskT.tasksN, { n: total })}</span>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            {([[day.overdue.length, t.overdue], [day.due.length, t.open], [day.finished.length, t.finished]] as const).map(([n, label]) => (
+            {([[day.overdue.length, t.overdue], [day.due.length, t.open], [day.postponed.length, t.postponed], [day.finished.length, t.finished], [day.cancelled.length, t.cancelled]] as const).map(([n, label]) => (
               <div key={label} className="flex flex-col gap-0.5">
                 <span key={n} className="zk-fade-up text-xl font-semibold">{n}</span>
                 <span className="text-xs text-teal-tint">{label}</span>
@@ -215,6 +217,7 @@ function PersonalTasks({
 }) {
   const [adding, setAdding] = useState(false);
   const formBox = useRef<HTMLDivElement>(null);
+  const titleBox = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
   const [time, setTime] = useState("");
@@ -255,7 +258,12 @@ function PersonalTasks({
           aria-expanded={adding}
           onClick={() => {
             setAdding((v) => !v);
-            if (!adding) setTimeout(() => scrollIntoViewSoftly(formBox.current, "center"), 60);
+            if (!adding) {
+              setTimeout(() => scrollIntoViewSoftly(formBox.current, "center"), 60);
+              // With a mouse, typing can start at once. On phones and tablets the first box is not focused,
+              // so the keyboard doesn't jump up before the form has even opened.
+              if (window.matchMedia("(pointer: fine)").matches) setTimeout(() => titleBox.current?.focus({ preventScroll: true }), 400);
+            }
           }}
           className="flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full bg-sun px-4 text-sm font-semibold"
         >
@@ -275,7 +283,7 @@ function PersonalTasks({
         >
           <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
             {t.what}
-            <input autoFocus autoComplete="off" maxLength={200} value={title} onChange={(e) => { setTitle(e.target.value); setProblem(null); }} className={field} />
+            <input ref={titleBox} autoComplete="off" maxLength={200} value={title} onChange={(e) => { setTitle(e.target.value); setProblem(null); }} className={field} />
           </label>
           <div className="flex flex-wrap gap-3">
             <label className="flex min-w-0 flex-[1_1_240px] flex-col gap-1.5 text-[13px] font-semibold">

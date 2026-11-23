@@ -35,6 +35,7 @@ function SortableRow({ id, children }: { id: string; children: (handle: Handle, 
   );
   return (
     <div
+      data-list-item
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`relative ${isDragging ? "z-10 opacity-90 shadow-[0_12px_32px_rgba(24,35,47,0.18)]" : ""} rounded-[20px]`}

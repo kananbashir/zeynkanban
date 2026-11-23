@@ -16,6 +16,10 @@ export type NotificationData =
   | ({ kind: "overdue"; assignee: string | null } & TaskRef)
   | ({ kind: "status"; from: string; to: string; fromEn?: string; toEn?: string; by: string } & TaskRef)
   | ({ kind: "reminder" } & TaskRef)
+  /** One day before a task's deadline, to the people on it and whoever created it. */
+  | ({ kind: "deadline"; from: string } & TaskRef)
+  /** A content brief was added to or changed on the content ID of a task of yours. */
+  | ({ kind: "brief"; action: "added" | "updated"; by: string } & TaskRef)
   | ({ kind: "note"; by: string; body: string } & TaskRef)
   | { kind: "personal"; title: string; due: string; time: string | null }
   | { kind: "overdueMany"; count: number }
@@ -31,6 +35,8 @@ export type NotificationText = {
   /** In the site, a task notification opens the task window over the current page instead. */
   taskId?: string;
   notes?: boolean;
+  /** Open the task's content brief straight away. */
+  brief?: boolean;
 };
 export type IconKind = "assigned" | "moved" | "changed" | "review" | "overdue" | "summary" | "status" | "reminder" | "note";
 
@@ -57,7 +63,7 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
 
   const a = `${localName(d.type, d.typeEn, locale)} · ${d.code} · ${d.customer}`;
   const home = viewerIsStaff ? "/board" : "/my-tasks";
-  const href = `${home}?task=${d.taskId}${d.kind === "note" ? "&notes=1" : ""}`;
+  const href = `${home}?task=${d.taskId}${d.kind === "note" ? "&notes=1" : d.kind === "brief" ? "&brief=1" : ""}`;
   const open = { taskId: d.taskId, notes: d.kind === "note" };
   const due = d.due === today ? t.dueToday : fill(t.dueOn, { date: date(d.due) });
   switch (d.kind) {
@@ -81,6 +87,10 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
       const b = left < 0 ? fill(t.wasDue, { date: date(d.due) }) : left === 0 ? t.remindToday : left === 1 ? t.remindTomorrow : fill(t.remindIn, { n: left, date: date(d.due) });
       return { title: t.kinds.reminder, a, b, href, icon: "reminder", ...open };
     }
+    case "brief":
+      return { title: d.action === "added" ? t.kinds.brief : t.briefUpdated, a, b: fill(t.by, { name: d.by }), href, icon: "changed", ...open, brief: true };
+    case "deadline":
+      return { title: t.kinds.deadline, a, b: fill(t.deadlineLine, { date: date(d.due), from: date(d.from) }), href, icon: "reminder", ...open };
     case "changed": {
       const parts: string[] = [];
       if (d.dateFrom && d.dateTo) parts.push(fill(t.dateMoved, { from: date(d.dateFrom), to: date(d.dateTo) }));
@@ -116,6 +126,8 @@ export const PREF_OF = {
   reminder: "reminder",
   note: "notes",
   personal: "reminder",
+  deadline: "reminder",
+  brief: "changed",
 } as const;
 export type PrefKey = (typeof PREF_OF)[keyof typeof PREF_OF];
 export const STAFF_PREFS: PrefKey[] = ["assigned", "changed", "notes", "reminder", "summary", "review", "status", "overdue"];

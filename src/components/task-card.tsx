@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useOptimistic, useState, useTransition } from "react";
+import { useCallback, useEffect, useOptimistic, useState, useTransition } from "react";
 import { addTaskNote, deleteTaskNote, loadTaskNotes, type TaskNote } from "@/app/actions/task-notes";
 import { setTaskStatus } from "@/app/actions/tasks";
 import type { Dictionary } from "@/i18n/dictionaries";
@@ -9,14 +9,16 @@ import { fill } from "@/i18n/format";
 import { daysBetween } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
 import { MAX_NOTES, NOTE_LENGTH } from "@/lib/note-rules";
-import { ARCHIVED_BACKGROUND, cardBackground } from "@/lib/task-rules";
+import { ARCHIVED_BACKGROUND, cardBackground, taskEnd } from "@/lib/task-rules";
 import type { TaskView } from "@/lib/tasks";
 import { useMe } from "./me";
 import { Collapse } from "./motion";
 import { AvatarGroup, personColor } from "./avatar-group";
+import { AddBriefButton, BriefTag, BriefWindow } from "./content-brief";
+import { DeadlineStrip } from "./deadline-strip";
 import { initials } from "./top-bar";
 
-export type StatusOption = { id: string; name: string; color: string; isFinished: boolean };
+export type StatusOption = { id: string; name: string; color: string; isFinished: boolean; isCancelled?: boolean; isPostponed?: boolean };
 
 /** The colour of a person's avatar (the same everywhere). */
 export const avatarColor = personColor;
@@ -45,6 +47,7 @@ export function TaskCard({
   onError,
   onChanged,
   notesInitiallyOpen = false,
+  briefInitiallyOpen = false,
 }: {
   task: TaskView;
   statuses: StatusOption[];
@@ -59,8 +62,14 @@ export function TaskCard({
   /** Called after the status was saved, before the new status stops being "optimistic". */
   onChanged?: () => Promise<void> | void;
   notesInitiallyOpen?: boolean;
+  /** Opened from a brief notification: show the content brief straight away. */
+  briefInitiallyOpen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // The content brief window. Admins and managers (who can edit tasks) can also write one.
+  const [briefOpen, setBriefOpen] = useState(briefInitiallyOpen);
+  const closeBrief = useCallback(() => setBriefOpen(false), []);
+  const canWriteBrief = !!(onEdit || editHref);
   // Notes: loaded the first time they are opened (before opening, so nothing jumps), then kept and
   // refreshed whenever the task's note count changes, e.g. after someone else adds one.
   const [notesOpen, setNotesOpen] = useState(false);
@@ -126,12 +135,16 @@ export function TaskCard({
   const [statusId, setStatusId] = useOptimistic(task.statusId);
   const chosen = statusId !== task.statusId ? statuses.find((s) => s.id === statusId) : undefined;
   const status = chosen
-    ? { name: chosen.name, color: chosen.color, finished: chosen.isFinished, deleted: false }
-    : { name: task.statusName, color: task.statusColor, finished: task.finished, deleted: task.statusDeleted };
-  const lateDays = !status.finished && task.dueDate < today ? daysBetween(task.dueDate, today) : 0;
+    ? { name: chosen.name, color: chosen.color, finished: chosen.isFinished && !chosen.isCancelled, cancelled: !!chosen.isCancelled, postponed: !!chosen.isPostponed && !chosen.isFinished && !chosen.isCancelled, deleted: false }
+    : { name: task.statusName, color: task.statusColor, finished: task.finished, cancelled: task.cancelled, postponed: task.postponed, deleted: task.statusDeleted };
+  const closed = status.finished || status.cancelled;
+  // Only admins and managers (who can edit tasks) may cancel or postpone.
+  const choices = canWriteBrief ? statuses : statuses.filter((s) => !s.isCancelled && !s.isPostponed);
+  const end = taskEnd(task); // the deadline, or the task's day without one
+  const lateDays = !closed && !status.postponed && end < today ? daysBetween(end, today) : 0;
   const statusLabel = status.deleted ? fill(t.deletedStatus, { name: status.name }) : status.name;
   const typeLabel = task.typeDeleted ? fill(t.deletedType, { name: task.typeName }) : task.typeName;
-  const background = task.contentArchived ? ARCHIVED_BACKGROUND : cardBackground(status.color, status.finished);
+  const background = task.contentArchived ? ARCHIVED_BACKGROUND : cardBackground(status.color, closed);
 
   function choose(next: string) {
     setOpen(false);
@@ -156,10 +169,11 @@ export function TaskCard({
       data-task={task.id}
       data-flip={task.id}
       className={`zk-card relative flex flex-col gap-2.5 rounded-[22px] border-[1.5px] p-3.5 transition-[background-color] duration-500 sm:gap-3 sm:px-5 sm:py-[18px] ${task.contentArchived ? "border-dashed border-subtle" : "border-transparent"} ${open ? "z-20" : "z-0"}`}
-      style={{ "--card": background, "--tint": task.contentArchived || status.finished ? "var(--color-subtle)" : status.deleted ? "var(--color-subtle)" : status.color } as React.CSSProperties}
+      style={{ "--card": background, "--tint": task.contentArchived || closed ? "var(--color-subtle)" : status.deleted ? "var(--color-subtle)" : status.color } as React.CSSProperties}
     >
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-ink/12 pb-3">
         <span className="rounded-lg bg-surface px-2 py-1 font-mono text-xs font-medium">{task.contentCode}</span>
+        {task.hasBrief && <BriefTag label={t.brief.tag} onOpen={() => setBriefOpen(true)} />}
         {showCustomer && (
           <span className="flex items-center gap-1.5 text-sm font-semibold">
             <span className="size-2.5 rounded-full border-[1.5px] border-black/25" style={{ background: task.customerColor }} />
@@ -189,7 +203,7 @@ export function TaskCard({
             <>
               <button data-no-press type="button" aria-label={t.form.close} tabIndex={-1} className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
               <div className="absolute right-0 top-[38px] z-20 flex min-w-[190px] flex-col gap-0.5 rounded-[18px] bg-surface p-1.5 shadow-[0_12px_32px_rgba(24,35,47,0.18)] sm:top-[50px] sm:min-w-[210px]">
-                {statuses.map((s) => (
+                {choices.map((s) => (
                   <button
                     key={s.id}
                     type="button"
@@ -208,6 +222,10 @@ export function TaskCard({
       </div>
       <h3 className="text-[17px] font-semibold sm:text-xl">{typeLabel}</h3>
       {task.description && <p className="max-w-[70ch] whitespace-pre-line text-sm leading-normal text-ink-body">{task.description}</p>}
+      {task.deadline && (
+        // A status just picked as finished has no finish day from the server yet: that is today.
+        <DeadlineStrip start={task.dueDate} end={task.deadline} today={today} finished={status.finished} cancelled={status.cancelled} postponed={status.postponed} finishedOn={task.finished ? task.finishedOn : status.finished ? today : null} t={t} />
+      )}
       <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1.5 border-t border-ink/12 pt-2 text-[13px] text-ink-soft">
         {(showAssignee || task.assignees.length > 1) && (
           <span className="flex min-w-0 items-center gap-2">
@@ -223,14 +241,21 @@ export function TaskCard({
             )}
           </span>
         )}
-        <span className="flex items-center gap-1.5">
-          <Icon d={CAL} />
-          {fill(status.finished ? t.wasDue : t.due, { date: shortDate(task.dueDate, t) })}
-        </span>
+        {!task.deadline && (
+          <span className="flex items-center gap-1.5">
+            <Icon d={CAL} />
+            {fill(closed ? t.wasDue : t.due, { date: shortDate(end, t) })}
+          </span>
+        )}
         {task.note && (
           <span className="flex min-w-0 items-center gap-1.5">
             <Icon d={NOTE} />
             {task.note}
+          </span>
+        )}
+        {!task.hasBrief && canWriteBrief && (
+          <span className="ml-auto">
+            <AddBriefButton label={t.brief.add} onOpen={() => setBriefOpen(true)} />
           </span>
         )}
         <button
@@ -238,7 +263,7 @@ export function TaskCard({
           aria-expanded={notesOpen}
           aria-busy={loadingNotes}
           onClick={toggleNotes}
-          className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold transition-colors sm:min-h-10 ${notesOpen ? "bg-surface text-ink" : "text-ink hover:bg-surface/60"} ml-auto`}
+          className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold transition-colors sm:min-h-10 ${notesOpen ? "bg-surface text-ink" : "text-ink hover:bg-surface/60"} ${!task.hasBrief && canWriteBrief ? "" : "ml-auto"}`}
         >
           {loadingNotes ? (
             <span className="size-4 shrink-0 animate-spin rounded-full border-2 border-ink/20 border-t-ink" aria-hidden="true" />
@@ -265,6 +290,7 @@ export function TaskCard({
           </div>
         )}
       </Collapse>
+      {briefOpen && <BriefWindow contentId={task.contentId} startEditing={!task.hasBrief} onClose={closeBrief} t={t} />}
     </article>
   );
 }

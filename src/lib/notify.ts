@@ -7,6 +7,7 @@ import { appValues, contents, customers, notificationPrefs, notifications, pushS
 import { dictionaries, type Locale } from "@/i18n/dictionaries";
 import { assigneesColumn, parseAssignees, type Person } from "./assignees";
 import { todayIso } from "./dates";
+import { taskEndColumn } from "./task-end";
 import { notificationText, PREF_OF, type NotificationData, type TaskRef } from "./notification-text";
 
 type Row = { id: string; userId: string; data: NotificationData };
@@ -21,7 +22,8 @@ export async function taskRef(taskId: string): Promise<(TaskRef & { assignees: P
       code: contents.code,
       customer: customers.name,
       customerId: customers.id,
-      due: tasks.dueDate,
+      // When it is due: its deadline, or its own day without one.
+      due: taskEndColumn,
       assignees: assigneesColumn,
     })
     .from(tasks)

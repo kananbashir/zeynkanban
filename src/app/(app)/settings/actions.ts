@@ -154,8 +154,28 @@ export async function setStatusFinished(id: string, finished: boolean): Promise<
     const problem = unfinishProblem(await liveStatuses(), id);
     if (problem) return fail(problem);
   }
-  const rows = await db.update(statuses).set({ isFinished: !!finished }).where(and(eq(statuses.id, id), isNull(statuses.deletedAt)));
+  // A status means one thing: finished, cancelled or postponed.
+  const rows = await db.update(statuses).set(finished ? { isFinished: true, isCancelled: false, isPostponed: false } : { isFinished: false }).where(and(eq(statuses.id, id), isNull(statuses.deletedAt)));
   return found(rows) ? done() : fail("notFound");
+}
+
+/** Marks a status as meaning "cancelled" or "postponed" (or not). It then stops counting as finished or as the other one. */
+async function setStatusMeaning(id: string, meaning: "isCancelled" | "isPostponed", on: boolean): Promise<Result> {
+  await requireRole("admin");
+  const live = await liveStatuses();
+  if (on && live.find((x) => x.id === id)?.isFinished) {
+    const problem = unfinishProblem(live, id); // at least one status must still count as finished
+    if (problem) return fail(problem);
+  }
+  const set = on ? { isFinished: false, isCancelled: meaning === "isCancelled", isPostponed: meaning === "isPostponed" } : { [meaning]: false };
+  const rows = await db.update(statuses).set(set).where(and(eq(statuses.id, id), isNull(statuses.deletedAt)));
+  return found(rows) ? done() : fail("notFound");
+}
+export async function setStatusCancelled(id: string, on: boolean): Promise<Result> {
+  return setStatusMeaning(id, "isCancelled", on);
+}
+export async function setStatusPostponed(id: string, on: boolean): Promise<Result> {
+  return setStatusMeaning(id, "isPostponed", on);
 }
 
 export async function setStatusReview(id: string, on: boolean): Promise<Result> {

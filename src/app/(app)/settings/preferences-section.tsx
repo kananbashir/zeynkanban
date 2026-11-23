@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { saveTheme } from "@/app/actions/preferences";
-import { logout } from "@/app/login/actions";
 import { Icon } from "@/components/icons";
+import { LogoutButton } from "@/components/logout-button";
 import { SegmentedControl } from "@/components/motion";
 import { card } from "@/components/ui";
 import { setLocale } from "@/i18n/actions";
@@ -79,12 +79,7 @@ export function PreferencesSection({ theme: initialTheme, locale, t, nav }: { th
         </div>
         <div className={row}>
           {label("logout", p.account, p.logoutHint)}
-          <form action={logout}>
-            <button type="submit" className="flex min-h-11 items-center gap-2 rounded-full bg-mint px-4 text-sm font-semibold hover:bg-teal-tint">
-              <Icon name="logout" size={16} />
-              {nav.logout}
-            </button>
-          </form>
+          <LogoutButton label={nav.logout} title={p.logoutTitle} text={p.logoutText} cancelLabel={t.cancel} />
         </div>
       </div>
     </section>

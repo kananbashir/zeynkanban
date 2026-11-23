@@ -24,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="p-2 pb-[calc(92px+env(safe-area-inset-bottom))] lg:p-5">
       <div className="mx-auto flex max-w-[1480px] flex-wrap items-stretch gap-4 rounded-[32px] bg-mint p-3.5 lg:min-h-[calc(100vh-40px)] lg:flex-nowrap lg:gap-6 lg:p-6">
-        <Rail items={items} about={about} logoutLabel={t.nav.logout} mainLabel={t.nav.main} />
+        <Rail items={items} about={about} mainLabel={t.nav.main} />
         <div className="flex min-w-0 flex-1 basis-full flex-col gap-5 lg:basis-0">
           <TopBar
             name={user.name}

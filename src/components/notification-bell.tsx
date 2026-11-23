@@ -173,6 +173,8 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
       url.searchParams.set("n", item.id);
       if (item.notes) url.searchParams.set("notes", "1");
       else url.searchParams.delete("notes");
+      if (item.brief) url.searchParams.set("brief", "1");
+      else url.searchParams.delete("brief");
       router.push(`${url.pathname}${url.search}`, { scroll: false });
     } else router.push(item.href);
   }

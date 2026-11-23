@@ -50,11 +50,11 @@ A person who opens a page their role may not see is sent back to their own first
 
 ## Appearance, language and About (everyone)
 
-Settings → **Appearance and language**, for every role, saved on the device: **Light**, **System** (follows the device's light or dark mode) or **Dark**, the language (Azərbaycan / English), a link to the About page, and Log out. The theme is applied before the page is drawn, so there is no flash.
+Settings → **Appearance and language**, for every role, saved on the device: **Light**, **System** (follows the device's light or dark mode) or **Dark**, the language (Azərbaycan / English), a link to the About page, and **Log out**, the only place to log out. It asks "Log out?" first, reminding that the access code is needed to log back in. The theme is applied before the page is drawn, so there is no flash.
 
-The **About** page shows the version and its stage (**Beta** until `APP_STAGE=production` is set on the hosting when the site goes live on its real address), what the site is for, what it does and who can do what. The version number comes from `package.json`.
+The **About** page shows the version and its stage (**Beta** until `APP_STAGE=production` is set on the hosting when the site goes live on its real address), what the site is for, what it does and who can do what. The version number comes from `package.json`; see [Versions](#versions).
 
-On phones, the main pages are in a bar along the bottom of the screen; About and Log out are in Settings. On wider screens they are in the rail on the left.
+On phones, the main pages are in a bar along the bottom of the screen and About is in Settings. On wider screens they are in the rail on the left.
 
 All colours are named in `src/app/globals.css`, each with a value for the dark theme.
 
@@ -65,10 +65,11 @@ The login code boxes are animated the way Animate UI's Input OTP describes, buil
 ## Settings (admin only)
 
 - **Users, roles and codes**: add people, rename them, change their role, give them a new code, deactivate or reactivate them. A new code logs the person out everywhere and their old code stops working. A deactivated person is logged out at once and can't log in; their tasks and history stay. Nobody can change their own role or deactivate themselves, so there is always at least one admin.
-- **Statuses**: rename, recolour, reorder by dragging, mark which ones count as finished, add and delete. New tasks start with the first status. At least one status must count as finished. A deleted status is only marked as deleted, so tasks that used it can show "Deleted status (its name)" and stay finished if it counted as finished.
+- **Statuses**: rename, recolour, reorder by dragging, mark which ones count as finished, add and delete. New tasks start with the first status. At least one status must count as finished. A status can instead **count as cancelled** (the task is closed like a finished one, shows only on the day it was cancelled, and is never overdue) or **count as postponed** (the task stays on its day, shows under "Postponed" instead of overdue, and gets no reminders). Only admins and managers can move a task into either; employees don't see those statuses on their cards. A deleted status is only marked as deleted, so tasks that used it can show "Deleted status (its name)" and stay finished if it counted as finished.
 - **Task types**: rename, reorder by dragging, add and delete (deleted ones are kept the same way). "Post publishing" is the type the month planner uses, so it can be renamed but not deleted.
 - **Content types**: a short code (it goes inside content IDs, as in `thrive-vid-nd26-1`) and a name. Archived, never deleted.
 - **Holidays and special events**: date, name, holiday or special event, and whether it repeats every year.
+- **Content brief**: the fields every new content brief starts with (Goal, Key message, Script / caption, Materials, References to begin with). Each has an Azerbaijani name and optional English one, a type (short text, long text, links, checklist, date), a hint (the grey text in the empty box) and a Show switch: hidden fields aren't added to new briefs but can still be picked by the writer. Rows open one at a time; new rows grow in, removed ones shrink away with Undo, rows can be dragged. Changes apply to new briefs only.
 - **Names in two languages**: statuses, task types and holidays/events have an Azerbaijani name (required) and, under it, an optional English one. With the site in English, people see the English name; where it is empty they see the Azerbaijani one. Notifications use the reader's language too.
 
 A new installation starts with four statuses (Ediləcək / To do, İcrada / In progress, Yoxlamaya hazır / Ready for review, Tamamlandı / Done), five task types (Video çəkilişi / Video shoot, Video montajı / Video edit, Qrafik dizayn / Graphic design, Mətnin yazılması / Caption writing, Postun paylaşılması / Post publishing) and two content types (`vid`, `gpost`). All can be changed. An existing installation gets the same Azerbaijani names on its update, with the English ones kept as the English names; a status or type that was already renamed is left as it is.
@@ -82,12 +83,16 @@ A new installation starts with four statuses (Ediləcək / To do, İcrada / In p
 
 ## Tasks and the managing board
 
-- Every task belongs to a content ID. It has a type, one or more assignees, a date, an optional description and note, and a status; new tasks start with the first status.
+- Every task belongs to a content ID. It has a type, one or more assignees, a date, an optional deadline, an optional description and note, and a status; new tasks start with the first status.
+- **Deadline**: a task can have a deadline after its date (same day, +1, +2, +3 days, +1 week, or any date). Until it is finished, it shows on every day from its date to its deadline, and only counts as overdue after the deadline. The card shows a **timeline strip**: the start day on the left, the deadline on the right, and a bar that fills up to today with a "Today" marker. A chip says where it stands: "Starts in 2 days", "1 day left", "Due today" (yellow), "2 days late" (red), or once finished "Done 1 day early", "Done on time" or "Done 1 day late". On phones the chip moves under the bar. Tasks without a deadline keep the plain "Due 26 Nov" line. Moving the task's date moves its deadline with it. Reminders, overdue alerts and the dashboard go by the deadline.
 - **Several people on one task**: in the task form, tap each person to add or remove them. Everyone on a task sees it in My tasks, can change its status and add notes, and gets its notifications and reminders. The card shows the first name and "+N", with overlapping avatars: hover over one (or tap it on a phone, or reach it with Tab) and it rises with a little bounce while a label with the name glides from avatar to avatar. With "reduce motion" switched on in the device's settings, the avatar simply moves up and the label just fades in.
+- **Content brief**: what a content ID is really about, written once and shown on every task of that content ID.
+  - Admins and managers see **+ Add content brief** on a card whose content ID has none. The window starts from the starting fields in Settings; fields can be renamed, dragged, removed (with Undo) and added by type (short text, long text, links with a name each, checklist, date) or from the hidden starting fields. Empty fields are left out. "Reset to starting fields" asks first if something was typed.
+  - Once written, a dark **Brief** tag follows the content ID on all its cards. Everyone on those tasks can read it (links open in a new tab and show their site); admins and managers can also edit or delete it. Employees only see briefs of content IDs they have a task on, and links can only be web addresses.
 - **A task with nobody on it is a draft**: it shows in the customer's Drafts box only, never on the managing board.
-- **Day views** (managing board, customer Tasks tab): unfinished tasks show on their due day; on today's view, unfinished tasks from earlier days also show as overdue; finished tasks show on the day they were finished. "Today" is taken in Baku time (`APP_TIME_ZONE`).
-- **Managing board** (admin, manager): calendar, day summary, filters by customer and person, search, and status changes from each card. "Open task" opens the task form on the customer's page.
-- **Task form** (customer page, yellow button): type (or "Other…", optionally saved to the list), content ID with its publish date, the people on it (each with their load that day), description, note, and a calendar showing how many tasks each day already has, with holidays marked and that day's tasks grouped by person.
+- **Day views** (managing board, customer Tasks tab, My tasks): unfinished tasks show on their date, or on every day from their date to their deadline; on today's view, unfinished tasks whose deadline has passed also show as overdue; finished tasks show on the day they were finished. "Today" is taken in Baku time (`APP_TIME_ZONE`).
+- **Managing board** (admin, manager): calendar, day summary (overdue, open, postponed, finished, cancelled), filters by customer and person, search, the All / Overdue / Due / Postponed / Finished / Cancelled filter, and status changes from each card. "Open task" opens the task form on the customer's page.
+- **Task form** (customer page, yellow button): type (or "Other…", optionally saved to the list), content ID with its publish date, the people on it (each with their load that day), description, note, and a calendar showing how many tasks each day already has, with holidays marked and that day's tasks grouped by person, in aligned columns: content ID, type and customer (long names shortened with "…"; on phones a small tile per task).
 - Tasks are archived, never deleted (admin only), and can be restored from the Contents tab, where each content ID shows its publish date, progress and tasks.
 - **Notes**: each task card has a Notes button. The people on the task, admins and managers can read and add notes (up to 10 per task); everyone can delete their own, and admins can delete any. Content IDs are always listed in counting order (…-2 before …-10).
 - A task whose status or type was deleted in Settings shows "Deleted status (name)" or "Deleted task type (name)".
@@ -107,11 +112,11 @@ Opened from the customer page (yellow button → Plan month, or "Generate IDs an
 
 The first page for admins and managers. It shows counts and charts for a month (the default) or a week, never task details. Arrows move to the previous or next period, and "Go to this month/week" comes back.
 
-- **Totals**: tasks (compared with the period before), finished (and their share), overdue (unfinished and past their date), and drafts waiting for an assignee.
+- **Totals**: tasks (compared with the period before), finished (and their share), overdue (unfinished and past their date), and drafts waiting for an assignee, plus postponed and cancelled tasks (neither counts as overdue; cancelled ones don't count as finished).
 - **Tasks per day**: finished and open tasks for each day, with holidays and special events marked. Pick or hover a day to read its numbers; "Open this day" opens it on the managing board.
 - **Team workload**, **Customers**, **Tasks by status** and **Content types**: how the period's tasks split up, each bar showing finished and open.
 
-Every task with someone on it counts on its due date, for each person on it (a task for two people counts once in the totals and once for each of them by person); archived tasks don't count. Drafts appear only in their own total, just as the managing board leaves them out.
+Every task with someone on it counts on its deadline (or its date when it has none), for each person on it (a task for two people counts once in the totals and once for each of them by person); archived tasks don't count. Drafts appear only in their own total, just as the managing board leaves them out.
 
 ## My tasks and personal tasks
 
@@ -133,12 +138,14 @@ The bell in the top bar shows how many notifications are unread; it checks again
 | Status changed | Admins and managers, on every status change made by someone else (old status → new status, and who) |
 | Ready for review | Admins and managers, when a task moves into a status marked "Sends ‘Ready for review’" (Settings → Statuses); this replaces "Status changed" for that move |
 | Reminder | The people on a task, when it has reminders set (see below) |
+| Content brief added or updated | Everyone on the tasks of that content ID except whoever wrote it; it opens the task with the brief open. Part of the "Changes to my tasks" setting |
+| 1 day left until the deadline | The people on a task and whoever created it, at 09:00 the day before its deadline (tasks with a deadline only, while unfinished). Part of the Reminders setting |
 | New note on a task | Admins and managers, and the people on the task, when someone else adds a note to it |
 | Personal reminder | Only the owner of a personal task with reminders |
 | A task became overdue | Admins and managers, at 09:00, for tasks that passed their date unfinished (more than 3 become one notification) |
 | Morning summary | Everyone at 09:00: the day's tasks, overdue and drafts (employees: their own; skipped when they have nothing) |
 
-**Task reminders**: the task form has "Reminders for the people on it": no reminder (the default), or any of 1, 3 and 5 days before the due date, at one chosen time (Baku time). Each reminder goes once to everyone on the task. Changing the due date or the time makes them all due again; adding or removing one leaves the others as they were. They aren't sent for finished or archived tasks, or once the due date has passed. A reminder whose moment has already passed when it is set goes out right away; if several are due at once, one notification covers them.
+**Task reminders**: the task form has "Reminders for the people on it": no reminder (the default), or any of 1, 3 and 5 days before the deadline (or the task's date when it has none), at one chosen time (Baku time). Each reminder goes once to everyone on the task. Changing the due date or the time makes them all due again; adding or removing one leaves the others as they were. They aren't sent for finished or archived tasks, or once the due date has passed. A reminder whose moment has already passed when it is set goes out right away; if several are due at once, one notification covers them.
 
 Nobody is notified about their own changes. Each person chooses what they want in the panel's settings, and can turn on **phone notifications on this device**. On an iPhone (iOS 16.4 or newer) the site must first be added to the home screen and opened from there. Phone notifications need the site on HTTPS (or `localhost` when testing on your own computer).
 
@@ -214,3 +221,16 @@ The address `project.zeynmedia.az` is a custom domain in Railway, with a DNS rec
 4. Railway sees the new `main`, builds it and swaps the site over in a few minutes. Data stays; database changes are applied automatically when the new version starts.
 
 If building a new version fails, Railway keeps the previous one running.
+
+## Versions
+
+Every change that reaches the live site gets a new version number in `package.json`, shown on the About page: the middle number goes up for new features, the last one for fixes only.
+
+| Version | What changed |
+|---|---|
+| 0.13.1 | The task form's day list in tidy columns (content ID · type · customer; a small tile per task on phones); opening and closing panels (notes, the personal task form, brief fields, Settings rows) ease in and out with no jump; the personal task form no longer brings up the keyboard on phones |
+| 0.13.0 | Statuses that count as cancelled or postponed, shown in the day summary, the board filter and the dashboard; wider board search; the brief's "Add field" list opens upwards when there is no room below |
+| 0.12.0 | Content briefs on content IDs, with their starting fields in Settings → Content brief |
+| 0.11.0 | Timeline strip on cards with a deadline; "1 day left" notifications; content IDs in the task form's day list; log out only in Settings, after a confirmation |
+| 0.10.0 | Deadlines: a task shows every day from its date to its deadline until it is finished |
+| 0.9.0 | First live version: everything up to several people per task, the avatar group and English names |

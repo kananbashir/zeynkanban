@@ -2,11 +2,12 @@ import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import Link from "next/link";
 import { Fragment } from "react";
 import { db } from "@/db";
-import { contents, contentTypes, specialDays, statuses, taskTypes, users } from "@/db/schema";
+import { briefFields, contents, contentTypes, specialDays, statuses, taskTypes, users } from "@/db/schema";
 import { getDictionary } from "@/i18n/server";
 import { cookies } from "next/headers";
 import { requireUser } from "@/lib/auth";
 import { DEFAULT_THEME, isTheme, THEME_COOKIE } from "@/lib/theme";
+import { BriefFieldsSection } from "./brief-fields-section";
 import { PreferencesSection } from "./preferences-section";
 import { ContentTypesSection } from "./content-types-section";
 import { SpecialDaysSection } from "./special-days-section";
@@ -14,7 +15,7 @@ import { StatusesSection } from "./statuses-section";
 import { TaskTypesSection } from "./task-types-section";
 import { UsersSection } from "./users-section";
 
-const ADMIN_SECTIONS = ["users", "statuses", "types", "content", "days"] as const;
+const ADMIN_SECTIONS = ["users", "statuses", "types", "content", "brief", "days"] as const;
 type Section = (typeof ADMIN_SECTIONS)[number] | "preferences";
 
 /** Admins: everything. Everyone else: only their own appearance and language. */
@@ -32,6 +33,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
         db.$count(statuses, isNull(statuses.deletedAt)),
         db.$count(taskTypes, and(isNull(taskTypes.deletedAt), eq(taskTypes.oneOff, false))),
         db.$count(contentTypes, undefined),
+        db.$count(briefFields, undefined),
         db.$count(specialDays, undefined),
       ])
     : [];
@@ -48,7 +50,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     content = <UsersSection users={list} meId={me.id} t={t.settings} errors={t.errors} roles={t.roles} />;
   } else if (section === "statuses") {
     const list = await db
-      .select({ id: statuses.id, name: statuses.name, nameEn: statuses.nameEn, color: statuses.color, isFinished: statuses.isFinished, notifyReview: statuses.notifyReview })
+      .select({ id: statuses.id, name: statuses.name, nameEn: statuses.nameEn, color: statuses.color, isFinished: statuses.isFinished, isCancelled: statuses.isCancelled, isPostponed: statuses.isPostponed, notifyReview: statuses.notifyReview })
       .from(statuses)
       .where(isNull(statuses.deletedAt))
       .orderBy(asc(statuses.position), asc(statuses.createdAt));
@@ -74,6 +76,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     const usedBy = new Map(usage.map((u) => [u.contentTypeId, u.used]));
     const list = types.map((type) => ({ ...type, used: usedBy.get(type.id) ?? 0 }));
     content = <ContentTypesSection types={list} t={t.settings} errors={t.errors} />;
+  } else if (section === "brief") {
+    const list = await db
+      .select({ id: briefFields.id, label: briefFields.label, labelEn: briefFields.labelEn, type: briefFields.type, hint: briefFields.hint, hintEn: briefFields.hintEn, visible: briefFields.visible })
+      .from(briefFields)
+      .orderBy(asc(briefFields.position), asc(briefFields.createdAt));
+    content = <BriefFieldsSection fields={list} t={t.settings} errors={t.errors} />;
   } else {
     const list = await db
       .select({ id: specialDays.id, date: specialDays.date, name: specialDays.name, nameEn: specialDays.nameEn, kind: specialDays.kind, yearly: specialDays.yearly })

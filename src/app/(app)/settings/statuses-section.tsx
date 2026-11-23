@@ -8,14 +8,14 @@ import type { Dictionary, Locale } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import { localName } from "@/lib/names";
 import { COLOR_NAMES, STATUS_COLORS } from "@/lib/settings-rules";
-import { addStatus, deleteStatus, renameStatus, renameStatusEn, reorderStatuses, setStatusColor, setStatusFinished, setStatusReview } from "./actions";
+import { addStatus, deleteStatus, renameStatus, renameStatusEn, reorderStatuses, setStatusCancelled, setStatusColor, setStatusFinished, setStatusPostponed, setStatusReview } from "./actions";
 import { BilingualName } from "./bilingual-name";
 import { AddNameForm } from "./add-name-form";
 import { ConfirmBar } from "@/components/confirm-bar";
 import { SectionHeader } from "./section-header";
 import { useAction } from "./use-action";
 
-type Status = { id: string; name: string; nameEn: string | null; color: string; isFinished: boolean; notifyReview: boolean };
+type Status = { id: string; name: string; nameEn: string | null; color: string; isFinished: boolean; isCancelled: boolean; isPostponed: boolean; notifyReview: boolean };
 
 export function StatusesSection({ statuses, locale, t, errors }: { statuses: Status[]; locale: Locale; t: Dictionary["settings"]; errors: Dictionary["errors"] }) {
   const shown = (x: Status) => localName(x.name, x.nameEn, locale);
@@ -91,6 +91,26 @@ export function StatusesSection({ statuses, locale, t, errors }: { statuses: Sta
                   onChange={(e) => run(() => setStatusReview(status.id, e.target.checked))}
                 />
                 {s.review}
+              </label>
+              <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[13px] text-ink-soft">
+                <input
+                  type="checkbox"
+                  className="size-[18px] accent-teal"
+                  checked={status.isCancelled}
+                  disabled={pending}
+                  onChange={(e) => run(() => setStatusCancelled(status.id, e.target.checked))}
+                />
+                {s.cancelled}
+              </label>
+              <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[13px] text-ink-soft">
+                <input
+                  type="checkbox"
+                  className="size-[18px] accent-teal"
+                  checked={status.isPostponed}
+                  disabled={pending}
+                  onChange={(e) => run(() => setStatusPostponed(status.id, e.target.checked))}
+                />
+                {s.postponed}
               </label>
             </div>
             {colorOpen === status.id && (

@@ -39,12 +39,16 @@ export function shiftPeriod(period: Period, by: number): Period {
 }
 
 export type CountRow = {
+  /** The day the task counts on: its deadline, or its own day without one. */
   dueDate: string;
   assigneeIds: string[];
   customerId: string;
   statusId: string;
   contentTypeId: string;
   finished: boolean;
+  /** In a status that counts as cancelled / postponed (both: never overdue). */
+  cancelled?: boolean;
+  postponed?: boolean;
 };
 
 export type Tally = { total: number; finished: number };
@@ -54,6 +58,8 @@ export type Summary = {
   finished: number;
   overdue: number;
   drafts: number;
+  cancelled: number;
+  postponed: number;
   perDay: Record<string, Tally>;
   byPerson: Record<string, Tally>;
   byCustomer: Record<string, Tally>;
@@ -68,16 +74,19 @@ const add = (map: Record<string, Tally>, key: string, finished: boolean) => {
 };
 
 export function summarize(rows: CountRow[], today: string): Summary {
-  const s: Summary = { total: 0, finished: 0, overdue: 0, drafts: 0, perDay: {}, byPerson: {}, byCustomer: {}, byStatus: {}, byContentType: {} };
+  const s: Summary = { total: 0, finished: 0, overdue: 0, drafts: 0, cancelled: 0, postponed: 0, perDay: {}, byPerson: {}, byCustomer: {}, byStatus: {}, byContentType: {} };
   for (const r of rows) {
     if (!r.assigneeIds.length) {
       s.drafts++;
       continue;
     }
     s.total++;
-    if (r.finished) s.finished++;
+    const finished = r.finished && !r.cancelled;
+    if (r.cancelled) s.cancelled++;
+    else if (finished) s.finished++;
+    else if (r.postponed) s.postponed++;
     else if (r.dueDate < today) s.overdue++;
-    add(s.perDay, r.dueDate, r.finished);
+    add(s.perDay, r.dueDate, finished);
     for (const person of r.assigneeIds) add(s.byPerson, person, r.finished);
     add(s.byCustomer, r.customerId, r.finished);
     add(s.byContentType, r.contentTypeId, r.finished);

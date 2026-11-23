@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { logout } from "@/app/login/actions";
 import type { NavKey } from "@/lib/roles";
 import { Icon } from "./icons";
 
@@ -14,11 +13,11 @@ const buttonBase = "flex size-[52px] items-center justify-center rounded-full";
 const isActive = (pathname: string, href: string) => pathname === href || pathname.startsWith(href + "/");
 
 /**
- * Navigation. On wide screens: the icon rail on the left, main pages on top, settings, about and log
- * out at the bottom. On phones: a bar along the bottom of the screen with a sliding marker; log out
- * and About are on the Settings page there.
+ * Navigation. On wide screens: the icon rail on the left, main pages on top, settings and about at
+ * the bottom. On phones: a bar along the bottom of the screen with a sliding marker; About is on the
+ * Settings page there. Logging out is only on the Settings page, behind a confirmation.
  */
-export function Rail({ items, about, logoutLabel, mainLabel }: { items: Item[]; about: Item; logoutLabel: string; mainLabel: string }) {
+export function Rail({ items, about, mainLabel }: { items: Item[]; about: Item; mainLabel: string }) {
   const pathname = usePathname();
   const top = items.filter((item) => item.key !== "settings");
   const settings = items.find((item) => item.key === "settings");
@@ -50,11 +49,6 @@ export function Rail({ items, about, logoutLabel, mainLabel }: { items: Item[]; 
         <div className="flex flex-col gap-1.5 rounded-[36px] bg-surface p-2">
           {settings && link(settings)}
           {link(about)}
-          <form action={logout}>
-            <button type="submit" aria-label={logoutLabel} title={logoutLabel} className={`${buttonBase} text-icon hover:bg-mint`}>
-              <Icon name="logout" />
-            </button>
-          </form>
         </div>
       </nav>
 
