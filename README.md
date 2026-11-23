@@ -14,7 +14,7 @@ A website for planning Zeyn Media's customers, content and tasks. It replaces th
 | 6 | Dashboard | Done |
 | 7 | My tasks and personal tasks | Done |
 | 8 | Notifications, including phone push | Done |
-| 9 | Going live on a zeynmedia.az subdomain | Next |
+| 9 | Going live on project.zeynmedia.az (Railway) | Done |
 
 Until its stage is built, a page shows "This page is being built".
 
