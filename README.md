@@ -22,7 +22,7 @@ Until its stage is built, a page shows "This page is being built".
 
 - **The site**: [Next.js](https://nextjs.org) with TypeScript. Pages live in `src/app`.
 - **The data**: a MySQL (or MariaDB) database, as offered by the hosting. Its structure is described in `src/db/schema.ts`, and each change to that structure is saved as a file in `drizzle/`.
-- **Hosting**: the Node.js app feature of the Turhost cPanel account, on `projects.zeynmedia.az`.
+- **Hosting**: the Node.js app feature of the Turhost cPanel account, on `pm.zeynmedia.az`.
 - **Interface text**: both languages live in `src/i18n/dictionaries.ts`.
 - **Design**: colours and fonts are defined once in `src/app/globals.css`.
 
@@ -201,7 +201,7 @@ Open http://localhost:3000. The first time, the setup page creates your admin an
 The hosting runs a ready-made package; it never installs or builds anything itself.
 
 1. Build the package: `npm run build`, then `npm run package`. The result is `release/zeynkanban.zip`.
-2. In cPanel, use **Deploy a Node.js App** on the `projects.zeynmedia.az` subdomain, upload the zip, and choose Node.js 20 or newer. The start file is `server.js`.
+2. In cPanel, use **Deploy a Node.js App** on the `pm.zeynmedia.az` subdomain, upload the zip, and choose Node.js 20 or newer. The start file is `server.js`.
 3. Set these environment variables for the app:
    - `DB_HOST` (usually `localhost`), `DB_NAME`, `DB_USER`, `DB_PASSWORD`: the MySQL database created in the hosting panel.
    - `AUTH_SECRET`: a random string of at least 32 characters. Changing it later makes every existing access code stop working.
