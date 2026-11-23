@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useOptimistic, useState, useTransition } from "react";
+import { useCallback, useEffect, useOptimistic, useState, useTransition } from "react";
 import { addTaskNote, deleteTaskNote, loadTaskNotes, type TaskNote } from "@/app/actions/task-notes";
 import { setTaskStatus } from "@/app/actions/tasks";
 import type { Dictionary } from "@/i18n/dictionaries";
@@ -14,6 +14,7 @@ import type { TaskView } from "@/lib/tasks";
 import { useMe } from "./me";
 import { Collapse } from "./motion";
 import { AvatarGroup, personColor } from "./avatar-group";
+import { AddBriefButton, BriefTag, BriefWindow } from "./content-brief";
 import { DeadlineStrip } from "./deadline-strip";
 import { initials } from "./top-bar";
 
@@ -46,6 +47,7 @@ export function TaskCard({
   onError,
   onChanged,
   notesInitiallyOpen = false,
+  briefInitiallyOpen = false,
 }: {
   task: TaskView;
   statuses: StatusOption[];
@@ -60,8 +62,14 @@ export function TaskCard({
   /** Called after the status was saved, before the new status stops being "optimistic". */
   onChanged?: () => Promise<void> | void;
   notesInitiallyOpen?: boolean;
+  /** Opened from a brief notification: show the content brief straight away. */
+  briefInitiallyOpen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // The content brief window. Admins and managers (who can edit tasks) can also write one.
+  const [briefOpen, setBriefOpen] = useState(briefInitiallyOpen);
+  const closeBrief = useCallback(() => setBriefOpen(false), []);
+  const canWriteBrief = !!(onEdit || editHref);
   // Notes: loaded the first time they are opened (before opening, so nothing jumps), then kept and
   // refreshed whenever the task's note count changes, e.g. after someone else adds one.
   const [notesOpen, setNotesOpen] = useState(false);
@@ -162,6 +170,7 @@ export function TaskCard({
     >
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-ink/12 pb-3">
         <span className="rounded-lg bg-surface px-2 py-1 font-mono text-xs font-medium">{task.contentCode}</span>
+        {task.hasBrief && <BriefTag label={t.brief.tag} onOpen={() => setBriefOpen(true)} />}
         {showCustomer && (
           <span className="flex items-center gap-1.5 text-sm font-semibold">
             <span className="size-2.5 rounded-full border-[1.5px] border-black/25" style={{ background: task.customerColor }} />
@@ -241,12 +250,17 @@ export function TaskCard({
             {task.note}
           </span>
         )}
+        {!task.hasBrief && canWriteBrief && (
+          <span className="ml-auto">
+            <AddBriefButton label={t.brief.add} onOpen={() => setBriefOpen(true)} />
+          </span>
+        )}
         <button
           type="button"
           aria-expanded={notesOpen}
           aria-busy={loadingNotes}
           onClick={toggleNotes}
-          className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold transition-colors sm:min-h-10 ${notesOpen ? "bg-surface text-ink" : "text-ink hover:bg-surface/60"} ml-auto`}
+          className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold transition-colors sm:min-h-10 ${notesOpen ? "bg-surface text-ink" : "text-ink hover:bg-surface/60"} ${!task.hasBrief && canWriteBrief ? "" : "ml-auto"}`}
         >
           {loadingNotes ? (
             <span className="size-4 shrink-0 animate-spin rounded-full border-2 border-ink/20 border-t-ink" aria-hidden="true" />
@@ -273,6 +287,7 @@ export function TaskCard({
           </div>
         )}
       </Collapse>
+      {briefOpen && <BriefWindow contentId={task.contentId} startEditing={!task.hasBrief} onClose={closeBrief} t={t} />}
     </article>
   );
 }

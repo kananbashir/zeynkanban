@@ -13,7 +13,7 @@ type Peek = Extract<Awaited<ReturnType<typeof peekTask>>, { ok: true }>;
 
 /**
  * A window showing one task over whatever page is open, when the address has ?task=<id>
- * (notifications link here; &notes=1 opens the task's notes). Closing it leaves the page as it was.
+ * (notifications link here; &notes=1 opens the task's notes, &brief=1 its content brief). Closing it leaves the page as it was.
  */
 export function TaskPeek({ t, errors }: { t: Dictionary["tasks"]; errors: Dictionary["errors"] }) {
   const params = useSearchParams();
@@ -21,6 +21,7 @@ export function TaskPeek({ t, errors }: { t: Dictionary["tasks"]; errors: Dictio
   const pathname = usePathname();
   const id = params.get("task");
   const withNotes = params.get("notes") === "1";
+  const withBrief = params.get("brief") === "1";
   const opened = params.get("n") ?? ""; // which notification opened it: a new click loads the task afresh
   const [data, setData] = useState<{ id: string; peek: Peek | null; error: string | null } | null>(null);
   const { message, show } = useToast();
@@ -44,6 +45,7 @@ export function TaskPeek({ t, errors }: { t: Dictionary["tasks"]; errors: Dictio
     const next = new URLSearchParams(params.toString());
     next.delete("task");
     next.delete("notes");
+    next.delete("brief");
     next.delete("n");
     const query = next.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
@@ -71,6 +73,7 @@ export function TaskPeek({ t, errors }: { t: Dictionary["tasks"]; errors: Dictio
               t={t}
               editHref={current.peek.editHref ?? undefined}
               notesInitiallyOpen={withNotes}
+              briefInitiallyOpen={withBrief}
               onError={(key) => show(errors[key as ErrorKey] ?? errors.generic, "error")}
               onChanged={() => load(id)}
             />

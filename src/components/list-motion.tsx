@@ -1,0 +1,103 @@
+"use client";
+
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { prefersReducedMotion, springOrFallback } from "@/lib/spring";
+
+// Animations for lists that grow and shrink: a new row grows into place with a teal outline that
+// fades, a removed row shrinks away while the rows below glide up, and a message offers Undo.
+// With "reduce motion" switched on, rows simply appear and disappear.
+
+const soft = () => springOrFallback(380, 34, 0.52);
+const snappy = () => springOrFallback(600, 40, 0.38);
+
+/** A new row: grows open from nothing, slides in, and a teal outline fades out. */
+export function growIn(el: HTMLElement | null) {
+  if (!el || prefersReducedMotion()) return;
+  const h = el.offsetHeight;
+  const margin = getComputedStyle(el).marginBottom;
+  el.animate(
+    [
+      { height: "0px", opacity: 0, marginBottom: "0px", transform: "translateY(-8px) scale(0.98)", overflow: "hidden" },
+      { height: `${h}px`, opacity: 1, marginBottom: margin, transform: "none", overflow: "hidden" },
+    ],
+    { duration: 560, easing: soft() },
+  );
+  el.animate([{ boxShadow: "inset 0 0 0 2.5px var(--color-teal)" }, { boxShadow: "inset 0 0 0 2.5px var(--color-teal)", offset: 0.5 }, { boxShadow: "inset 0 0 0 2.5px transparent" }], { duration: 1600 });
+}
+
+/** A removed row: shrinks and fades; `done` runs when it is gone (at once with reduced motion). */
+export function shrinkOut(el: HTMLElement | null, done: () => void) {
+  if (!el || prefersReducedMotion()) return done();
+  const h = el.offsetHeight;
+  const margin = getComputedStyle(el).marginBottom;
+  el.style.overflow = "hidden";
+  el.style.pointerEvents = "none";
+  const a = el.animate(
+    [
+      { height: `${h}px`, opacity: 1, marginBottom: margin, transform: "none" },
+      { height: "0px", opacity: 0, marginBottom: "0px", transform: "scale(0.97)" },
+    ],
+    { duration: 420, easing: snappy(), fill: "forwards" },
+  );
+  a.onfinish = done;
+}
+
+/** Runs growIn once, when the row first appears, if `fresh` (e.g. just added or brought back by Undo). */
+export function useGrowIn<T extends HTMLElement>(fresh: boolean) {
+  const ref = useRef<T>(null);
+  useLayoutEffect(() => {
+    if (fresh) growIn(ref.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return ref;
+}
+
+type Offer = { id: number; text: string; undoLabel: string; undo?: () => void };
+
+/** A dark message at the bottom with an optional "Undo" button, for about 5 seconds. */
+export function useUndoToast() {
+  const [offer, setOffer] = useState<Offer | null>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const show = useCallback((text: string, undoLabel: string, undo?: () => void) => {
+    if (timer.current) clearTimeout(timer.current);
+    setOffer({ id: Date.now(), text, undoLabel, undo });
+    timer.current = setTimeout(() => setOffer(null), 5000);
+  }, []);
+  const close = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    setOffer(null);
+  }, []);
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
+  return { offer, show, close };
+}
+
+export function UndoToast({ offer, onClose }: { offer: Offer | null; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (offer && ref.current && !prefersReducedMotion())
+      ref.current.animate([{ transform: "translateY(24px) scale(0.96)", opacity: 0 }, { transform: "none", opacity: 1 }], { duration: 520, easing: springOrFallback(420, 26, 0.62) });
+  }, [offer?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div role="status" aria-live="polite" className="pointer-events-none fixed inset-x-4 bottom-[calc(96px+env(safe-area-inset-bottom))] z-50 flex justify-center lg:bottom-6">
+      {offer && (
+        <div ref={ref} key={offer.id} className="pointer-events-auto flex max-w-[560px] items-center gap-3.5 rounded-full bg-ink py-2 pl-[18px] pr-2 text-sm font-medium text-surface shadow-[0_12px_32px_rgba(24,35,47,0.25)]">
+          <span className="py-1.5">{offer.text}</span>
+          {offer.undo && (
+            <button
+              type="button"
+              onClick={() => {
+                offer.undo?.();
+                onClose();
+              }}
+              className="rounded-full bg-surface/15 px-3.5 py-2 font-semibold"
+            >
+              {offer.undoLabel}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

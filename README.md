@@ -69,6 +69,7 @@ The login code boxes are animated the way Animate UI's Input OTP describes, buil
 - **Task types**: rename, reorder by dragging, add and delete (deleted ones are kept the same way). "Post publishing" is the type the month planner uses, so it can be renamed but not deleted.
 - **Content types**: a short code (it goes inside content IDs, as in `thrive-vid-nd26-1`) and a name. Archived, never deleted.
 - **Holidays and special events**: date, name, holiday or special event, and whether it repeats every year.
+- **Content brief**: the fields every new content brief starts with (Goal, Key message, Script / caption, Materials, References to begin with). Each has an Azerbaijani name and optional English one, a type (short text, long text, links, checklist, date), a hint (the grey text in the empty box) and a Show switch: hidden fields aren't added to new briefs but can still be picked by the writer. Rows open one at a time; new rows grow in, removed ones shrink away with Undo, rows can be dragged. Changes apply to new briefs only.
 - **Names in two languages**: statuses, task types and holidays/events have an Azerbaijani name (required) and, under it, an optional English one. With the site in English, people see the English name; where it is empty they see the Azerbaijani one. Notifications use the reader's language too.
 
 A new installation starts with four statuses (Ediləcək / To do, İcrada / In progress, Yoxlamaya hazır / Ready for review, Tamamlandı / Done), five task types (Video çəkilişi / Video shoot, Video montajı / Video edit, Qrafik dizayn / Graphic design, Mətnin yazılması / Caption writing, Postun paylaşılması / Post publishing) and two content types (`vid`, `gpost`). All can be changed. An existing installation gets the same Azerbaijani names on its update, with the English ones kept as the English names; a status or type that was already renamed is left as it is.
@@ -85,6 +86,9 @@ A new installation starts with four statuses (Ediləcək / To do, İcrada / In p
 - Every task belongs to a content ID. It has a type, one or more assignees, a date, an optional deadline, an optional description and note, and a status; new tasks start with the first status.
 - **Deadline**: a task can have a deadline after its date (same day, +1, +2, +3 days, +1 week, or any date). Until it is finished, it shows on every day from its date to its deadline, and only counts as overdue after the deadline. The card shows a **timeline strip**: the start day on the left, the deadline on the right, and a bar that fills up to today with a "Today" marker. A chip says where it stands: "Starts in 2 days", "1 day left", "Due today" (yellow), "2 days late" (red), or once finished "Done 1 day early", "Done on time" or "Done 1 day late". On phones the chip moves under the bar. Tasks without a deadline keep the plain "Due 26 Nov" line. Moving the task's date moves its deadline with it. Reminders, overdue alerts and the dashboard go by the deadline.
 - **Several people on one task**: in the task form, tap each person to add or remove them. Everyone on a task sees it in My tasks, can change its status and add notes, and gets its notifications and reminders. The card shows the first name and "+N", with overlapping avatars: hover over one (or tap it on a phone, or reach it with Tab) and it rises with a little bounce while a label with the name glides from avatar to avatar. With "reduce motion" switched on in the device's settings, the avatar simply moves up and the label just fades in.
+- **Content brief**: what a content ID is really about, written once and shown on every task of that content ID.
+  - Admins and managers see **+ Add content brief** on a card whose content ID has none. The window starts from the starting fields in Settings; fields can be renamed, dragged, removed (with Undo) and added by type (short text, long text, links with a name each, checklist, date) or from the hidden starting fields. Empty fields are left out. "Reset to starting fields" asks first if something was typed.
+  - Once written, a dark **Brief** tag follows the content ID on all its cards. Everyone on those tasks can read it (links open in a new tab and show their site); admins and managers can also edit or delete it. Employees only see briefs of content IDs they have a task on, and links can only be web addresses.
 - **A task with nobody on it is a draft**: it shows in the customer's Drafts box only, never on the managing board.
 - **Day views** (managing board, customer Tasks tab, My tasks): unfinished tasks show on their date, or on every day from their date to their deadline; on today's view, unfinished tasks whose deadline has passed also show as overdue; finished tasks show on the day they were finished. "Today" is taken in Baku time (`APP_TIME_ZONE`).
 - **Managing board** (admin, manager): calendar, day summary, filters by customer and person, search, and status changes from each card. "Open task" opens the task form on the customer's page.
@@ -134,6 +138,7 @@ The bell in the top bar shows how many notifications are unread; it checks again
 | Status changed | Admins and managers, on every status change made by someone else (old status → new status, and who) |
 | Ready for review | Admins and managers, when a task moves into a status marked "Sends ‘Ready for review’" (Settings → Statuses); this replaces "Status changed" for that move |
 | Reminder | The people on a task, when it has reminders set (see below) |
+| Content brief added or updated | Everyone on the tasks of that content ID except whoever wrote it; it opens the task with the brief open. Part of the "Changes to my tasks" setting |
 | 1 day left until the deadline | The people on a task and whoever created it, at 09:00 the day before its deadline (tasks with a deadline only, while unfinished). Part of the Reminders setting |
 | New note on a task | Admins and managers, and the people on the task, when someone else adds a note to it |
 | Personal reminder | Only the owner of a personal task with reminders |
@@ -223,6 +228,7 @@ Every change that reaches the live site gets a new version number in `package.js
 
 | Version | What changed |
 |---|---|
+| 0.12.0 | Content briefs on content IDs, with their starting fields in Settings → Content brief |
 | 0.11.0 | Timeline strip on cards with a deadline; "1 day left" notifications; content IDs in the task form's day list; log out only in Settings, after a confirmation |
 | 0.10.0 | Deadlines: a task shows every day from its date to its deadline until it is finished |
 | 0.9.0 | First live version: everything up to several people per task, the avatar group and English names |

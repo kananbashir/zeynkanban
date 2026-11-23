@@ -1,24 +1,44 @@
 "use client";
 
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, type ReactNode } from "react";
 import { prefersReducedMotion, springOrFallback } from "@/lib/spring";
+
+/** Windows open right now, newest last: Escape closes only the one on top (e.g. a brief over a task window). */
+const openWindows: object[] = [];
+function track(me: object) {
+  openWindows.push(me);
+  return () => {
+    const i = openWindows.lastIndexOf(me);
+    if (i >= 0) openWindows.splice(i, 1);
+  };
+}
+const onTop = (me: object) => openWindows[openWindows.length - 1] === me;
 
 /** A pop-up window over the page. Closes with Escape or a click on the dimmed background. */
 export function Dialog({ label, onClose, children, wide = false }: { label: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
+  // The latest onClose, so the window is set up once when it opens (not again on every redraw,
+  // which would move focus and change which window counts as on top).
+  const close = useRef(onClose);
+  useLayoutEffect(() => {
+    close.current = onClose;
+  });
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     ref.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const me = {};
+    const untrack = track(me);
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onTop(me) && close.current();
     document.addEventListener("keydown", onKey);
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
+      untrack();
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = overflow;
       previous?.focus?.();
     };
-  }, [onClose]);
+  }, []);
   return (
     <div className="fixed inset-0 z-30 flex items-start justify-center overflow-y-auto p-2 sm:p-4">
       <button data-no-press type="button" aria-label="×" tabIndex={-1} onClick={onClose} className="fixed inset-0 cursor-default bg-scrim" />
@@ -71,11 +91,18 @@ export function ConfirmDialog({
   const box = useRef<HTMLDivElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
   const scrim = useRef<HTMLDivElement>(null);
+  const cancelNow = useRef(onCancel);
+  useLayoutEffect(() => {
+    cancelNow.current = onCancel;
+  });
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     cancel.current?.focus();
+    const me = {};
+    const untrack = track(me);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
+      if (!onTop(me)) return;
+      if (e.key === "Escape") cancelNow.current();
       // Keep Tab inside the window.
       if (e.key === "Tab" && box.current) {
         const items = [...box.current.querySelectorAll<HTMLElement>("button:not([disabled])")];
@@ -94,11 +121,12 @@ export function ConfirmDialog({
     scrim.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: "ease-out" });
     box.current?.animate(still ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 0, scale: 0.94 }, { opacity: 1, scale: 1 }], { duration: still ? 150 : 420, easing: still ? "ease-out" : springOrFallback(420, 30, 0.42) });
     return () => {
+      untrack();
       document.removeEventListener("keydown", onKey);
       document.body.style.overflow = overflow;
       previous?.focus?.();
     };
-  }, [onCancel]);
+  }, []);
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center p-4">
       <div ref={scrim} aria-hidden="true" onClick={onCancel} className="fixed inset-0 bg-scrim" />

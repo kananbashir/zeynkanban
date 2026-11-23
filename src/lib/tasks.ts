@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, gte, inArray, isNull, lt, lte, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { contentTypes, contents, customers, specialDays, statuses, taskNotes, taskReminders, taskTypes, tasks, users } from "@/db/schema";
+import { contentBriefs, contentTypes, contents, customers, specialDays, statuses, taskNotes, taskReminders, taskTypes, tasks, users } from "@/db/schema";
 import type { Locale } from "@/i18n/dictionaries";
 import { getLocale } from "@/i18n/server";
 import { assignedTo, assigneesColumn, hasAssignees, noAssignees, parseAssignees, type Person } from "./assignees";
@@ -43,6 +43,8 @@ export type TaskView = {
   remindDays: number[];
   remindTime: string | null;
   notesCount: number;
+  /** The task's content ID has a content brief. */
+  hasBrief: boolean;
 };
 
 function select(where: SQL | undefined) {
@@ -77,6 +79,7 @@ function select(where: SQL | undefined) {
       remindDays: sql<string | null>`(select group_concat(${taskReminders.daysBefore} order by ${taskReminders.daysBefore}) from ${taskReminders} where ${taskReminders.taskId} = ${tasks.id})`,
       remindTime: tasks.remindTime,
       notesCount: sql<number>`(select count(*) from ${taskNotes} where ${taskNotes.taskId} = ${tasks.id})`.mapWith(Number),
+      hasBrief: sql<boolean>`exists (select 1 from ${contentBriefs} where ${contentBriefs.contentId} = ${tasks.contentId})`.mapWith(Boolean),
       createdAt: tasks.createdAt,
     })
     .from(tasks)
@@ -120,6 +123,7 @@ function toView(row: Row, locale: Locale): TaskView {
     remindDays: row.remindDays ? String(row.remindDays).split(",").map(Number) : [],
     remindTime: row.remindTime,
     notesCount: row.notesCount,
+    hasBrief: row.hasBrief,
   };
 }
 
