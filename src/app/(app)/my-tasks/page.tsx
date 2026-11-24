@@ -6,7 +6,7 @@ import { allSpecialDays, countsByDay, dayTasks, liveStatuses } from "@/lib/tasks
 import { MyTasksView } from "./my-tasks-view";
 
 /** Everyone's own page: the tasks assigned to them, and their private personal tasks. */
-export default async function MyTasksPage({ searchParams }: { searchParams: Promise<{ date?: string; m?: string }> }) {
+export default async function MyTasksPage({ searchParams }: { searchParams: Promise<{ date?: string; m?: string; focus?: string }> }) {
   const me = await requireUser();
   const { t } = await getDictionary();
   const params = await searchParams;
@@ -40,6 +40,7 @@ export default async function MyTasksPage({ searchParams }: { searchParams: Prom
       specialDays={specialDays}
       personal={personal}
       canOpenTasks={me.role !== "employee"}
+      focusTask={params.focus ?? null}
       t={t.myTasks}
       taskT={t.tasks}
       months={t.customers.months}

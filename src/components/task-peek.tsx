@@ -76,6 +76,7 @@ export function TaskPeek({ t, errors }: { t: Dictionary["tasks"]; errors: Dictio
               editHref={current.peek.editHref ?? undefined}
               notesInitiallyOpen={withNotes}
               briefInitiallyOpen={withBrief}
+              contentWindow
               finishedInitiallyOpen={withFinished}
               onError={(key) => show(errors[key as ErrorKey] ?? errors.generic, "error")}
               onChanged={() => load(id)}
