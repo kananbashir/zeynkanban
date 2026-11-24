@@ -19,6 +19,7 @@ import {
   unfinishProblem,
 } from "@/lib/settings-rules";
 import { decryptCode } from "@/lib/codes";
+import { DEFAULT_TASK_ICON, isTaskIcon } from "@/lib/task-icons";
 import { found, insertUserWithCode, isUniqueViolation, replaceCode } from "@/lib/users";
 
 export type Result = { ok: true } | { ok: false; error: ErrorKey };
@@ -213,15 +214,25 @@ async function liveTaskTypes() {
     .orderBy(asc(taskTypes.position));
 }
 
-export async function addTaskType(name: string, nameEn = ""): Promise<Result> {
+export async function addTaskType(name: string, nameEn = "", icon: string = DEFAULT_TASK_ICON): Promise<Result & { id?: string }> {
   await requireRole("admin");
   const clean = cleanName(name);
   if (!clean.ok) return fail(clean.error);
   const en = cleanNameEn(nameEn);
   if (!en.ok) return fail(en.error);
   const live = await liveTaskTypes();
-  await db.insert(taskTypes).values({ name: clean.value, nameEn: en.value, position: live.length });
-  return done();
+  const id = crypto.randomUUID();
+  await db.insert(taskTypes).values({ id, name: clean.value, nameEn: en.value, position: live.length, icon: isTaskIcon(icon) ? icon : DEFAULT_TASK_ICON });
+  revalidatePath("/settings");
+  return { ok: true, id };
+}
+
+/** The icon shown before a task type's name on task cards. */
+export async function setTaskTypeIcon(id: string, icon: string): Promise<Result> {
+  await requireRole("admin");
+  if (!isTaskIcon(icon)) return fail("notFound");
+  const rows = await db.update(taskTypes).set({ icon }).where(and(eq(taskTypes.id, id), isNull(taskTypes.deletedAt)));
+  return found(rows) ? done() : fail("notFound");
 }
 
 export async function renameTaskTypeEn(id: string, nameEn: string): Promise<Result> {

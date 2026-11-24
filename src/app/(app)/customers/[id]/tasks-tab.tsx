@@ -17,6 +17,7 @@ import { dayLabel, longDate } from "@/lib/format-date";
 import { groupByPerson, type Section } from "@/lib/task-rules";
 import type { DayTasks, TaskView } from "@/lib/tasks";
 import { PlanMonth, type PlanContent, type PlanPeriod, type PlanType } from "./plan-month";
+import { TaskTypeIcon } from "@/components/task-type-icon";
 import { TaskForm, type FormContent, type FormPerson, type FormType } from "./task-form";
 
 export function TasksTab({
@@ -269,7 +270,7 @@ export function TasksTab({
               </div>
               {list.map((x) => (
                 <div key={x.id} className="flex flex-wrap items-center gap-x-3.5 gap-y-1 border-t border-line py-2.5 text-[13px] text-ink-soft">
-                  <span className="flex-[1_1_140px] text-sm font-semibold text-ink">{x.typeName}</span>
+                  <span className="flex flex-[1_1_140px] items-center gap-2 text-sm font-semibold text-ink"><TaskTypeIcon name={x.typeIcon} size={16} className="text-teal-deep" />{x.typeName}</span>
                   <span className="flex flex-[1_1_120px] items-center gap-1.5"><span className="size-2.5 rounded-full border-[1.5px] border-black/25" style={{ background: x.customerColor }} />{x.customerName}</span>
                   <span className="font-mono text-xs font-medium">{x.contentCode}</span>
                   <span className="flex min-w-[124px] items-center gap-1.5 whitespace-nowrap font-semibold text-ink"><span className="size-[9px] rounded-full" style={{ background: x.statusColor }} />{x.statusName}</span>

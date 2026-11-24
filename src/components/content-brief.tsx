@@ -217,7 +217,7 @@ const SITES: Record<ReturnType<typeof linkSite>["kind"], [string, string]> = {
   facebook: ["f", "#1877f2"],
   other: ["↗", "#0b7f7b"],
 };
-function SiteBadge({ kind }: { kind: keyof typeof SITES }) {
+export function SiteBadge({ kind }: { kind: keyof typeof SITES }) {
   const [text, color] = SITES[kind];
   return (
     <span aria-hidden="true" className="flex size-8 shrink-0 items-center justify-center rounded-[9px] text-[12px] font-extrabold text-white" style={{ background: color }}>

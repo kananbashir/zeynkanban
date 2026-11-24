@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { createTask, loadDay, loadMonthCounts, setTaskArchived, updateTask } from "@/app/actions/tasks";
 import { CloseButton, Dialog } from "@/components/dialog";
 import { MiniCalendar } from "@/components/mini-calendar";
+import { TaskTypeIcon } from "@/components/task-type-icon";
 import { avatarColor } from "@/components/task-card";
 import { initials } from "@/components/top-bar";
 import { btn, field } from "@/components/ui";
@@ -16,7 +17,7 @@ import { countPerDay, groupByPerson, taskEnd } from "@/lib/task-rules";
 import type { TaskView } from "@/lib/tasks";
 
 export type FormContent = { id: string; code: string; typeName: string; publishDate: string | null };
-export type FormType = { id: string; name: string };
+export type FormType = { id: string; name: string; icon?: string };
 export type FormPerson = { id: string; name: string };
 
 /** Quick deadline choices: days after the task's day (0 = the same day, i.e. no deadline). */
@@ -163,8 +164,9 @@ export function TaskForm({
             <section className={card}>
               <h3 id="f-type" className="text-[15px] font-semibold">{f.type}</h3>
               <div role="group" aria-labelledby="f-type" className="flex flex-wrap gap-2">
-                {[...types, { id: OTHER, name: f.other }].map((x) => (
-                  <button key={x.id} type="button" aria-pressed={typeId === x.id} onClick={() => setTypeId(x.id)} className={`min-h-11 whitespace-nowrap rounded-full border-2 px-4 text-sm font-semibold ${pick(typeId === x.id)}`}>
+                {[...types, { id: OTHER, name: f.other, icon: undefined }].map((x) => (
+                  <button key={x.id} type="button" aria-pressed={typeId === x.id} onClick={() => setTypeId(x.id)} className={`flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full border-2 px-4 text-sm font-semibold ${pick(typeId === x.id)}`}>
+                    {x.icon && <TaskTypeIcon name={x.icon} size={16} className="text-teal-deep" />}
                     {x.name}
                   </button>
                 ))}
@@ -390,7 +392,10 @@ export function TaskForm({
                         >
                           <span data-code className="order-2 ml-auto shrink-0 whitespace-nowrap rounded-[7px] border border-line bg-surface px-1.5 py-0.5 font-mono text-[11.5px] font-medium text-ink sm:order-first sm:ml-0 sm:justify-self-start">{x.contentCode}</span>
                           <span className="order-1 flex min-w-0 flex-1 flex-col sm:contents">
-                            <span data-type className="truncate text-[13.5px] font-semibold text-ink">{x.typeName}</span>
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <TaskTypeIcon name={x.typeIcon} size={15} className="text-teal-deep" />
+                              <span data-type className="truncate text-[13.5px] font-semibold text-ink">{x.typeName}</span>
+                            </span>
                             <span className="flex min-w-0 items-center gap-1.5 text-xs text-muted sm:text-[12.5px]">
                               <span className="size-2 shrink-0 rounded-full border-[1.5px] border-black/20" style={{ background: x.customerColor }} />
                               <span data-customer className="truncate">{x.customerName}</span>

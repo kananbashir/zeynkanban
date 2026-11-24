@@ -20,6 +20,8 @@ export type NotificationData =
   | ({ kind: "deadline"; from: string } & TaskRef)
   /** A content brief was added to or changed on the content ID of a task of yours. */
   | ({ kind: "brief"; action: "added" | "updated"; by: string } & TaskRef)
+  /** The finished work of the content ID of a task of yours was added or changed. */
+  | ({ kind: "finished"; action: "added" | "updated"; by: string; links?: number } & TaskRef)
   | ({ kind: "note"; by: string; body: string } & TaskRef)
   | { kind: "personal"; title: string; due: string; time: string | null }
   | { kind: "overdueMany"; count: number }
@@ -37,8 +39,10 @@ export type NotificationText = {
   notes?: boolean;
   /** Open the task's content brief straight away. */
   brief?: boolean;
+  /** Open the finished work straight away. */
+  finished?: boolean;
 };
-export type IconKind = "assigned" | "moved" | "changed" | "review" | "overdue" | "summary" | "status" | "reminder" | "note";
+export type IconKind = "assigned" | "moved" | "changed" | "review" | "overdue" | "summary" | "status" | "reminder" | "note" | "finished";
 
 type T = Dictionary["notifications"];
 type TaskT = Pick<Dictionary["tasks"], "monthsShort" | "tasksN" | "task1">;
@@ -63,7 +67,7 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
 
   const a = `${localName(d.type, d.typeEn, locale)} · ${d.code} · ${d.customer}`;
   const home = viewerIsStaff ? "/board" : "/my-tasks";
-  const href = `${home}?task=${d.taskId}${d.kind === "note" ? "&notes=1" : d.kind === "brief" ? "&brief=1" : ""}`;
+  const href = `${home}?task=${d.taskId}${d.kind === "note" ? "&notes=1" : d.kind === "brief" ? "&brief=1" : d.kind === "finished" ? "&finished=1" : ""}`;
   const open = { taskId: d.taskId, notes: d.kind === "note" };
   const due = d.due === today ? t.dueToday : fill(t.dueOn, { date: date(d.due) });
   switch (d.kind) {
@@ -89,6 +93,10 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
     }
     case "brief":
       return { title: d.action === "added" ? t.kinds.brief : t.briefUpdated, a, b: fill(t.by, { name: d.by }), href, icon: "changed", ...open, brief: true };
+    case "finished": {
+      const by = fill(t.by, { name: d.by });
+      return { title: d.action === "added" ? t.kinds.finished : t.finishedUpdated, a, b: viewerIsStaff && d.links ? `${by} · ${d.links === 1 ? t.link1 : fill(t.linksN, { n: d.links })}` : by, href, icon: "finished", ...open, finished: true };
+    }
     case "deadline":
       return { title: t.kinds.deadline, a, b: fill(t.deadlineLine, { date: date(d.due), from: date(d.from) }), href, icon: "reminder", ...open };
     case "changed": {
@@ -128,6 +136,7 @@ export const PREF_OF = {
   personal: "reminder",
   deadline: "reminder",
   brief: "changed",
+  finished: "changed",
 } as const;
 export type PrefKey = (typeof PREF_OF)[keyof typeof PREF_OF];
 export const STAFF_PREFS: PrefKey[] = ["assigned", "changed", "notes", "reminder", "summary", "review", "status", "overdue"];

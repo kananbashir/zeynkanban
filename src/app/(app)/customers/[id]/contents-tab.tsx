@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
+import { FinishedTag, FinishedWindow } from "@/components/finished-work";
 import { InlineText } from "@/components/inline-text";
 import { SegmentedControl } from "@/components/motion";
 import { Toast, useToast } from "@/components/toast";
@@ -54,6 +55,8 @@ export function ContentsTab({
   // IDs saved from this form, counted for the next suggestion even before the page has refreshed.
   const [justAdded, setJustAdded] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<string[]>([]);
+  // The content ID whose finished work is open in a window.
+  const [finishedOf, setFinishedOf] = useState<string | null>(null);
 
   const periodById = useMemo(() => new Map(periods.map((p) => [p.id, p])), [periods]);
   const type = types.find((x) => x.id === typeId);
@@ -107,6 +110,7 @@ export function ContentsTab({
             )}
           </div>
           <span className="whitespace-nowrap rounded-full bg-surface px-2.5 py-1 text-xs font-semibold">{item.typeName}</span>
+          {own.some((x) => x.hasFinishedWork) && <FinishedTag f={taskT.finished} onOpen={() => setFinishedOf(item.id)} />}
           <span className="whitespace-nowrap text-[13px] text-ink-soft">{publish ? fill(taskT.form.publishes, { date: shortDate(publish, taskT) }) : taskT.form.noPublish}</span>
           <span className="flex items-center gap-2 whitespace-nowrap text-[13px] text-ink-soft tabular-nums">
             {live.length > 0 && (
@@ -251,6 +255,7 @@ export function ContentsTab({
           <div className="flex flex-col gap-2.5">{archived.map(contentRow)}</div>
         </section>
       )}
+      {finishedOf && <FinishedWindow contentId={finishedOf} onClose={() => setFinishedOf(null)} t={taskT} />}
       <Toast message={message} />
     </div>
   );

@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, eq, gte, inArray, isNull, lt, lte, or, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
-import { contentBriefs, contentTypes, contents, customers, specialDays, statuses, taskNotes, taskReminders, taskTypes, tasks, users } from "@/db/schema";
+import { contentBriefs, contentTypes, finishedWorks, contents, customers, specialDays, statuses, taskNotes, taskReminders, taskTypes, tasks, users } from "@/db/schema";
 import type { Locale } from "@/i18n/dictionaries";
 import { getLocale } from "@/i18n/server";
 import { assignedTo, assigneesColumn, hasAssignees, noAssignees, parseAssignees, type Person } from "./assignees";
@@ -23,6 +23,8 @@ export type TaskView = {
   taskTypeId: string;
   typeName: string;
   typeDeleted: boolean;
+  /** The task type's icon (see src/lib/task-icons.ts). */
+  typeIcon: string;
   isPublishing: boolean;
   statusId: string;
   statusName: string;
@@ -49,6 +51,8 @@ export type TaskView = {
   notesCount: number;
   /** The task's content ID has a content brief. */
   hasBrief: boolean;
+  /** Its content ID has finished work (links to the final video, design or post). */
+  hasFinishedWork: boolean;
 };
 
 function select(where: SQL | undefined) {
@@ -66,6 +70,7 @@ function select(where: SQL | undefined) {
       typeName: taskTypes.name,
       typeNameEn: taskTypes.nameEn,
       typeDeletedAt: taskTypes.deletedAt,
+      typeIcon: taskTypes.icon,
       isPublishing: taskTypes.isPublishing,
       statusId: tasks.statusId,
       statusName: statuses.name,
@@ -86,6 +91,7 @@ function select(where: SQL | undefined) {
       remindTime: tasks.remindTime,
       notesCount: sql<number>`(select count(*) from ${taskNotes} where ${taskNotes.taskId} = ${tasks.id})`.mapWith(Number),
       hasBrief: sql<boolean>`exists (select 1 from ${contentBriefs} where ${contentBriefs.contentId} = ${tasks.contentId})`.mapWith(Boolean),
+      hasFinishedWork: sql<boolean>`exists (select 1 from ${finishedWorks} where ${finishedWorks.contentId} = ${tasks.contentId})`.mapWith(Boolean),
       createdAt: tasks.createdAt,
     })
     .from(tasks)
@@ -113,6 +119,7 @@ function toView(row: Row, locale: Locale): TaskView {
     taskTypeId: row.taskTypeId,
     typeName: localName(row.typeName, row.typeNameEn, locale),
     typeDeleted: !!row.typeDeletedAt,
+    typeIcon: row.typeIcon,
     isPublishing: row.isPublishing,
     statusId: row.statusId,
     statusName: localName(row.statusName, row.statusNameEn, locale),
@@ -132,6 +139,7 @@ function toView(row: Row, locale: Locale): TaskView {
     remindTime: row.remindTime,
     notesCount: row.notesCount,
     hasBrief: row.hasBrief,
+    hasFinishedWork: row.hasFinishedWork,
   };
 }
 
@@ -211,7 +219,7 @@ export async function liveStatuses() {
 export async function listedTaskTypes() {
   const locale = await getLocale();
   const rows = await db
-    .select({ id: taskTypes.id, name: taskTypes.name, nameEn: taskTypes.nameEn, isPublishing: taskTypes.isPublishing })
+    .select({ id: taskTypes.id, name: taskTypes.name, nameEn: taskTypes.nameEn, isPublishing: taskTypes.isPublishing, icon: taskTypes.icon })
     .from(taskTypes)
     .where(and(isNull(taskTypes.deletedAt), eq(taskTypes.oneOff, false)))
     .orderBy(asc(taskTypes.position), asc(taskTypes.createdAt));

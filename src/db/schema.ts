@@ -85,6 +85,8 @@ export const taskTypes = mysqlTable("task_types", {
   isPublishing: boolean("is_publishing").notNull().default(false),
   /** Typed once with "Other…" in the task form and not saved to the list: used by its task, hidden everywhere else. */
   oneOff: boolean("one_off").notNull().default(false),
+  /** The icon shown before its name on task cards (one of TASK_ICONS in src/lib/task-icons.ts). */
+  icon: varchar("icon", { length: 20 }).notNull().default("layers"),
   deletedAt: datetime("deleted_at", { mode: "date", fsp: 3 }),
   createdAt: createdAt(),
 });
@@ -297,6 +299,21 @@ export const contentBriefs = mysqlTable("content_briefs", {
   updatedAt: now("updated_at"),
 });
 
+/**
+ * The finished work of a content ID: links (each with a name) to the final video, design or post,
+ * shown on every task of that content ID. Admins, managers and whoever added it can change it.
+ */
+export const finishedWorks = mysqlTable("finished_works", {
+  contentId: varchar("content_id", { length: 36 })
+    .primaryKey()
+    .references(() => contents.id),
+  links: text("links").notNull(),
+  createdBy: varchar("created_by", { length: 36 }).references(() => users.id),
+  updatedBy: varchar("updated_by", { length: 36 }).references(() => users.id),
+  createdAt: createdAt(),
+  updatedAt: now("updated_at"),
+});
+
 /** Who works on a task: one or more people, in the order they were picked. A task with nobody is a draft. */
 export const taskAssignees = mysqlTable(
   "task_assignees",
@@ -326,7 +343,7 @@ export const taskReminders = mysqlTable(
   (t) => [primaryKey({ columns: [t.taskId, t.daysBefore] })],
 );
 
-export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder", "note", "personal", "deadline", "brief"] as const;
+export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder", "note", "personal", "deadline", "brief", "finished"] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 /**
