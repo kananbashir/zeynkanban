@@ -437,7 +437,14 @@ export function IconPicker({ value, label, title, names, onChange }: { value: Ta
   const pop = useRef<HTMLDivElement>(null);
   const wrap = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
-    if (open) popIn(pop.current, "translateY(-6px) scale(0.96)");
+    const el = pop.current;
+    if (!open || !el) return;
+    // Keep it on the screen: on a phone it slides left when it would stick out on the right.
+    el.style.left = "0px";
+    const r = el.getBoundingClientRect();
+    const over = r.right - (window.innerWidth - 12);
+    if (over > 0) el.style.left = `${-Math.min(over, r.left - 12)}px`;
+    popIn(el, "translateY(-6px) scale(0.96)");
   }, [open]);
   useEffect(() => {
     if (!open) return;

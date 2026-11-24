@@ -2,6 +2,7 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 import type { DayTasks, TaskView } from "@/lib/tasks";
+import { captureFlip } from "./motion";
 import type { Section } from "@/lib/task-rules";
 
 // A task just moved to a finished status first asks for its finished work, right where it is.
@@ -27,7 +28,10 @@ export const askForFinished = {
     emit();
   },
   stop(taskId: string) {
-    if (holds.delete(taskId)) emit();
+    if (!holds.has(taskId)) return;
+    captureFlip(); // the card glides from exactly where it is now
+    holds.delete(taskId);
+    emit();
   },
   has: (taskId: string) => live(holds.get(taskId)),
 };

@@ -165,7 +165,8 @@ export function TaskCard({
   const statusLabel = status.deleted ? fill(t.deletedStatus, { name: status.name }) : status.name;
   const typeLabel = task.typeDeleted ? fill(t.deletedType, { name: task.typeName }) : task.typeName;
   const addBrief = !task.hasBrief && canWriteBrief;
-  const addFinished = status.finished && !task.hasFinishedWork && !(asking && !task.hasFinishedWork);
+  // Not while the question is open or folding away: the button shows once the card has moved on.
+  const addFinished = status.finished && !task.hasFinishedWork && !asking && !askForFinished.has(task.id);
   const background = task.contentArchived ? ARCHIVED_BACKGROUND : cardBackground(status.color, closed);
 
   function choose(next: string) {

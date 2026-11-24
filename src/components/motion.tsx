@@ -98,64 +98,120 @@ export function SlideByDate({ date, children, block = false }: { date: string; c
   );
 }
 
+const CAPTURE_EVENT = "zk-flip-capture";
+/**
+ * Notes where every gliding card is at this moment. Call it just before a change that moves cards
+ * (outside React's own updates), so they glide from exactly where they are now.
+ */
+export function captureFlip() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(CAPTURE_EVENT));
+}
+
+/** How far a card is shifted right now by a glide still running (0 when it is at rest). */
+function shift(node: HTMLElement) {
+  const t = getComputedStyle(node).transform;
+  if (!t || t === "none") return { x: 0, y: 0 };
+  const m = new DOMMatrixReadOnly(t);
+  return { x: m.m41, y: m.m42 };
+}
+
 /**
  * Animates the items inside a container (marked with data-flip="id") when they move:
  * a card that changes place glides from where it was; a new card fades in.
- * Positions are also kept up to date when the layout changes by itself (e.g. a card's notes open),
- * so only real moves animate, never a jump back to an old position.
+ * Positions are kept as resting places (without any glide in progress) and are also kept up to
+ * date when the layout changes by itself (e.g. a card's notes open), so only real moves animate.
+ * A card that moves again while still gliding starts its new glide exactly where it is on screen.
  */
 export function useFlip(container: RefObject<HTMLElement | null>) {
   const previous = useRef(new Map<string, { x: number; y: number }>());
+  // The container's own height, so it can ease to its new size when cards move (what is below it
+  // then follows smoothly instead of jumping when a group appears or goes).
+  const height = useRef<number | null>(null);
+  const resize = useRef<Animation | null>(null);
 
   useEffect(() => {
     const root = container.current;
     if (!root) return;
     let frame = 0;
+    const record = () => {
+      const origin = root.getBoundingClientRect();
+      if (!resize.current) height.current = origin.height;
+      root.querySelectorAll<HTMLElement>("[data-flip]").forEach((node) => {
+        const rect = node.getBoundingClientRect();
+        const moved = shift(node);
+        previous.current.set(node.dataset.flip!, { x: rect.left - moved.x - origin.left, y: rect.top - moved.y - origin.top });
+      });
+    };
     const refresh = () => {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const origin = root.getBoundingClientRect();
-        root.querySelectorAll<HTMLElement>("[data-flip]").forEach((node) => {
-          if (node.getAnimations().length) return; // mid-glide: its stored end position is already right
-          const rect = node.getBoundingClientRect();
-          previous.current.set(node.dataset.flip!, { x: rect.left - origin.left, y: rect.top - origin.top });
-        });
-      });
+      frame = requestAnimationFrame(record);
     };
     const observer = new ResizeObserver(refresh);
     observer.observe(root);
     root.querySelectorAll<HTMLElement>("[data-flip]").forEach((node) => observer.observe(node));
+    // Asked to note where everything is right now (just before cards move): see captureFlip.
+    const capture = () => {
+      cancelAnimationFrame(frame);
+      record();
+    };
+    window.addEventListener(CAPTURE_EVENT, capture);
     return () => {
       cancelAnimationFrame(frame);
       observer.disconnect();
+      window.removeEventListener(CAPTURE_EVENT, capture);
     };
   });
 
   useLayoutEffect(() => {
     const root = container.current;
     if (!root) return;
+    // Its height on screen now (mid-ease, if easing), then its real new height.
+    const running = resize.current;
+    const shownHeight = root.getBoundingClientRect().height;
+    running?.cancel();
+    resize.current = null;
+    const fromHeight = running ? shownHeight : height.current;
     const origin = root.getBoundingClientRect();
     const reduce = reducedMotion();
     const next = new Map<string, { x: number; y: number }>();
     const hadItems = previous.current.size > 0;
+    let moves = false;
     root.querySelectorAll<HTMLElement>("[data-flip]").forEach((node) => {
       const id = node.dataset.flip!;
       const rect = node.getBoundingClientRect();
-      const position = { x: rect.left - origin.left, y: rect.top - origin.top };
+      const moved = shift(node); // a glide still running
+      const position = { x: rect.left - moved.x - origin.left, y: rect.top - moved.y - origin.top };
       next.set(id, position);
       if (reduce) return;
       const old = previous.current.get(id);
       if (old) {
-        const dx = old.x - position.x;
-        const dy = old.y - position.y;
-        if (Math.abs(dx) > 1 || Math.abs(dy) > 1) {
+        // On screen it is at its old resting place plus whatever its running glide adds.
+        const dx = old.x + moved.x - position.x;
+        const dy = old.y + moved.y - position.y;
+        if (Math.abs(old.x - position.x) > 1 || Math.abs(old.y - position.y) > 1) {
+          moves = true;
+          // Stop the glide still running (only glides: colour fades and CSS animations go on).
+          node.getAnimations().forEach((a) => {
+            if (!(a instanceof CSSTransition) && !(a instanceof CSSAnimation)) a.cancel();
+          });
           node.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "none" }], { duration: 480, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
         }
       } else if (hadItems) {
+        moves = true;
         node.animate([{ opacity: 0, transform: "scale(0.97)" }, { opacity: 1, transform: "none" }], { duration: 320, easing: "ease-out" });
       }
     });
+    if (previous.current.size > next.size) moves = true; // something left
     previous.current = next;
+    const toHeight = origin.height;
+    if (!reduce && moves && fromHeight !== null && Math.abs(fromHeight - toHeight) > 2) {
+      const a = root.animate([{ height: `${fromHeight}px`, overflow: "clip" }, { height: `${toHeight}px`, overflow: "clip" }], { duration: 480, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)" });
+      resize.current = a;
+      a.onfinish = a.oncancel = () => {
+        if (resize.current === a) resize.current = null;
+      };
+    }
+    height.current = toHeight;
   });
 }
 
