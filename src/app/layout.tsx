@@ -8,7 +8,7 @@ import { getLocale } from "@/i18n/server";
 import { DEFAULT_THEME, isTheme, THEME_COOKIE, THEME_SCRIPT } from "@/lib/theme";
 
 export const metadata: Metadata = {
-  title: "Zeyn Media",
+  title: "Zeynmedia project management tool",
   description: "Task and content planning for the Zeyn Media team.",
   robots: { index: false, follow: false },
 };
