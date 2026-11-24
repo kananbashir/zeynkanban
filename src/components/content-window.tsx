@@ -128,13 +128,35 @@ function Body({ data, fromTask, t, openBrief, openFinished }: { data: ContentOve
   const live = data.tasks.filter((x) => !x.archived);
   const archived = data.tasks.filter((x) => x.archived);
   const done = live.filter((x) => x.finished).length;
-  const go = (task: TaskView) => {
-    close();
-    router.push(`/customers/${data.customerId}?tab=tasks&date=${task.dueDate}&focus=${task.id}`);
+  // Admins and managers open any task's day on the customer page; employees only their own tasks,
+  // in My tasks (other people's tasks are shown but can't be opened).
+  const hrefOf = (task: TaskView) =>
+    data.canAdd
+      ? `/customers/${data.customerId}?tab=tasks&date=${task.dueDate}&focus=${task.id}`
+      : !task.archived && task.assignees.some((p) => p.id === data.viewerId)
+        ? `/my-tasks?date=${task.dueDate}&focus=${task.id}`
+        : null;
+  const row = (task: TaskView, i: number) => {
+    const href = hrefOf(task);
+    return (
+      <TaskRow
+        key={task.id}
+        task={task}
+        index={i}
+        me={task.id === fromTask}
+        today={data.today}
+        t={t}
+        onGo={
+          href
+            ? () => {
+                close();
+                router.push(href);
+              }
+            : null
+        }
+      />
+    );
   };
-  const row = (task: TaskView, i: number) => (
-    <TaskRow key={task.id} task={task} index={i} me={task.id === fromTask} today={data.today} t={t} onGo={() => go(task)} />
-  );
   return (
     <>
       <div className="flex flex-wrap items-center gap-2">
@@ -175,23 +197,25 @@ function Body({ data, fromTask, t, openBrief, openFinished }: { data: ContentOve
   );
 }
 
-/** One task of the content ID: date tile, type, people, late badge, status. Opens its day. */
-function TaskRow({ task, index, me, today, t, onGo }: { task: TaskView; index: number; me: boolean; today: string; t: T; onGo: () => void }) {
+/**
+ * One task of the content ID: date tile, type, people, late badge, status. Opens its day when
+ * `onGo` is given; otherwise (someone else's task, for an employee) it is shown but can't be opened.
+ */
+function TaskRow({ task, index, me, today, t, onGo }: { task: TaskView; index: number; me: boolean; today: string; t: T; onGo: (() => void) | null }) {
   const w = t.contentWindow;
   const late = lateDays(task, today);
   const type = task.typeDeleted ? fill(t.deletedType, { name: task.typeName }) : task.typeName;
   const status = task.archived ? t.contents.archivedTask : task.statusDeleted ? fill(t.deletedStatus, { name: task.statusName }) : task.statusName;
   const people = task.assignees.length ? task.assignees.map((p) => p.name).join(", ") : w.noOne;
   const month = t.monthsShort[Number(task.dueDate.slice(5, 7)) - 1];
+  const Row = onGo ? "button" : "div";
   return (
     <li className="zk-fade-up" style={{ animationDelay: `${Math.min(index, 8) * 40}ms`, animationFillMode: "backwards" }}>
-      <button
-        type="button"
+      <Row
         data-task={task.id}
-        onClick={onGo}
-        aria-label={fill(w.goTo, { type, date: shortDate(task.dueDate, t) })}
+        {...(onGo ? { type: "button" as const, onClick: onGo, "aria-label": fill(w.goTo, { type, date: shortDate(task.dueDate, t) }) } : {})}
         aria-current={me ? "true" : undefined}
-        className={`flex w-full items-center gap-3 rounded-[14px] p-2.5 text-left transition-colors ${me ? "bg-teal-tint shadow-[inset_0_0_0_2px_var(--color-teal)]" : "hover:bg-mint-soft"}`}
+        className={`flex w-full items-center gap-3 rounded-[14px] p-2.5 text-left transition-colors ${me ? "bg-teal-tint shadow-[inset_0_0_0_2px_var(--color-teal)]" : onGo ? "hover:bg-mint-soft" : ""}`}
       >
         <span className={`flex h-16 w-14 shrink-0 flex-col items-center justify-center gap-[5px] rounded-[14px] leading-none ${me ? "bg-surface" : "bg-mint"}`}>
           <span className="text-[10.5px] font-semibold uppercase tracking-wide text-muted">{t.weekdaysShort[weekdayIndex(task.dueDate)]}</span>
@@ -224,10 +248,10 @@ function TaskRow({ task, index, me, today, t, onGo }: { task: TaskView; index: n
           <span className="size-2 rounded-full" style={{ background: task.archived || task.statusDeleted ? "var(--color-subtle)" : task.statusColor }} />
           {status}
         </span>
-        <span aria-hidden="true" className="hidden text-muted sm:inline">
+        <span aria-hidden="true" className={`hidden text-muted sm:inline ${onGo ? "" : "invisible"}`}>
           ›
         </span>
-      </button>
+      </Row>
     </li>
   );
 }

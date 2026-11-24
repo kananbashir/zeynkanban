@@ -1,11 +1,12 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useOptimistic, useRef, useState, useTransition } from "react";
+import { useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import { addPersonalTask, deletePersonalTask, setPersonalDone } from "@/app/actions/personal";
 import { MiniCalendar } from "@/components/mini-calendar";
 import { DaySwitcher, EventChips, lineButton } from "@/components/day-header";
 import { Collapse, scrollIntoViewSoftly, useFlip, useIsWide } from "@/components/motion";
+import { prefersReducedMotion } from "@/lib/spring";
 import { TaskCard, type StatusOption } from "@/components/task-card";
 import { Toast, useToast } from "@/components/toast";
 import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
@@ -37,6 +38,7 @@ export function MyTasksView({
   specialDays,
   personal,
   canOpenTasks,
+  focusTask,
   t,
   taskT,
   months,
@@ -51,6 +53,8 @@ export function MyTasksView({
   specialDays: SpecialDay[];
   personal: PersonalTask[];
   canOpenTasks: boolean;
+  /** Show this task: scroll to its card and outline it for a moment (?focus=, from a content ID window). */
+  focusTask: string | null;
   t: T;
   taskT: TaskT;
   months: readonly string[];
@@ -74,6 +78,18 @@ export function MyTasksView({
   const events = specialDaysOn(date, specialDays);
   const list = useRef<HTMLDivElement>(null);
   useFlip(list);
+  // Arriving to show one task: glide to its card and outline it in teal for a moment.
+  useEffect(() => {
+    if (!focusTask) return;
+    const card = list.current?.querySelector<HTMLElement>(`article[data-task="${CSS.escape(focusTask)}"]`);
+    if (card) {
+      scrollIntoViewSoftly(card, "center");
+      if (!prefersReducedMotion())
+        card.animate([{ boxShadow: "0 0 0 0 transparent" }, { boxShadow: "0 0 0 3px var(--color-teal)", offset: 0.25 }, { boxShadow: "0 0 0 3px var(--color-teal)", offset: 0.7 }, { boxShadow: "0 0 0 0 transparent" }], { duration: 1800, delay: 250 });
+    }
+    router.replace(`${pathname}?${new URLSearchParams({ date })}`, { scroll: false }); // drop ?focus= so it isn't shown again
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusTask]);
   const onError = (key: string) => show(errors[key as ErrorKey] ?? errors.generic, "error");
 
   const go = (params: { date?: string; m?: string }) => {
@@ -172,6 +188,7 @@ export function MyTasksView({
               </div>
               {day[section.key].map((task) => (
                 <TaskCard
+                  contentWindow
                   key={task.id}
                   task={task}
                   statuses={statuses}

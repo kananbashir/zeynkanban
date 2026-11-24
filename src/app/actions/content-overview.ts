@@ -25,8 +25,10 @@ export type ContentOverview = {
   hasFinishedWork: boolean;
   today: string;
   tasks: TaskView[];
-  /** Admins and managers may add a task to it. */
+  /** Admins and managers may add a task to it (and open any of its tasks on the customer page). */
   canAdd: boolean;
+  /** Who is looking: an employee can open only their own tasks (in My tasks). */
+  viewerId: string;
 };
 
 /**
@@ -66,6 +68,7 @@ export async function loadContentOverview(contentId: string): Promise<{ ok: true
       today: todayIso(),
       tasks: all,
       canAdd: staff,
+      viewerId: me.id,
     },
   };
 }
