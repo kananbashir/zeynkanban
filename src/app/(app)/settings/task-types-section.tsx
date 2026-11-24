@@ -1,91 +1,140 @@
 "use client";
 
-import { startTransition, useOptimistic, useState } from "react";
+import { useState, useTransition } from "react";
+import { shrinkOut, UndoToast, useUndoToast } from "@/components/list-motion";
 import { SortableList } from "@/components/sortable-list";
-import { Toast, useToast } from "@/components/toast";
-import { btn, card, row } from "@/components/ui";
-import type { Dictionary, Locale } from "@/i18n/dictionaries";
+import { card } from "@/components/ui";
+import type { Dictionary, ErrorKey, Locale } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import { localName } from "@/lib/names";
-import { addTaskType, deleteTaskType, renameTaskType, renameTaskTypeEn, reorderTaskTypes } from "./actions";
-import { AddNameForm } from "./add-name-form";
-import { BilingualName } from "./bilingual-name";
-import { ConfirmBar } from "@/components/confirm-bar";
-import { SectionHeader } from "./section-header";
-import { useAction } from "./use-action";
+import { DEFAULT_TASK_ICON, isTaskIcon, type TaskIcon } from "@/lib/task-icons";
+import { addTaskType, deleteTaskType, renameTaskType, renameTaskTypeEn, reorderTaskTypes, restoreTaskType, setTaskTypeIcon } from "./actions";
+import { AddButton, AddForm, Badge, FormButtons, IconPicker, inputCls, Lang, Line, RowFoot, SavedInput, SectionTop, SettingsRow } from "./settings-ui";
 
-type TaskType = { id: string; name: string; nameEn: string | null; isPublishing: boolean };
+type TaskType = { id: string; name: string; nameEn: string | null; isPublishing: boolean; icon: string };
+type Row = TaskType & { fresh?: boolean };
 
+/**
+ * Settings → Task types: each with an icon (tap it to pick another; saved at once), names in both
+ * languages, drag to reorder. "Post publishing" (used by the month planner) can't be deleted.
+ */
 export function TaskTypesSection({ types, locale, t, errors }: { types: TaskType[]; locale: Locale; t: Dictionary["settings"]; errors: Dictionary["errors"] }) {
-  const shown = (x: TaskType) => localName(x.name, x.nameEn, locale);
-  const { message, show } = useToast();
-  const { pending, run } = useAction(errors, show);
-  const [ordered, setOrdered] = useOptimistic(types, (current, ids: string[]) =>
-    ids.map((id) => current.find((x) => x.id === id)).filter((x): x is TaskType => !!x),
-  );
-  const [confirming, setConfirming] = useState<string | null>(null);
   const k = t.types;
+  const shown = (x: TaskType) => localName(x.name, x.nameEn, locale);
+  const [rows, setRows] = useState<Row[]>(types);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState<{ name: string; nameEn: string; icon: TaskIcon }>({ name: "", nameEn: "", icon: DEFAULT_TASK_ICON });
+  const [, startTransition] = useTransition();
+  const undo = useUndoToast();
+  // One message area for everything (errors too), so two messages never sit on top of each other.
+  const show = (text: string) => undo.show(text, t.undo);
+  const fail = (key: ErrorKey) => show(errors[key] ?? errors.generic);
+  const iconOf = (x: TaskType): TaskIcon => (isTaskIcon(x.icon) ? x.icon : DEFAULT_TASK_ICON);
 
-  function reorder(ids: string[]) {
+  const change = (id: string, patch: Partial<TaskType>, save: () => Promise<{ ok: true } | { ok: false; error: ErrorKey }>) => {
+    const before = rows;
+    setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
     startTransition(async () => {
-      setOrdered(ids);
-      const result = await reorderTaskTypes(ids);
-      if (!result.ok) show(errors[result.error], "error");
+      const result = await save();
+      if (!result.ok) {
+        setRows(before);
+        fail(result.error);
+      }
     });
-  }
+  };
+
+  const add = () => {
+    if (!draft.name.trim()) return;
+    startTransition(async () => {
+      const result = await addTaskType(draft.name, draft.nameEn, draft.icon);
+      if (!result.ok || !result.id) return fail(result.ok ? "generic" : result.error);
+      const row: Row = { id: result.id, name: draft.name.trim(), nameEn: draft.nameEn.trim() || null, isPublishing: false, icon: draft.icon, fresh: true };
+      setRows((list) => [...list, row]);
+      setDraft({ name: "", nameEn: "", icon: DEFAULT_TASK_ICON });
+      undo.show(fill(t.addedToast, { name: shown(row) }), t.undo);
+    });
+  };
+
+  const remove = (row: Row, el: HTMLElement | null) =>
+    startTransition(async () => {
+      const index = rows.findIndex((r) => r.id === row.id);
+      const result = await deleteTaskType(row.id);
+      if (!result.ok) return fail(result.error);
+      shrinkOut(el, () => {
+        setRows((list) => list.filter((r) => r.id !== row.id));
+        setOpenId(null);
+      });
+      undo.show(fill(t.deletedToast, { name: shown(row) }), t.undo, () =>
+        startTransition(async () => {
+          const back = await restoreTaskType(row.id, index);
+          if (!back.ok) return fail(back.error);
+          setRows((list) => {
+            const next = list.filter((r) => r.id !== row.id);
+            next.splice(Math.min(index, next.length), 0, { ...row, fresh: true });
+            return next;
+          });
+        }),
+      );
+    });
+
+  const reorder = (ids: string[]) => {
+    const before = rows;
+    setRows((list) => ids.map((id) => list.find((r) => r.id === id)!).filter(Boolean));
+    startTransition(async () => {
+      const result = await reorderTaskTypes(ids);
+      if (!result.ok) {
+        setRows(before);
+        fail(result.error);
+      }
+    });
+  };
 
   return (
     <section aria-label={t.sections.types} className={card}>
-      <SectionHeader title={t.sections.types} intro={`${k.intro} ${t.dragHint} ${t.namesHint}`} />
-      <SortableList items={ordered} onReorder={reorder}>
-        {(type, _index, handle) => (
-          <div data-row className={`flex flex-col gap-2.5 ${row}`}>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              {handle(fill(t.reorder, { name: shown(type) }))}
-              <div className="min-w-0 flex-[1_1_200px]">
-                <BilingualName
-                  name={type.name}
-                  nameEn={type.nameEn}
-                  label={k.placeholder}
-                  labelEn={fill(t.nameEnOf, { name: type.name })}
-                  placeholderEn={t.nameEnPlaceholder}
-                  onSave={(name) => run(() => renameTaskType(type.id, name))}
-                  onSaveEn={(nameEn) => run(() => renameTaskTypeEn(type.id, nameEn))}
-                />
-              </div>
-              {type.isPublishing ? (
-                <span title={errors.publishingType} className="rounded-full bg-teal-tint px-2.5 py-1 text-xs font-semibold text-teal-deep">
-                  {k.publishing}
-                </span>
-              ) : (
-                <button type="button" className={btn.soft} onClick={() => setConfirming(type.id)}>
-                  {t.delete}
-                </button>
-              )}
-            </div>
-            {confirming === type.id && (
-              <ConfirmBar
-                text={fill(k.confirmDelete, { name: shown(type) })}
-                confirmLabel={t.delete}
-                cancelLabel={t.cancel}
-                disabled={pending}
-                onCancel={() => setConfirming(null)}
-                onConfirm={() =>
-                  run(
-                    () => deleteTaskType(type.id),
-                    () => {
-                      setConfirming(null);
-                      show(fill(k.deleted, { name: shown(type) }));
-                    },
-                  )
-                }
-              />
+      <SectionTop title={t.sections.types} intro={k.shortIntro} add={<AddButton label={k.add} open={adding} onClick={() => setAdding((v) => !v)} />} />
+      <AddForm open={adding} onSubmit={add}>
+        <IconPicker value={draft.icon} label={fill(t.iconOf, { name: draft.name.trim() || k.placeholder })} title={t.chooseIcon} names={t.iconNames} onChange={(icon) => setDraft({ ...draft, icon })} />
+        <input className={`${inputCls} flex-[1_1_200px]`} aria-label={k.placeholder} placeholder={k.placeholder} value={draft.name} maxLength={60} onChange={(e) => setDraft({ ...draft, name: e.target.value })} autoComplete="off" />
+        <input className={`${inputCls} flex-[1_1_180px]`} aria-label={t.nameEnPlaceholder} placeholder={t.nameEnPlaceholder} value={draft.nameEn} maxLength={60} onChange={(e) => setDraft({ ...draft, nameEn: e.target.value })} autoComplete="off" />
+        <FormButtons cancel={t.cancel} submit={k.add} onCancel={() => setAdding(false)} disabled={!draft.name.trim()} />
+      </AddForm>
+
+      <SortableList items={rows} onReorder={reorder}>
+        {(row, _i, handle) => (
+          <SettingsRow
+            id={row.id}
+            fresh={row.fresh}
+            open={openId === row.id}
+            onToggle={() => setOpenId((id) => (id === row.id ? null : row.id))}
+            openLabel={fill(t.open, { name: shown(row) })}
+            lead={
+              <>
+                {handle(fill(t.reorder, { name: shown(row) }))}
+                <IconPicker value={iconOf(row)} label={fill(t.iconOf, { name: shown(row) })} title={t.chooseIcon} names={t.iconNames} onChange={(icon) => change(row.id, { icon }, () => setTaskTypeIcon(row.id, icon))} />
+              </>
+            }
+            title={row.name}
+            subtitle={row.nameEn || "—"}
+            badges={row.isPublishing ? <Badge tone="grey">{k.publishingBadge}</Badge> : undefined}
+          >
+            <Line label={t.nameLabel}>
+              <Lang tag="AZ">
+                <SavedInput value={row.name} label={k.placeholder} required onSave={(name) => change(row.id, { name }, () => renameTaskType(row.id, name))} />
+              </Lang>
+              <Lang tag="EN">
+                <SavedInput value={row.nameEn ?? ""} label={fill(t.nameEnOf, { name: row.name })} placeholder={t.nameEnPlaceholder} onSave={(nameEn) => change(row.id, { nameEn: nameEn || null }, () => renameTaskTypeEn(row.id, nameEn))} />
+              </Lang>
+            </Line>
+            {row.isPublishing ? (
+              <RowFoot note={k.publishingNote} cancelLabel={t.cancel} />
+            ) : (
+              <RowFoot label={t.delete} confirm={fill(k.confirmDelete, { name: shown(row) })} cancelLabel={t.cancel} onDo={(el) => remove(row, el)} />
             )}
-          </div>
+          </SettingsRow>
         )}
       </SortableList>
-      <AddNameForm label={k.placeholder} labelEn={t.nameEnPlaceholder} buttonLabel={k.add} disabled={pending} onAdd={(name, reset, nameEn) => run(() => addTaskType(name, nameEn), reset)} />
-      <Toast message={message} />
+      <UndoToast offer={undo.offer} onClose={undo.close} />
     </section>
   );
 }

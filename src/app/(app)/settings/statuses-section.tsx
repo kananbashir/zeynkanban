@@ -1,157 +1,164 @@
 "use client";
 
-import { startTransition, useOptimistic, useState } from "react";
+import { useState, useTransition } from "react";
+import { shrinkOut, UndoToast, useUndoToast } from "@/components/list-motion";
 import { SortableList } from "@/components/sortable-list";
-import { Toast, useToast } from "@/components/toast";
-import { btn, card, row } from "@/components/ui";
-import type { Dictionary, Locale } from "@/i18n/dictionaries";
+import { Switch } from "@/components/switch";
+import { card } from "@/components/ui";
+import type { Dictionary, ErrorKey, Locale } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import { localName } from "@/lib/names";
 import { COLOR_NAMES, STATUS_COLORS } from "@/lib/settings-rules";
-import { addStatus, deleteStatus, renameStatus, renameStatusEn, reorderStatuses, setStatusCancelled, setStatusColor, setStatusFinished, setStatusPostponed, setStatusReview } from "./actions";
-import { BilingualName } from "./bilingual-name";
-import { AddNameForm } from "./add-name-form";
-import { ConfirmBar } from "@/components/confirm-bar";
-import { SectionHeader } from "./section-header";
-import { useAction } from "./use-action";
+import { addStatus, deleteStatus, renameStatus, renameStatusEn, reorderStatuses, restoreStatus, setStatusCancelled, setStatusColor, setStatusFinished, setStatusPostponed, setStatusReview } from "./actions";
+import { AddButton, AddForm, Badge, ColorSwatches, FormButtons, inputCls, Lang, Line, RowFoot, SavedInput, SectionTop, SettingsRow } from "./settings-ui";
 
 type Status = { id: string; name: string; nameEn: string | null; color: string; isFinished: boolean; isCancelled: boolean; isPostponed: boolean; notifyReview: boolean };
+type Row = Status & { fresh?: boolean };
+type Meaning = "isFinished" | "isCancelled" | "isPostponed" | "notifyReview";
 
+/**
+ * Settings → Statuses: rows open one at a time to rename (both languages), recolour (the ring
+ * glides) and set what a status means with switches. Delete asks inline, then offers Undo.
+ */
 export function StatusesSection({ statuses, locale, t, errors }: { statuses: Status[]; locale: Locale; t: Dictionary["settings"]; errors: Dictionary["errors"] }) {
-  const shown = (x: Status) => localName(x.name, x.nameEn, locale);
-  const { message, show } = useToast();
-  const { pending, run } = useAction(errors, show);
-  const [ordered, setOrdered] = useOptimistic(statuses, (current, ids: string[]) =>
-    ids.map((id) => current.find((s) => s.id === id)).filter((s): s is Status => !!s),
-  );
-  const [colorOpen, setColorOpen] = useState<string | null>(null);
-  const [confirming, setConfirming] = useState<string | null>(null);
   const s = t.statuses;
+  const shown = (x: Status) => localName(x.name, x.nameEn, locale);
+  const [rows, setRows] = useState<Row[]>(statuses);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState({ name: "", nameEn: "" });
+  const [, startTransition] = useTransition();
+  const undo = useUndoToast();
+  // One message area for everything (errors too), so two messages never sit on top of each other.
+  const show = (text: string) => undo.show(text, t.undo);
+  const fail = (key: ErrorKey) => show(errors[key] ?? errors.generic);
 
-  function reorder(ids: string[]) {
+  /** Shows a change at once and saves it; puts it back if saving fails. */
+  const change = (id: string, patch: Partial<Status>, save: () => Promise<{ ok: true } | { ok: false; error: ErrorKey }>) => {
+    const before = rows;
+    setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
     startTransition(async () => {
-      setOrdered(ids);
-      const result = await reorderStatuses(ids);
-      if (!result.ok) show(errors[result.error], "error");
+      const result = await save();
+      if (!result.ok) {
+        setRows(before);
+        fail(result.error);
+      }
     });
-  }
+  };
+  // A status means one thing: finished, cancelled or postponed ("Sends review" goes with any).
+  const setMeaning = (row: Row, key: Meaning, on: boolean) => {
+    const patch: Partial<Status> =
+      key === "notifyReview" ? { notifyReview: on } : on ? { isFinished: key === "isFinished", isCancelled: key === "isCancelled", isPostponed: key === "isPostponed" } : { [key]: false };
+    const save = { isFinished: setStatusFinished, isCancelled: setStatusCancelled, isPostponed: setStatusPostponed, notifyReview: setStatusReview }[key];
+    change(row.id, patch, () => save(row.id, on));
+  };
 
+  const add = () => {
+    if (!draft.name.trim()) return;
+    startTransition(async () => {
+      const result = await addStatus(draft.name, draft.nameEn);
+      if (!result.ok) return fail(result.error);
+      const row: Row = { id: result.id!, name: result.name!, nameEn: result.nameEn ?? null, color: result.color!, isFinished: false, isCancelled: false, isPostponed: false, notifyReview: false, fresh: true };
+      setRows((list) => [...list, row]);
+      setDraft({ name: "", nameEn: "" });
+      undo.show(fill(t.addedToast, { name: shown(row) }), t.undo);
+    });
+  };
+
+  const remove = (row: Row, el: HTMLElement | null) =>
+    startTransition(async () => {
+      const index = rows.findIndex((r) => r.id === row.id);
+      const result = await deleteStatus(row.id);
+      if (!result.ok) return fail(result.error);
+      shrinkOut(el, () => {
+        setRows((list) => list.filter((r) => r.id !== row.id));
+        setOpenId(null);
+      });
+      undo.show(fill(t.deletedToast, { name: shown(row) }), t.undo, () =>
+        startTransition(async () => {
+          const back = await restoreStatus(row.id, index);
+          if (!back.ok) return fail(back.error);
+          setRows((list) => {
+            const next = list.filter((r) => r.id !== row.id);
+            next.splice(Math.min(index, next.length), 0, { ...row, fresh: true });
+            return next;
+          });
+        }),
+      );
+    });
+
+  const reorder = (ids: string[]) => {
+    const before = rows;
+    setRows((list) => ids.map((id) => list.find((r) => r.id === id)!).filter(Boolean));
+    startTransition(async () => {
+      const result = await reorderStatuses(ids);
+      if (!result.ok) {
+        setRows(before);
+        fail(result.error);
+      }
+    });
+  };
+
+  const colorNames = COLOR_NAMES.map((k) => s.colors[k]);
   return (
     <section aria-label={t.sections.statuses} className={card}>
-      <SectionHeader title={t.sections.statuses} intro={`${s.intro} ${t.dragHint} ${t.namesHint}`} />
-      <SortableList items={ordered} onReorder={reorder}>
-        {(status, index, handle) => (
-          <div data-row className={`flex flex-col gap-2.5 ${row}`}>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-              {handle(fill(t.reorder, { name: shown(status) }))}
-              <button
-                type="button"
-                aria-label={fill(s.colorOf, { name: shown(status) })}
-                aria-expanded={colorOpen === status.id}
-                onClick={() => setColorOpen(colorOpen === status.id ? null : status.id)}
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface"
-              >
-                <span className="size-4 rounded-full" style={{ background: status.color }} />
-              </button>
-              <div className="min-w-0 flex-[1_1_160px]">
-                <BilingualName
-                  name={status.name}
-                  nameEn={status.nameEn}
-                  label={s.placeholder}
-                  labelEn={fill(t.nameEnOf, { name: status.name })}
-                  placeholderEn={t.nameEnPlaceholder}
-                  onSave={(name) => run(() => renameStatus(status.id, name))}
-                  onSaveEn={(nameEn) => run(() => renameStatusEn(status.id, nameEn))}
-                />
-              </div>
-              {index === 0 && (
-                <span className="whitespace-nowrap rounded-full bg-teal-tint px-2.5 py-1 text-xs font-semibold text-teal-deep">{s.startsHere}</span>
-              )}
-              <button type="button" className={btn.soft} onClick={() => setConfirming(status.id)}>
-                {t.delete}
-              </button>
-            </div>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 pl-1 sm:pl-[104px]">
-              <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[13px] text-ink-soft">
-                <input
-                  type="checkbox"
-                  className="size-[18px] accent-teal"
-                  checked={status.isFinished}
-                  disabled={pending}
-                  onChange={(e) => run(() => setStatusFinished(status.id, e.target.checked))}
-                />
-                {s.finished}
-              </label>
-              <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[13px] text-ink-soft">
-                <input
-                  type="checkbox"
-                  className="size-[18px] accent-teal"
-                  checked={status.notifyReview}
-                  disabled={pending}
-                  onChange={(e) => run(() => setStatusReview(status.id, e.target.checked))}
-                />
-                {s.review}
-              </label>
-              <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[13px] text-ink-soft">
-                <input
-                  type="checkbox"
-                  className="size-[18px] accent-teal"
-                  checked={status.isCancelled}
-                  disabled={pending}
-                  onChange={(e) => run(() => setStatusCancelled(status.id, e.target.checked))}
-                />
-                {s.cancelled}
-              </label>
-              <label className="flex min-h-9 cursor-pointer items-center gap-2 text-[13px] text-ink-soft">
-                <input
-                  type="checkbox"
-                  className="size-[18px] accent-teal"
-                  checked={status.isPostponed}
-                  disabled={pending}
-                  onChange={(e) => run(() => setStatusPostponed(status.id, e.target.checked))}
-                />
-                {s.postponed}
-              </label>
-            </div>
-            {colorOpen === status.id && (
-              <div role="group" aria-label={fill(s.colorOf, { name: shown(status) })} className="flex flex-wrap gap-2 pl-[52px]">
-                {STATUS_COLORS.map((color, i) => (
-                  <button
-                    key={color}
-                    type="button"
-                    aria-pressed={status.color === color}
-                    onClick={() => run(() => setStatusColor(status.id, color), () => setColorOpen(null))}
-                    className={`flex min-h-10 items-center gap-2 rounded-full bg-surface px-3 text-[13px] font-semibold ${status.color === color ? "ring-2 ring-teal" : ""}`}
-                  >
-                    <span className="size-3.5 rounded-full" style={{ background: color }} />
-                    {s.colors[COLOR_NAMES[i]]}
-                  </button>
-                ))}
-              </div>
-            )}
-            {confirming === status.id && (
-              <ConfirmBar
-                text={fill(s.confirmDelete, { name: shown(status) })}
-                confirmLabel={t.delete}
-                cancelLabel={t.cancel}
-                disabled={pending}
-                onCancel={() => setConfirming(null)}
-                onConfirm={() =>
-                  run(
-                    () => deleteStatus(status.id),
-                    () => {
-                      setConfirming(null);
-                      show(fill(s.deleted, { name: shown(status) }));
-                    },
-                  )
-                }
-              />
-            )}
-          </div>
+      <SectionTop title={t.sections.statuses} intro={s.shortIntro} add={<AddButton label={s.add} open={adding} onClick={() => setAdding((v) => !v)} />} />
+      <AddForm open={adding} onSubmit={add}>
+        <input className={`${inputCls} flex-[1_1_200px]`} aria-label={s.placeholder} placeholder={s.placeholder} value={draft.name} maxLength={60} onChange={(e) => setDraft({ ...draft, name: e.target.value })} autoComplete="off" />
+        <input className={`${inputCls} flex-[1_1_180px]`} aria-label={t.nameEnPlaceholder} placeholder={t.nameEnPlaceholder} value={draft.nameEn} maxLength={60} onChange={(e) => setDraft({ ...draft, nameEn: e.target.value })} autoComplete="off" />
+        <FormButtons cancel={t.cancel} submit={s.add} onCancel={() => setAdding(false)} disabled={!draft.name.trim()} />
+      </AddForm>
+
+      <SortableList items={rows} onReorder={reorder}>
+        {(row, index, handle) => (
+          <SettingsRow
+            id={row.id}
+            fresh={row.fresh}
+            open={openId === row.id}
+            onToggle={() => setOpenId((id) => (id === row.id ? null : row.id))}
+            openLabel={fill(t.open, { name: shown(row) })}
+            lead={
+              <>
+                {handle(fill(t.reorder, { name: shown(row) }))}
+                <span aria-hidden="true" className="size-3.5 shrink-0 rounded-full shadow-[0_0_0_4px_var(--color-surface)] transition-colors duration-300" style={{ background: row.color }} />
+              </>
+            }
+            title={row.name}
+            subtitle={row.nameEn || "—"}
+            badges={
+              <>
+                {index === 0 && <Badge tone="teal">{s.startsHere}</Badge>}
+                {row.isFinished && <Badge tone="green">{s.badgeFinished}</Badge>}
+                {row.notifyReview && <Badge tone="sun">{s.badgeReview}</Badge>}
+                {row.isCancelled && <Badge tone="grey">{s.badgeCancelled}</Badge>}
+                {row.isPostponed && <Badge tone="grey">{s.badgePostponed}</Badge>}
+              </>
+            }
+          >
+            <Line label={t.nameLabel}>
+              <Lang tag="AZ">
+                <SavedInput value={row.name} label={s.placeholder} required onSave={(name) => change(row.id, { name }, () => renameStatus(row.id, name))} />
+              </Lang>
+              <Lang tag="EN">
+                <SavedInput value={row.nameEn ?? ""} label={fill(t.nameEnOf, { name: row.name })} placeholder={t.nameEnPlaceholder} onSave={(nameEn) => change(row.id, { nameEn: nameEn || null }, () => renameStatusEn(row.id, nameEn))} />
+              </Lang>
+            </Line>
+            <Line label={t.colour}>
+              <ColorSwatches colors={STATUS_COLORS} value={row.color} label={fill(s.colorOf, { name: shown(row) })} names={colorNames} onChange={(color) => change(row.id, { color }, () => setStatusColor(row.id, color))} />
+            </Line>
+            <Line label={t.meaning}>
+              <span className="flex flex-wrap gap-x-6">
+                <Switch label={s.finished} checked={row.isFinished} onChange={(on) => setMeaning(row, "isFinished", on)} />
+                <Switch label={s.review} checked={row.notifyReview} onChange={(on) => setMeaning(row, "notifyReview", on)} />
+                <Switch label={s.cancelled} checked={row.isCancelled} onChange={(on) => setMeaning(row, "isCancelled", on)} />
+                <Switch label={s.postponed} checked={row.isPostponed} onChange={(on) => setMeaning(row, "isPostponed", on)} />
+              </span>
+            </Line>
+            <RowFoot label={t.delete} confirm={fill(s.confirmDelete, { name: shown(row) })} cancelLabel={t.cancel} onDo={(el) => remove(row, el)} />
+          </SettingsRow>
         )}
       </SortableList>
-      <AddNameForm label={s.placeholder} labelEn={t.nameEnPlaceholder} buttonLabel={s.add} disabled={pending} onAdd={(name, reset, nameEn) => run(() => addStatus(name, nameEn), reset)} />
-      <Toast message={message} />
+      <UndoToast offer={undo.offer} onClose={undo.close} />
     </section>
   );
 }

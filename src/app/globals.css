@@ -170,6 +170,14 @@ a {
   to { opacity: 1; transform: none; }
 }
 .zk-pop { animation: zk-pop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* An access code being shown: each character blurs into view after the one before. */
+@keyframes zk-char {
+  from { opacity: 0; filter: blur(6px); transform: translateY(6px); }
+  to { opacity: 1; filter: none; transform: none; }
+}
+.zk-char { animation: zk-char 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+/* A Settings section coming in after switching sections. */
+.zk-section-in { animation: zk-fade-up 0.42s cubic-bezier(0.2, 0.8, 0.2, 1); }
 @keyframes zk-grow-y {
   from { transform: scaleY(0); }
   to { transform: none; }

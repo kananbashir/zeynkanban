@@ -7,7 +7,6 @@ import { shrinkOut, UndoToast, useGrowIn, useUndoToast } from "@/components/list
 import { Collapse, SegmentedControl } from "@/components/motion";
 import { SortableList, type Handle } from "@/components/sortable-list";
 import { Switch } from "@/components/switch";
-import { Toast, useToast } from "@/components/toast";
 import { card } from "@/components/ui";
 import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
@@ -31,9 +30,9 @@ export function BriefFieldsSection({ fields, t, errors }: { fields: BriefTemplat
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState({ label: "", labelEn: "", type: "short" as BriefType });
   const [, startTransition] = useTransition();
-  const { message, show } = useToast();
   const undo = useUndoToast();
-  const fail = (key: ErrorKey) => show(errors[key] ?? errors.generic, "error");
+  // One message area for everything (errors too), so two messages never sit on top of each other.
+  const fail = (key: ErrorKey) => undo.show(errors[key] ?? errors.generic, s.undo);
 
   const add = (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,7 +140,6 @@ export function BriefFieldsSection({ fields, t, errors }: { fields: BriefTemplat
       </SortableList>
 
       {rows.some((r) => !r.visible) && <p className="rounded-[16px] bg-sun-tint px-4 py-3 text-[13px] leading-normal text-sun-ink">{s.hiddenInfo}</p>}
-      <Toast message={message} />
       <UndoToast offer={undo.offer} onClose={undo.close} />
     </section>
   );
