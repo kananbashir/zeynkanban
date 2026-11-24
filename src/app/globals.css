@@ -140,6 +140,10 @@ a {
   outline: 2px solid var(--color-teal);
   outline-offset: 2px;
 }
+/* Windows and panels that only take focus from the page itself (to keep the keyboard in them) get no ring. */
+[tabindex="-1"]:focus-visible {
+  outline: none;
+}
 
 @media (prefers-reduced-motion: reduce) {
   * {

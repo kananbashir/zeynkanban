@@ -193,10 +193,10 @@ function TaskRow({ task, index, me, today, t, onGo }: { task: TaskView; index: n
         aria-current={me ? "true" : undefined}
         className={`flex w-full items-center gap-3 rounded-[14px] p-2.5 text-left transition-colors ${me ? "bg-teal-tint shadow-[inset_0_0_0_2px_var(--color-teal)]" : "hover:bg-mint-soft"}`}
       >
-        <span className={`flex h-[52px] w-[50px] shrink-0 flex-col items-center justify-center rounded-[13px] leading-none ${me ? "bg-surface" : "bg-mint"}`}>
-          <span className="mb-0.5 text-[10px] uppercase text-muted">{t.weekdaysShort[weekdayIndex(task.dueDate)]}</span>
-          <b className="text-lg font-bold">{Number(task.dueDate.slice(8))}</b>
-          <span className="mt-0.5 text-[10px] font-extrabold uppercase tracking-wide text-teal-deep">{month}</span>
+        <span className={`flex h-16 w-14 shrink-0 flex-col items-center justify-center gap-[5px] rounded-[14px] leading-none ${me ? "bg-surface" : "bg-mint"}`}>
+          <span className="text-[10.5px] font-semibold uppercase tracking-wide text-muted">{t.weekdaysShort[weekdayIndex(task.dueDate)]}</span>
+          <b className="text-[19px] font-bold leading-none">{Number(task.dueDate.slice(8))}</b>
+          <span className="text-[10.5px] font-extrabold uppercase tracking-wide text-teal-deep">{month}</span>
         </span>
         <span className={`hidden size-[30px] shrink-0 items-center justify-center rounded-[9px] text-teal-deep sm:flex ${me ? "bg-surface" : "bg-mint-soft"}`}>
           <TaskTypeIcon name={task.typeIcon} size={16} />
