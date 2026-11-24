@@ -1,14 +1,16 @@
 import Image from "next/image";
 import { Icon } from "@/components/icons";
+import { VersionList } from "@/components/version-list";
 import { getDictionary } from "@/i18n/server";
 import { fill } from "@/i18n/format";
 import { requireUser } from "@/lib/auth";
 import { appVersion } from "@/lib/version";
+import { localRelease, RELEASES } from "@/lib/whats-new";
 
 /** About the site: version, purpose, what it does, roles. Every role can open it. */
 export default async function AboutPage() {
   await requireUser();
-  const { t } = await getDictionary();
+  const { t, locale } = await getDictionary();
   const a = t.about;
   const { version, stage } = appVersion();
   const card = "flex flex-col gap-4 rounded-[28px] bg-surface p-5 md:p-7";
@@ -75,6 +77,13 @@ export default async function AboutPage() {
           <p className="text-sm leading-normal text-ink-soft">{a.help}</p>
         </section>
       </div>
+      <section id="versions" aria-label={t.whatsNew.listTitle} className={`${card} scroll-mt-6`}>
+        <div className="flex flex-col gap-1">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">{t.whatsNew.listTitle}</h2>
+          <p className="text-sm text-ink-soft">{t.whatsNew.listIntro}</p>
+        </div>
+        <VersionList releases={RELEASES.filter((r) => r.items.length).map((r) => localRelease(r, locale))} current={version} t={t.whatsNew} />
+      </section>
       <p className="px-2 text-center text-xs text-muted">{a.madeFor}</p>
     </main>
   );

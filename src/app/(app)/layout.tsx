@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { after } from "next/server";
 import { unreadCount } from "@/app/actions/notifications";
 import { Suspense } from "react";
@@ -5,11 +6,16 @@ import { MeProvider } from "@/components/me";
 import { Rail } from "@/components/rail";
 import { TaskPeek } from "@/components/task-peek";
 import { TopBar } from "@/components/top-bar";
+import { WhatsNewWindow } from "@/components/whats-new-window";
+import { db } from "@/db";
+import { users } from "@/db/schema";
 import { getDictionary } from "@/i18n/server";
 import { requireUser } from "@/lib/auth";
 import { runDailyJobs } from "@/lib/daily";
 import { runReminders } from "@/lib/reminders";
 import { ABOUT, navFor } from "@/lib/roles";
+import { appVersion } from "@/lib/version";
+import { localRelease, unseenReleases } from "@/lib/whats-new";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
@@ -18,6 +24,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   after(() => runDailyJobs().catch((error) => console.error("daily jobs", error)));
   after(() => runReminders().catch((error) => console.error("reminders", error)));
   const unread = await unreadCount();
+  // "What's new" after an update, once per person. Someone new starts at the current version, with no window.
+  const current = appVersion().version;
+  const [seen] = await db.select({ version: users.seenVersion }).from(users).where(eq(users.id, user.id));
+  if (seen && seen.version === null) after(() => db.update(users).set({ seenVersion: current }).where(eq(users.id, user.id)));
+  const whatsNew = seen?.version ? unseenReleases(seen.version, current).map((r) => localRelease(r, locale)) : [];
   const items = navFor(user.role).map((item) => ({ key: item.key, href: item.href, label: t.nav[item.key], short: t.nav.short[item.key] }));
   const about = { ...ABOUT, label: t.nav.about, short: t.nav.short.about };
 
@@ -38,6 +49,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <Suspense fallback={null}>
               <TaskPeek t={t.tasks} errors={t.errors} />
             </Suspense>
+            {whatsNew.length > 0 && <WhatsNewWindow releases={whatsNew} t={t.whatsNew} />}
           </MeProvider>
         </div>
       </div>

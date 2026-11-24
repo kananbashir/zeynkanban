@@ -78,6 +78,13 @@ export function PreferencesSection({ theme: initialTheme, locale, t, nav }: { th
           </Link>
         </div>
         <div className={row}>
+          {label("sparkle", p.whatsNew, p.whatsNewHint)}
+          <Link href="/about#versions" className="flex min-h-11 items-center gap-2 rounded-full bg-mint px-4 text-sm font-semibold hover:bg-teal-tint">
+            {p.whatsNew}
+            <Icon name="arrowRight" size={16} />
+          </Link>
+        </div>
+        <div className={row}>
           {label("logout", p.account, p.logoutHint)}
           <LogoutButton label={nav.logout} title={p.logoutTitle} text={p.logoutText} cancelLabel={t.cancel} />
         </div>

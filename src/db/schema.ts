@@ -20,6 +20,8 @@ export const users = mysqlTable("users", {
   /** The code itself, encrypted with a key made from AUTH_SECRET, so an admin can show it again. Empty for codes made before this existed. */
   codeSecret: varchar("code_secret", { length: 200 }),
   active: boolean("active").notNull().default(true),
+  /** The newest version whose "What's new" this person has seen. Empty for someone new: set on their first visit, with no window. */
+  seenVersion: varchar("seen_version", { length: 20 }),
   createdAt: createdAt(),
   updatedAt: now("updated_at"),
 });
