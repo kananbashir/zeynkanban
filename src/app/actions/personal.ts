@@ -2,6 +2,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { db } from "@/db";
 import { personalReminders, personalTasks } from "@/db/schema";
 import { randomUUID } from "node:crypto";
@@ -9,6 +10,7 @@ import type { ErrorKey } from "@/i18n/dictionaries";
 import { requireUser } from "@/lib/auth";
 import { isIsoDateString } from "@/lib/dates";
 import { cleanPersonalTiming } from "@/lib/reminder-rules";
+import { runReminders } from "@/lib/reminders";
 import { found } from "@/lib/users";
 
 // Personal tasks belong to the person who is logged in, whatever their role. Every action
@@ -30,7 +32,11 @@ export async function addPersonalTask(input: { date: string; title: string; note
   const timing = cleanPersonalTiming(input.time, input.reminders);
   const id = randomUUID();
   await db.insert(personalTasks).values({ id, ownerId: me.id, title, note, dueDate: input.date, time: timing.time });
-  if (timing.reminders.length) await db.insert(personalReminders).values(timing.reminders.map((minutesBefore) => ({ personalTaskId: id, minutesBefore })));
+  if (timing.reminders.length) {
+    await db.insert(personalReminders).values(timing.reminders.map((minutesBefore) => ({ personalTaskId: id, minutesBefore })));
+    // A reminder whose moment has already come goes out now, not at the next check.
+    after(() => runReminders().catch((error) => console.error("reminders", error)));
+  }
   return done();
 }
 

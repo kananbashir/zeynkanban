@@ -78,8 +78,9 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
     setUnread(next.unread);
   }, []);
 
-  // Check for new notifications every 30 seconds and whenever the page comes back into view. When
-  // something new has arrived, the page refreshes its data too, so cards and notes show the change.
+  // Check for new notifications every 15 seconds, whenever the page comes back into view, and at once
+  // when a phone notification arrives on this device. When something new has arrived, the page
+  // refreshes its data too, so cards and notes show the change.
   const lastCount = useRef(initialUnread);
   useEffect(() => {
     let alive = true;
@@ -94,12 +95,15 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
         })
         .catch(() => {});
     };
-    const timer = setInterval(check, 30_000);
+    const timer = setInterval(check, 15_000);
     document.addEventListener("visibilitychange", check);
+    const onPush = (e: MessageEvent) => e.data?.type === "zk-notification" && check();
+    navigator.serviceWorker?.addEventListener("message", onPush);
     return () => {
       alive = false;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", check);
+      navigator.serviceWorker?.removeEventListener("message", onPush);
     };
   }, [router]);
 

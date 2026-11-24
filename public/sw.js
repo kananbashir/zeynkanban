@@ -10,6 +10,9 @@ self.addEventListener("push", (event) => {
         data: { url: data.url || "/" },
       });
       if (self.navigator.setAppBadge && data.badge) await self.navigator.setAppBadge(data.badge).catch(() => {});
+      // An open page shows it in its bell straight away instead of at its next check.
+      const pages = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const page of pages) page.postMessage({ type: "zk-notification" });
     })(),
   );
 });

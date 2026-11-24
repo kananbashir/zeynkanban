@@ -14,14 +14,15 @@ let lastCheck = 0;
 const clockIn = (moment: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: APP_TIME_ZONE, hour: "2-digit", minute: "2-digit", hour12: false }).format(moment).replace(/^24/, "00");
 
 /**
- * Sends the task reminders whose moment has come (see reminder-rules.ts). Called about once a
- * minute by the server's timer and on page visits. Each reminder is claimed in the database before
+ * Sends the task reminders whose moment has come (see reminder-rules.ts). Called every 15 seconds
+ * by the server's timer, right after reminders are saved, and on page visits (at most every 10
+ * seconds from those, so busy pages don't check over and over: `fromPageVisit`). Each reminder is claimed in the database before
  * it is sent, so it goes out once even with several server processes. If several of a task's
  * reminders are due at once (e.g. the 5- and 3-day ones of a task created late), one notification
  * covers them.
  */
-export async function runReminders(now = new Date()): Promise<number> {
-  if (now.getTime() - lastCheck < 50_000) return 0;
+export async function runReminders({ now = new Date(), fromPageVisit = false }: { now?: Date; fromPageVisit?: boolean } = {}): Promise<number> {
+  if (fromPageVisit && now.getTime() - lastCheck < 10_000) return 0;
   lastCheck = now.getTime();
   const today = todayIso();
   const clock = clockIn(now);

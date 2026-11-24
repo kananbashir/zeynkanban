@@ -54,11 +54,17 @@ export function shrinkOut(el: HTMLElement | null, done: () => void) {
   );
   a.onfinish = () => {
     done();
-    // The slot may be reused by React for the next row: let it go back to normal.
-    requestAnimationFrame(() => {
+    // Stay folded until the row has actually left the page: some browsers (Safari) draw a frame
+    // before the page has removed it, and letting go then would flash the whole row back for an
+    // instant. If it is still there after a few frames, the slot was reused: let it go back to normal.
+    let frames = 0;
+    const settle = () => {
+      if (!item.isConnected) return;
+      if (++frames < 10) return void requestAnimationFrame(settle);
       a.cancel();
       item.style.pointerEvents = "";
-    });
+    };
+    requestAnimationFrame(settle);
   };
 }
 

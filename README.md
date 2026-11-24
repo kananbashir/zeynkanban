@@ -139,7 +139,7 @@ Everyone has a My tasks page; it is the first page for employees, and the only o
 
 ## Notifications
 
-The bell in the top bar shows how many notifications are unread; it checks again every 30 seconds and whenever the page comes back into view, and when something new has arrived the page refreshes its data, so cards and notes show the change without reloading. The panel lists them by Today and Earlier, with All / Unread and "Mark all as read". Tapping a task notification marks it read and shows the task in a window over the page you are on (with its notes open for a note); admins and managers can go on to edit it with "Open task". Closing the window leaves the page as it was. Any page can show a task this way with `?task=<id>` in the address, which is also where phone notifications lead.
+The bell in the top bar shows how many notifications are unread; it checks again every 15 seconds, whenever the page comes back into view, and at once when a phone notification arrives on that device, and when something new has arrived the page refreshes its data, so cards and notes show the change without reloading. The panel lists them by Today and Earlier, with All / Unread and "Mark all as read". Tapping a task notification marks it read and shows the task in a window over the page you are on (with its notes open for a note); admins and managers can go on to edit it with "Open task". Closing the window leaves the page as it was. Any page can show a task this way with `?task=<id>` in the address, which is also where phone notifications lead.
 
 | Notification | Who gets it |
 |---|---|
@@ -168,7 +168,7 @@ How it works:
 - All times are stored in UTC: every database connection is set to UTC, whatever time zone the MySQL server itself uses, and shown in Baku time.
 - Phone notifications use Web Push. The signing keys are created on first use and kept in the database (`app_values`), so nothing needs setting up on the hosting; `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` can be set instead. Devices that no longer accept pushes are forgotten automatically.
 - The 09:00 work runs once a day (Baku time): from a timer while the server is running, and also on the first page visit after 09:00 in case the hosting put the server to sleep overnight. A database row claims each day, so it never runs twice. Set `SKIP_DAILY_JOBS=1` to turn the timer off.
-- Task reminders are checked about once a minute by the same timer, and on page visits. If the hosting has put the server to sleep, a reminder goes out when the server next wakes.
+- Reminders are checked every 15 seconds by the same timer, right after a task or personal task with reminders is saved (so one whose moment has already come goes out at once), and on page visits. Phone notifications are sent as urgent, so phones deliver them straight away even when idle. If the hosting puts the server to sleep (Railway's "Serverless" setting), the timer stops and a reminder only goes out when someone next opens the site: keep it switched off.
 
 ## First start on a new server
 
@@ -241,7 +241,7 @@ Every change that reaches the live site gets a new version number in `package.js
 
 | Version | What changed |
 |---|---|
-| 0.15.0 | A note on a content ID, written on the Contents tab (or when adding or generating IDs) and shown under the content ID on every task card of it; the content ID window (all its tasks, a timeline and its details) from the board and the customer page; the task type icon grid fits on phones |
+| 0.15.0 | Reminders and notifications arrive within seconds (they could be 1–2 minutes late); removing a field in the brief window no longer flickers on Safari; a note on a content ID, written on the Contents tab (or when adding or generating IDs) and shown under the content ID on every task card of it; the content ID window (all its tasks, a timeline and its details) from the board and the customer page; the task type icon grid fits on phones |
 | 0.14.0 | Finished work on content IDs (asked after "Done", green tag on every task of the content ID, notifications); icons for task types; the "What's new" window and the version list on the About page; a redesigned Settings (menu with icons, rows that open, Undo, switches, groups, theme previews); cancelled and postponed tasks locked for employees |
 | 0.13.1 | The task form's day list in tidy columns (content ID · type · customer; a small tile per task on phones); opening and closing panels (notes, the personal task form, brief fields, Settings rows) ease in and out with no jump; the personal task form no longer brings up the keyboard on phones |
 | 0.13.0 | Statuses that count as cancelled or postponed, shown in the day summary, the board filter and the dashboard; wider board search; the brief's "Add field" list opens upwards when there is no room below |
