@@ -7,7 +7,7 @@ import { db } from "@/db";
 import { contentTypes, contents, contracts, customers, statuses, taskTypes, tasks } from "@/db/schema";
 import type { ErrorKey } from "@/i18n/dictionaries";
 import { requireRole } from "@/lib/auth";
-import { parseMonth, periodCode, suggestContentIds } from "@/lib/content-rules";
+import { cleanContentNote, parseMonth, periodCode, suggestContentIds } from "@/lib/content-rules";
 import { isIsoDateString } from "@/lib/dates";
 import { isUniqueViolation } from "@/lib/users";
 
@@ -18,8 +18,12 @@ export async function generateContentIds(
   customerId: string,
   contractId: string,
   counts: { contentTypeId: string; count: number }[],
+  /** One note for all the content IDs created (optional). */
+  note = "",
 ): Promise<{ ok: true; created: { id: string; code: string; contentTypeId: string }[] } | Fail> {
-  await requireRole("admin", "manager");
+  const me = await requireRole("admin", "manager");
+  const cleanNote = cleanContentNote(note);
+  const withNote = cleanNote ? { note: cleanNote, noteBy: me.id, noteAt: new Date() } : {};
   const [customer] = await db.select({ shortName: customers.shortName }).from(customers).where(eq(customers.id, customerId));
   const [contract] = await db
     .select({ start: contracts.startMonth, end: contracts.endMonth })
@@ -39,7 +43,7 @@ export async function generateContentIds(
     const existing = (await db.select({ code: contents.code }).from(contents).where(eq(contents.customerId, customerId))).map((c) => c.code);
     const rows = wanted.flatMap((w) => {
       const type = types.find((t) => t.id === w.contentTypeId)!;
-      return suggestContentIds(customer.shortName, type.code, period, existing, w.count).map((code) => ({ id: randomUUID(), code, customerId, contentTypeId: type.id, contractId }));
+      return suggestContentIds(customer.shortName, type.code, period, existing, w.count).map((code) => ({ id: randomUUID(), code, customerId, contentTypeId: type.id, contractId, ...withNote }));
     });
     try {
       await db.insert(contents).values(rows);

@@ -1,5 +1,9 @@
 "use client";
 
+import { PinIcon } from "@/components/content-note";
+
+import { Collapse } from "@/components/motion";
+
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { createTask, loadDay, loadMonthCounts, setTaskArchived, updateTask } from "@/app/actions/tasks";
 import { CloseButton, Dialog } from "@/components/dialog";
@@ -16,7 +20,8 @@ import { DEFAULT_REMIND_TIME, REMIND_DAYS, reminderDate } from "@/lib/reminder-r
 import { countPerDay, groupByPerson, taskEnd } from "@/lib/task-rules";
 import type { TaskView } from "@/lib/tasks";
 
-export type FormContent = { id: string; code: string; typeName: string; publishDate: string | null };
+/** `note`: the note on the content ID, shown under it when it is picked. */
+export type FormContent = { id: string; code: string; typeName: string; publishDate: string | null; note?: string | null };
 export type FormType = { id: string; name: string; icon?: string };
 export type FormPerson = { id: string; name: string };
 
@@ -36,6 +41,7 @@ export function TaskForm({
   specialDays,
   today,
   defaultDate,
+  defaultContentId,
   task,
   canArchive,
   t,
@@ -54,6 +60,8 @@ export function TaskForm({
   specialDays: SpecialDay[];
   today: string;
   defaultDate: string;
+  /** A new task starts with this content ID picked. */
+  defaultContentId?: string;
   task: TaskView | null;
   canArchive: boolean;
   t: Dictionary["tasks"];
@@ -68,7 +76,7 @@ export function TaskForm({
   const [typeId, setTypeId] = useState<string>(task ? (knownType ? task.taskTypeId : OTHER) : "");
   const [typeName, setTypeName] = useState(task && !knownType ? task.typeName : "");
   const [saveType, setSaveType] = useState(false);
-  const [contentId, setContentId] = useState(task?.contentId ?? "");
+  const [contentId, setContentId] = useState(task?.contentId ?? defaultContentId ?? "");
   const [assigneeIds, setAssigneeIds] = useState<string[]>(task?.assignees.map((p) => p.id) ?? []);
   const [date, setDate] = useState(task?.dueDate ?? defaultDate);
   // Days from the task's day to its deadline (0: no deadline, due that same day). Kept when the day
@@ -201,6 +209,14 @@ export function TaskForm({
                       <span className="font-mono text-[13px] font-medium">{c.code}</span>
                       <span className="whitespace-nowrap rounded-full bg-surface px-2 py-0.5 text-xs font-semibold">{c.typeName}</span>
                       <span className="ml-auto whitespace-nowrap text-xs text-ink-soft">{c.publishDate ? fill(f.publishes, { date: shortDate(c.publishDate, t) }) : f.noPublish}</span>
+                      {c.note && (
+                        <Collapse open={contentId === c.id} className="basis-full">
+                          <span className="flex items-start gap-1.5 text-[12.5px] leading-snug text-sun-ink">
+                            <PinIcon size={13} className="mt-px" />
+                            <span className="line-clamp-3 whitespace-pre-line">{c.note}</span>
+                          </span>
+                        </Collapse>
+                      )}
                     </button>
                   ))}
                 </div>

@@ -78,3 +78,13 @@ describe("compareCodes", () => {
     expect([...codes].sort(compareCodes)).toEqual(["aliday-gpost-nd26-1", "aliday-gpost-nd26-2", "aliday-gpost-nd26-10", "aliday-gpost-nd26-11", "aliday-vid-nd26-3"]);
   });
 });
+
+describe("cleanContentNote", () => {
+  it("trims, keeps line breaks (at most one empty line) and caps at 500", async () => {
+    const { cleanContentNote } = await import("./content-rules");
+    expect(cleanContentNote("  Logo   at the end \r\n\r\n\r\n No lyrics  ")).toBe("Logo at the end\n\nNo lyrics");
+    expect(cleanContentNote("   ")).toBeNull();
+    expect(cleanContentNote(null)).toBeNull();
+    expect(cleanContentNote("x".repeat(600))!.length).toBe(500);
+  });
+});

@@ -84,6 +84,7 @@ A new installation starts with four statuses (Ediləcək / To do, İcrada / In p
 - **Contracts**: renewing adds a new period and keeps the old ones as history. The default renewal starts the month after the current contract and lasts as long.
 - **Content IDs** (admin and manager add and rename; only admin archives) follow the scheme `[short name]-[type code]-[period]-[number]`, e.g. `thrive-vid-nd26-1`. The period uses English month initials and the year, both years when it crosses the new year: `nd26`, `dj2627`, `n26` for a single month. The next free number is suggested and can be overwritten; an ID can't be used twice.
 - Once content IDs use a content type, its code is locked in Settings.
+- **Note on a content ID** (admins and managers write it): an optional note for all tasks of a content ID, up to 500 characters. It can be typed when adding a content ID, once for all the IDs made with "Generate IDs and plan month", or later in the Contents tab: open the content ID's row to see it in a yellow box with **Edit** (empty it and save to remove it), or "+ Add note for all its tasks". A closed row shows a one-line preview. The note shows in a soft strip with a pin under the content ID on every task card of it (long notes show two lines and **More**, which opens smoothly), and under the content ID when it is picked in the task form. The people on its tasks are notified when it is added or changed.
 
 ## Tasks and the managing board
 
@@ -98,6 +99,7 @@ A new installation starts with four statuses (Ediləcək / To do, İcrada / In p
   - Once saved, a green **Finished work** tag ("Finished" on phones) follows the content ID on all its cards, and in the customer's Contents tab. It opens a window with the links (site badge, name, Open ↗) and who added or edited it.
   - Anyone on a task of that content ID can add it while there is none; admins and managers can always add it. **Edit and Delete**: admins, managers and whoever added it; others can only read it. Delete asks first. Links must be web addresses.
 - **Cancelled and postponed tasks are locked for employees**: only admins and managers can change the status of a task that is cancelled or postponed (the status button is greyed out for the people on it).
+- **Content ID window**: on the managing board and the customer page, the content ID on a card is a button (with ↗). It opens a window with everything about that content ID: customer, type and contract, Brief and Finished work (tap to open), the publish date, progress ("3 of 10 done"), its note, a timeline (one dot per task in its status colour, with "Today"), and all its tasks in date order with who is on them, late badges and status; the task it was opened from is outlined as "This task", archived tasks fold away. Tapping a task opens its day on the customer page with the card outlined for a moment; "+ Add task to this content ID" opens the task form with it already picked. On phones it slides up from the bottom and can be swiped down. It only reads; changes are made on the cards and in the task form.
 - **A task with nobody on it is a draft**: it shows in the customer's Drafts box only, never on the managing board.
 - **Day views** (managing board, customer Tasks tab, My tasks): unfinished tasks show on their date, or on every day from their date to their deadline; on today's view, unfinished tasks whose deadline has passed also show as overdue; finished tasks show on the day they were finished. "Today" is taken in Baku time (`APP_TIME_ZONE`).
 - **Managing board** (admin, manager): calendar, day summary (overdue, open, postponed, finished, cancelled), filters by customer and person, search, the All / Overdue / Due / Postponed / Finished / Cancelled filter, and status changes from each card. "Open task" opens the task form on the customer's page.
@@ -137,7 +139,7 @@ Everyone has a My tasks page; it is the first page for employees, and the only o
 
 ## Notifications
 
-The bell in the top bar shows how many notifications are unread; it checks again every 30 seconds and whenever the page comes back into view, and when something new has arrived the page refreshes its data, so cards and notes show the change without reloading. The panel lists them by Today and Earlier, with All / Unread and "Mark all as read". Tapping a task notification marks it read and shows the task in a window over the page you are on (with its notes open for a note); admins and managers can go on to edit it with "Open task". Closing the window leaves the page as it was. Any page can show a task this way with `?task=<id>` in the address, which is also where phone notifications lead.
+The bell in the top bar shows how many notifications are unread; it checks again every 15 seconds, whenever the page comes back into view, and at once when a phone notification arrives on that device, and when something new has arrived the page refreshes its data, so cards and notes show the change without reloading. The panel lists them by Today and Earlier, with All / Unread and "Mark all as read". Tapping a task notification marks it read and shows the task in a window over the page you are on (with its notes open for a note); admins and managers can go on to edit it with "Open task". Closing the window leaves the page as it was. Any page can show a task this way with `?task=<id>` in the address, which is also where phone notifications lead.
 
 | Notification | Who gets it |
 |---|---|
@@ -148,6 +150,7 @@ The bell in the top bar shows how many notifications are unread; it checks again
 | Ready for review | Admins and managers, when a task moves into a status marked "Sends ‘Ready for review’" (Settings → Statuses); this replaces "Status changed" for that move |
 | Reminder | The people on a task, when it has reminders set (see below) |
 | Content brief added or updated | Everyone on the tasks of that content ID except whoever wrote it; it opens the task with the brief open. Part of the "Changes to my tasks" setting |
+| Note on a content ID added or changed | The people on the tasks of that content ID, except whoever wrote it. Part of the "Changes to my tasks" setting |
 | Finished work added or updated | Admins, managers and the people on the other tasks of that content ID, except whoever did it; it opens the task with the finished work open. Part of the "Changes to my tasks" setting |
 | 1 day left until the deadline | The people on a task and whoever created it, at 09:00 the day before its deadline (tasks with a deadline only, while unfinished). Part of the Reminders setting |
 | New note on a task | Admins and managers, and the people on the task, when someone else adds a note to it |
@@ -157,7 +160,9 @@ The bell in the top bar shows how many notifications are unread; it checks again
 
 **Task reminders**: the task form has "Reminders for the people on it": no reminder (the default), or any of 1, 3 and 5 days before the deadline (or the task's date when it has none), at one chosen time (Baku time). Each reminder goes once to everyone on the task. Changing the due date or the time makes them all due again; adding or removing one leaves the others as they were. They aren't sent for finished or archived tasks, or once the due date has passed. A reminder whose moment has already passed when it is set goes out right away; if several are due at once, one notification covers them.
 
-Nobody is notified about their own changes. Each person chooses what they want in the panel's settings, and can turn on **phone notifications on this device**. On an iPhone (iOS 16.4 or newer) the site must first be added to the home screen and opened from there. Phone notifications need the site on HTTPS (or `localhost` when testing on your own computer).
+Nobody is notified about their own changes. Each person chooses what they want in the panel's settings.
+
+**Phone notifications** are as close to "on by default" as browsers allow (a person must tap "Allow" once): right after logging in, a card asks "Turn on notifications?" once per device, and one tap on **Turn on** brings up the browser's own box. "Not now" or the browser's "Block" means it never asks again on that device (the switch in the bell's settings still works). Where notifications are already allowed on a device, they are switched on without asking, unless the person switched them off in the bell on that device. An iPhone in Safari gets the steps to add the app to the Home Screen instead. The card waits until other windows (such as "What's new") are closed. On an iPhone (iOS 16.4 or newer) the site must first be added to the home screen and opened from there. Phone notifications need the site on HTTPS (or `localhost` when testing on your own computer).
 
 How it works:
 
@@ -165,7 +170,7 @@ How it works:
 - All times are stored in UTC: every database connection is set to UTC, whatever time zone the MySQL server itself uses, and shown in Baku time.
 - Phone notifications use Web Push. The signing keys are created on first use and kept in the database (`app_values`), so nothing needs setting up on the hosting; `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` can be set instead. Devices that no longer accept pushes are forgotten automatically.
 - The 09:00 work runs once a day (Baku time): from a timer while the server is running, and also on the first page visit after 09:00 in case the hosting put the server to sleep overnight. A database row claims each day, so it never runs twice. Set `SKIP_DAILY_JOBS=1` to turn the timer off.
-- Task reminders are checked about once a minute by the same timer, and on page visits. If the hosting has put the server to sleep, a reminder goes out when the server next wakes.
+- Reminders are checked every 15 seconds by the same timer, right after a task or personal task with reminders is saved (so one whose moment has already come goes out at once), and on page visits. Phone notifications are sent as urgent, so phones deliver them straight away even when idle. If the hosting puts the server to sleep (Railway's "Serverless" setting), the timer stops and a reminder only goes out when someone next opens the site: keep it switched off.
 
 ## First start on a new server
 
@@ -238,6 +243,7 @@ Every change that reaches the live site gets a new version number in `package.js
 
 | Version | What changed |
 |---|---|
+| 0.15.0 | The site is called "Zeynmedia project management tool" with the Zeyn Media logo as its icon (browser tab and home screen); phone notifications are offered with one tap right after logging in (and switched on without asking where already allowed); reminders and notifications arrive within seconds (they could be 1–2 minutes late); removing a field in the brief window no longer flickers on Safari; a note on a content ID, written on the Contents tab (or when adding or generating IDs) and shown under the content ID on every task card of it; the content ID window (all its tasks, a timeline and its details) from the board and the customer page; the task type icon grid fits on phones |
 | 0.14.0 | Finished work on content IDs (asked after "Done", green tag on every task of the content ID, notifications); icons for task types; the "What's new" window and the version list on the About page; a redesigned Settings (menu with icons, rows that open, Undo, switches, groups, theme previews); cancelled and postponed tasks locked for employees |
 | 0.13.1 | The task form's day list in tidy columns (content ID · type · customer; a small tile per task on phones); opening and closing panels (notes, the personal task form, brief fields, Settings rows) ease in and out with no jump; the personal task form no longer brings up the keyboard on phones |
 | 0.13.0 | Statuses that count as cancelled or postponed, shown in the day summary, the board filter and the dashboard; wider board search; the brief's "Add field" list opens upwards when there is no room below |

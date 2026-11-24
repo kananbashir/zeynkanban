@@ -140,6 +140,10 @@ a {
   outline: 2px solid var(--color-teal);
   outline-offset: 2px;
 }
+/* Windows and panels that only take focus from the page itself (to keep the keyboard in them) get no ring. */
+[tabindex="-1"]:focus-visible {
+  outline: none;
+}
 
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -178,6 +182,12 @@ a {
 .zk-char { animation: zk-char 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
 /* A Settings section coming in after switching sections. */
 .zk-section-in { animation: zk-fade-up 0.42s cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* A bar filling up from the left (the content ID timeline's "done so far"). */
+@keyframes zk-grow-x {
+  from { transform: scaleX(0); }
+  to { transform: none; }
+}
+.zk-grow-x { animation: zk-grow-x 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s backwards; }
 @keyframes zk-grow-y {
   from { transform: scaleY(0); }
   to { transform: none; }

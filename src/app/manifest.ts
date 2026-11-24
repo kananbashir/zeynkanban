@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 // Lets phones add the site to the home screen; an iPhone only allows push notifications for sites added this way.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Zeyn Media Projects",
-    short_name: "Zeyn Media",
+    name: "Zeynmedia project management tool",
+    short_name: "Zeynmedia",
     start_url: "/",
     display: "standalone",
     background_color: "#edf6f4",

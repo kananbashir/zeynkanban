@@ -5,10 +5,10 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { generateContentIds, savePublishingPlan } from "@/app/actions/plan";
 import { loadMonthCounts } from "@/app/actions/tasks";
 import { CloseButton, Dialog } from "@/components/dialog";
-import { SlideByDate, useFlip } from "@/components/motion";
+import { Collapse, SlideByDate, useFlip } from "@/components/motion";
 import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
-import { compareCodes, suggestContentIds } from "@/lib/content-rules";
+import { CONTENT_NOTE_MAX, compareCodes, suggestContentIds } from "@/lib/content-rules";
 import { addDays, firstOfMonth, monthGrid, shiftMonth, specialDaysOn, weekdayIndex, type SpecialDay } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
 import { rhythm, shortChip, spreadEvenly } from "@/lib/plan-rules";
@@ -138,6 +138,7 @@ export function PlanMonth({
   // Generating IDs: for the contract that covers the month shown, or the newest one.
   const period = periods.find((x) => x.start <= ym && x.end >= ym) ?? periods[0];
   const [want, setWant] = useState<Record<string, number>>({});
+  const [idNote, setIdNote] = useState(""); // one note for all the content IDs created
   const total = Object.values(want).reduce((a, b) => a + b, 0);
   const codes = [...allCodes, ...created.map((c) => c.code)];
   const preview = period
@@ -156,11 +157,13 @@ export function PlanMonth({
         customerId,
         period.id,
         Object.entries(want).map(([contentTypeId, count]) => ({ contentTypeId, count })),
+        idNote,
       );
       if (!result.ok) return onMessage(errors[result.error as ErrorKey] ?? errors.generic, "error");
       const fresh = result.created.map((c) => ({ id: c.id, code: c.code, typeCode: contentTypes.find((x) => x.id === c.contentTypeId)?.code ?? "", publishDate: null }));
       setCreated((old) => [...old, ...fresh]);
       setWant({});
+      setIdNote("");
       if (!selected && fresh.length) setSelected(fresh[0].id);
       onMessage(fresh.length === 1 ? p.created1 : fill(p.created, { n: fresh.length }));
       router.refresh();
@@ -321,6 +324,20 @@ export function PlanMonth({
                 );
               })}
               <p className="text-xs leading-normal text-ink-soft [overflow-wrap:anywhere]">{preview.length ? fill(p.creates, { list: preview.join(", ") }) : p.continues}</p>
+              <Collapse open={total > 0}>
+                <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+                  {p.noteLabel}
+                  <textarea
+                    aria-label={p.noteLabel}
+                    value={idNote}
+                    maxLength={CONTENT_NOTE_MAX}
+                    rows={2}
+                    onChange={(e) => setIdNote(e.target.value)}
+                    className="min-h-[64px] w-full resize-none rounded-[14px] border-[1.5px] border-line-strong bg-surface px-3 py-2 text-sm font-normal leading-normal [field-sizing:content]"
+                  />
+                  <span className="text-xs font-normal text-muted">{p.noteHelp}</span>
+                </label>
+              </Collapse>
               <button
                 type="button"
                 disabled={!total || pending}

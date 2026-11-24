@@ -116,6 +116,8 @@ export async function deliverPush(rows: Row[]) {
             await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, {
               vapidDetails: { subject, publicKey: keys.publicKey, privateKey: keys.privateKey },
               TTL: 60 * 60 * 12,
+              // Delivered at once even when the phone is idle (otherwise Android may hold it back for minutes).
+              urgency: "high",
             });
           } catch (error) {
             const code = (error as { statusCode?: number }).statusCode;

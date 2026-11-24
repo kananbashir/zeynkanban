@@ -167,6 +167,10 @@ export const contents = mysqlTable(
       .references(() => contentTypes.id),
     contractId: varchar("contract_id", { length: 36 }).references(() => contracts.id),
     archived: boolean("archived").notNull().default(false),
+    /** A note for all tasks of this content ID, shown under the content ID on their cards (admins and managers write it). */
+    note: text("note"),
+    noteBy: varchar("note_by", { length: 36 }).references(() => users.id),
+    noteAt: datetime("note_at", { mode: "date", fsp: 3 }),
     createdAt: createdAt(),
   },
   (t) => [index("contents_customer_idx").on(t.customerId, t.archived)],
@@ -345,7 +349,7 @@ export const taskReminders = mysqlTable(
   (t) => [primaryKey({ columns: [t.taskId, t.daysBefore] })],
 );
 
-export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder", "note", "personal", "deadline", "brief", "finished"] as const;
+export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder", "note", "personal", "deadline", "brief", "finished", "contentNote"] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 /**

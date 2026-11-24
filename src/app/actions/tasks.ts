@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
+import { runReminders } from "@/lib/reminders";
 import { db } from "@/db";
 import { contents, statuses, taskAssignees, taskReminders, taskTypes, tasks, users } from "@/db/schema";
 import type { ErrorKey } from "@/i18n/dictionaries";
@@ -17,6 +18,8 @@ import { taskEnd } from "@/lib/task-rules";
 import { found } from "@/lib/users";
 
 export type Result = { ok: true; id?: string } | { ok: false; error: ErrorKey };
+
+const sendDueReminders = () => runReminders().then(() => undefined, (error) => console.error("reminders", error));
 
 /** Phone pushes go out after the page has answered, so saving never waits for them. */
 function push(rows: Awaited<ReturnType<typeof notify>>) {
@@ -127,7 +130,10 @@ export async function createTask(input: TaskInput): Promise<Result> {
     remindTime: reminder.time,
     createdBy: me.id,
   });
-  if (reminder.days.length) await db.insert(taskReminders).values(reminder.days.map((daysBefore) => ({ taskId: id, daysBefore })));
+  if (reminder.days.length) {
+    await db.insert(taskReminders).values(reminder.days.map((daysBefore) => ({ taskId: id, daysBefore })));
+    after(sendDueReminders); // one already due goes out now, not at the next check
+  }
   const people = cleanIds(input.assigneeIds);
   await saveAssignees(id, people);
   const others = people.filter((p) => p !== me.id);
@@ -183,6 +189,7 @@ async function saveReminders(taskId: string, days: number[], timingChanged: bool
   const added = days.filter((d) => !current.includes(d));
   if (gone.length) await db.delete(taskReminders).where(and(eq(taskReminders.taskId, taskId), inArray(taskReminders.daysBefore, gone)));
   if (added.length) await db.insert(taskReminders).values(added.map((daysBefore) => ({ taskId, daysBefore })));
+  if (days.length) after(sendDueReminders); // one already due goes out now, not at the next check
   if (timingChanged) await db.update(taskReminders).set({ sentAt: null }).where(eq(taskReminders.taskId, taskId));
 }
 

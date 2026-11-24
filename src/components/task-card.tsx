@@ -15,6 +15,8 @@ import { useMe } from "./me";
 import { Collapse } from "./motion";
 import { AvatarGroup, personColor } from "./avatar-group";
 import { AddBriefButton, BriefTag, BriefWindow } from "./content-brief";
+import { ContentNoteStrip } from "./content-note";
+import { ContentWindow } from "./content-window";
 import { DeadlineStrip } from "./deadline-strip";
 import { AddFinishedButton, FinishedAsk, FinishedTag, FinishedWindow } from "./finished-work";
 import { askForFinished } from "./held-day";
@@ -52,6 +54,7 @@ export function TaskCard({
   notesInitiallyOpen = false,
   briefInitiallyOpen = false,
   finishedInitiallyOpen = false,
+  contentWindow = false,
 }: {
   task: TaskView;
   statuses: StatusOption[];
@@ -70,6 +73,8 @@ export function TaskCard({
   briefInitiallyOpen?: boolean;
   /** Opened from a finished-work notification: show the finished work straight away. */
   finishedInitiallyOpen?: boolean;
+  /** The content ID opens a window with all tasks of it (on the board and the customer page). */
+  contentWindow?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // The content brief window. Admins and managers (who can edit tasks) can also write one.
@@ -79,6 +84,8 @@ export function TaskCard({
   // The finished work of the content ID: its window, and the question asked right after "Done".
   const [finishedOpen, setFinishedOpen] = useState(finishedInitiallyOpen);
   const closeFinished = useCallback(() => setFinishedOpen(false), []);
+  const [contentOpen, setContentOpen] = useState(false);
+  const closeContent = useCallback(() => setContentOpen(false), []);
   // A card that just moved to its "finished" group is a new card: it picks the question up again.
   const [asking, setAsking] = useState(() => askForFinished.has(task.id) && !task.hasFinishedWork);
   const [askAppear] = useState(asking);
@@ -202,8 +209,24 @@ export function TaskCard({
       className={`zk-card relative flex flex-col gap-2.5 rounded-[22px] border-[1.5px] p-3.5 transition-[background-color] duration-500 sm:gap-3 sm:px-5 sm:py-[18px] ${task.contentArchived ? "border-dashed border-subtle" : "border-transparent"} ${open ? "z-20" : "z-0"}`}
       style={{ "--card": background, "--tint": task.contentArchived || closed ? "var(--color-subtle)" : status.deleted ? "var(--color-subtle)" : status.color } as React.CSSProperties}
     >
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-ink/12 pb-3">
-        <span className="rounded-lg bg-surface px-2 py-1 font-mono text-xs font-medium">{task.contentCode}</span>
+      <div className="flex flex-col gap-2 border-b border-ink/12 pb-3">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
+        {contentWindow ? (
+          <button
+            type="button"
+            onClick={() => setContentOpen(true)}
+            aria-label={fill(t.contentWindow.open, { code: task.contentCode })}
+            title={t.contentWindow.hint}
+            className="flex items-center gap-1 rounded-lg bg-surface py-1 pl-2 pr-1.5 font-mono text-xs font-medium transition-shadow hover:shadow-[0_0_0_2px_var(--color-teal)] focus-visible:shadow-[0_0_0_2px_var(--color-teal)]"
+          >
+            {task.contentCode}
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-teal-deep">
+              <path d="M7 17 17 7M8 7h9v9" />
+            </svg>
+          </button>
+        ) : (
+          <span className="rounded-lg bg-surface px-2 py-1 font-mono text-xs font-medium">{task.contentCode}</span>
+        )}
         {task.hasBrief && <BriefTag label={t.brief.tag} onOpen={() => setBriefOpen(true)} />}
         {task.hasFinishedWork && <FinishedTag f={t.finished} onOpen={() => setFinishedOpen(true)} />}
         {showCustomer && (
@@ -252,6 +275,8 @@ export function TaskCard({
             </>
           )}
         </div>
+      </div>
+      {task.contentNote && <ContentNoteStrip note={task.contentNote} label={fill(t.contents.noteOf, { code: task.contentCode })} more={t.contents.more} less={t.contents.less} />}
       </div>
       <h3 className="flex items-center gap-2.5 text-[17px] font-semibold sm:text-xl">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-surface/75 text-teal-deep sm:size-9">
@@ -336,6 +361,7 @@ export function TaskCard({
           </div>
         )}
       </Collapse>
+      {contentOpen && <ContentWindow contentId={task.contentId} fromTask={task.id} onClose={closeContent} t={t} />}
       {finishedOpen && <FinishedWindow contentId={task.contentId} taskId={task.id} onClose={closeFinished} t={t} />}
       {briefOpen && <BriefWindow contentId={task.contentId} startEditing={!task.hasBrief} onClose={closeBrief} t={t} />}
     </article>

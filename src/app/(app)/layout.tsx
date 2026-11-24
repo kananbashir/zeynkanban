@@ -6,6 +6,7 @@ import { MeProvider } from "@/components/me";
 import { Rail } from "@/components/rail";
 import { TaskPeek } from "@/components/task-peek";
 import { TopBar } from "@/components/top-bar";
+import { PushPrompt } from "@/components/push-prompt";
 import { WhatsNewWindow } from "@/components/whats-new-window";
 import { db } from "@/db";
 import { users } from "@/db/schema";
@@ -22,7 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const { locale, t } = await getDictionary();
   // The 09:00 job and task reminders also start from here, in case the hosting put the server to sleep.
   after(() => runDailyJobs().catch((error) => console.error("daily jobs", error)));
-  after(() => runReminders().catch((error) => console.error("reminders", error)));
+  after(() => runReminders({ fromPageVisit: true }).catch((error) => console.error("reminders", error)));
   const unread = await unreadCount();
   // "What's new" after an update, once per person. Someone new starts at the current version, with no window.
   const current = appVersion().version;
@@ -50,6 +51,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               <TaskPeek t={t.tasks} errors={t.errors} />
             </Suspense>
             {whatsNew.length > 0 && <WhatsNewWindow releases={whatsNew} t={t.whatsNew} />}
+            <PushPrompt t={t.pushPrompt} locale={locale} />
           </MeProvider>
         </div>
       </div>

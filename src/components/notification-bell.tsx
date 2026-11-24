@@ -1,5 +1,7 @@
 "use client";
 
+import { isIphone, pushSupported, setTurnedOffHere, subscribeHere } from "@/lib/push-client";
+
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -7,7 +9,6 @@ import {
   markAllRead,
   markRead,
   removePushSubscription,
-  savePushSubscription,
   setPref,
   unreadCount,
   type NotificationItem,
@@ -53,14 +54,6 @@ const svg = (d: string, size = 18) => (
   </svg>
 );
 
-function keyBytes(base64: string) {
-  const padded = (base64 + "=".repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, "+").replace(/_/g, "/");
-  const raw = atob(padded);
-  return Uint8Array.from(raw, (c) => c.charCodeAt(0));
-}
-
-const pushSupported = () => typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
-const isIphone = () => typeof navigator !== "undefined" && /iPhone|iPad|iPod/.test(navigator.userAgent);
 
 /** The bell in the top bar: unread count, the notification list, and the person's notification settings. */
 export function NotificationBell({ initialUnread, locale, t }: { initialUnread: number; locale: Locale; t: T }) {
@@ -78,8 +71,9 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
     setUnread(next.unread);
   }, []);
 
-  // Check for new notifications every 30 seconds and whenever the page comes back into view. When
-  // something new has arrived, the page refreshes its data too, so cards and notes show the change.
+  // Check for new notifications every 15 seconds, whenever the page comes back into view, and at once
+  // when a phone notification arrives on this device. When something new has arrived, the page
+  // refreshes its data too, so cards and notes show the change.
   const lastCount = useRef(initialUnread);
   useEffect(() => {
     let alive = true;
@@ -94,12 +88,15 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
         })
         .catch(() => {});
     };
-    const timer = setInterval(check, 30_000);
+    const timer = setInterval(check, 15_000);
     document.addEventListener("visibilitychange", check);
+    const onPush = (e: MessageEvent) => e.data?.type === "zk-notification" && check();
+    navigator.serviceWorker?.addEventListener("message", onPush);
     return () => {
       alive = false;
       clearInterval(timer);
       document.removeEventListener("visibilitychange", check);
+      navigator.serviceWorker?.removeEventListener("message", onPush);
     };
   }, [router]);
 
@@ -146,14 +143,12 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
           await removePushSubscription(sub.endpoint);
           await sub.unsubscribe();
         }
+        setTurnedOffHere(true); // switched off by hand: the site won't switch it back on by itself
         return setPush("off");
       }
       const permission = await Notification.requestPermission();
       if (permission !== "granted") return setPush(permission === "denied" ? "blocked" : "off");
-      await navigator.serviceWorker.ready;
-      const sub = (await reg.pushManager.getSubscription()) ?? (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(data.publicKey) }));
-      const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
-      setPush((await savePushSubscription(json, locale)) ? "on" : "off");
+      setPush((await subscribeHere(data.publicKey, locale)) ? "on" : "off");
     } catch {
       setPush("off");
       alert(t.pushFailed);
