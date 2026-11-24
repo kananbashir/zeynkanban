@@ -187,6 +187,12 @@ export async function tasksOfCustomer(customerId: string): Promise<TaskView[]> {
   return (await select(eq(tasks.customerId, customerId))).map((row) => toView(row, locale));
 }
 
+/** Every task of a content ID (archived ones too), earliest first. */
+export async function tasksOfContent(contentId: string): Promise<TaskView[]> {
+  const locale = await getLocale();
+  return (await select(eq(tasks.contentId, contentId))).map((row) => toView(row, locale)).sort((x, y) => x.dueDate.localeCompare(y.dueDate));
+}
+
 export async function taskById(id: string): Promise<TaskView | null> {
   const [row] = await select(eq(tasks.id, id));
   return row ? toView(row, await getLocale()) : null;

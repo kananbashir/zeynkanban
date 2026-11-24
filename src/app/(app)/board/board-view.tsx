@@ -248,6 +248,7 @@ export function BoardView({
                 </div>
                 {filtered[section.key].map((task) => (
                   <TaskCard
+                    contentWindow
                     key={task.id}
                     task={task}
                     statuses={statuses}

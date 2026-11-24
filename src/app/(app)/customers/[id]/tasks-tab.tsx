@@ -1,12 +1,13 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { loadDay } from "@/app/actions/tasks";
 import { CloseButton, Dialog } from "@/components/dialog";
 import { MiniCalendar } from "@/components/mini-calendar";
 import { DaySwitcher, EventChips, lineButton } from "@/components/day-header";
-import { useFlip } from "@/components/motion";
+import { scrollIntoViewSoftly, useFlip } from "@/components/motion";
+import { prefersReducedMotion } from "@/lib/spring";
 import { avatarColor, TaskCard, type StatusOption } from "@/components/task-card";
 import { Toast, useToast } from "@/components/toast";
 import { initials } from "@/components/top-bar";
@@ -39,6 +40,8 @@ export function TasksTab({
   canArchive,
   plan,
   openPlan,
+  addContentId,
+  focusTask,
   t,
   months,
   errors,
@@ -60,6 +63,10 @@ export function TasksTab({
   canArchive: boolean;
   plan: { shortName: string; contents: PlanContent[]; allCodes: string[]; periods: PlanPeriod[]; contentTypes: PlanType[] };
   openPlan: boolean;
+  /** Open the task form with this content ID picked (?add=, from a content ID window). */
+  addContentId: string | null;
+  /** Show this task: scroll to its card and outline it for a moment (?focus=, from a content ID window). */
+  focusTask: string | null;
   t: Dictionary["tasks"];
   months: readonly string[];
   errors: Dictionary["errors"];
@@ -69,7 +76,12 @@ export function TasksTab({
   const router = useRouter();
   const pathname = usePathname();
   const { message, show } = useToast();
-  const [form, setForm] = useState<{ task: TaskView | null } | null>(editTask ? { task: editTask } : null);
+  const [form, setForm] = useState<{ task: TaskView | null; contentId?: string } | null>(editTask ? { task: editTask } : addContentId ? { task: null, contentId: addContentId } : null);
+  const [addOpened, setAddOpened] = useState(addContentId);
+  if (addContentId !== addOpened) {
+    setAddOpened(addContentId);
+    if (addContentId) setForm({ task: null, contentId: addContentId });
+  }
   // A task to edit arriving in the address (?edit=, e.g. from the board's Edit link) opens its form.
   // Done here rather than by remounting the tab, so the "saved" message survives dropping ?edit= afterwards.
   const [editOpened, setEditOpened] = useState(editTask?.id ?? null);
@@ -86,6 +98,19 @@ export function TasksTab({
   const currentYear = Number(today.slice(0, 4));
   const list = useRef<HTMLDivElement>(null);
   useFlip(list);
+  // Arriving to show one task: glide to its card and outline it in teal for a moment.
+  useEffect(() => {
+    if (!focusTask) return;
+    const card = list.current?.querySelector<HTMLElement>(`article[data-task="${CSS.escape(focusTask)}"]`);
+    if (card) {
+      scrollIntoViewSoftly(card, "center");
+      if (!prefersReducedMotion())
+        card.animate([{ boxShadow: "0 0 0 0 transparent" }, { boxShadow: "0 0 0 3px var(--color-teal)", offset: 0.25 }, { boxShadow: "0 0 0 3px var(--color-teal)", offset: 0.7 }, { boxShadow: "0 0 0 0 transparent" }], { duration: 1800, delay: 250 });
+    }
+    const search = new URLSearchParams({ tab: "tasks", date });
+    router.replace(`${pathname}?${search}`, { scroll: false }); // drop ?focus= so it isn't shown again
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusTask]);
 
   const go = (params: Record<string, string>) => {
     const search = new URLSearchParams({ tab: "tasks", date, ...params });
@@ -93,7 +118,7 @@ export function TasksTab({
   };
   const closeForm = () => {
     setForm(null);
-    if (editTask) go({}); // drop ?edit= from the address
+    if (editTask || addContentId) go({}); // drop ?edit= or ?add= from the address
   };
   const closePlan = () => {
     setPlanning(false);
@@ -155,7 +180,7 @@ export function TasksTab({
                 <span className="text-[13px] text-muted">{day[section.key].length}{section.hint ? ` · ${section.hint}` : ""}</span>
               </div>
               {day[section.key].map((task) => (
-                <TaskCard key={task.id} task={task} statuses={statuses} canChangeStatus today={today} t={t} showCustomer={false} onEdit={() => setForm({ task })} onError={onError} />
+                <TaskCard key={task.id} contentWindow task={task} statuses={statuses} canChangeStatus today={today} t={t} showCustomer={false} onEdit={() => setForm({ task })} onError={onError} />
               ))}
             </section>
           ))}
@@ -212,6 +237,7 @@ export function TasksTab({
           today={today}
           defaultDate={date}
           task={form.task}
+          defaultContentId={form.contentId}
           canArchive={canArchive}
           t={t}
           months={months}

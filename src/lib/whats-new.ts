@@ -17,6 +17,7 @@ export const RELEASES: Release[] = [
     date: "2026-11-24",
     items: [
       { kind: "new", icon: "pin", az: { title: "Kontent ID-yə qeyd", text: "Adminlər və menecerlər müştərinin “Kontentlər” bölməsində kontent ID-yə qeyd yaza bilər. Qeyd həmin kontent ID-nin bütün tapşırıqlarında onun altında görünür və tapşırıqlardakı insanlara bildiriş gedir." }, en: { title: "Notes on content IDs", text: "Admins and managers can write a note on a content ID in the customer’s Contents tab. It shows under the content ID on every task of it, and the people on those tasks are notified." } },
+      { kind: "new", icon: "list", admins: true, az: { title: "Kontent ID pəncərəsi", text: "İdarəetmə lövhəsində və müştəri səhifəsində kartdakı kontent ID-yə toxunun: onun bütün tapşırıqları, zaman xətti, qeydi və irəliləyişi bir pəncərədə görünür. Tapşırığa toxunanda onun günü açılır." }, en: { title: "Content ID window", text: "On the managing board and the customer page, tap the content ID on a card to see all its tasks, a timeline, its note and progress in one window. Tapping a task opens its day." } },
       { kind: "fixed", icon: "icons", admins: true, az: { title: "Telefonda ikon seçimi", text: "Ayarlarda tapşırıq növünün ikon cədvəli artıq telefon ekranına tam sığır." }, en: { title: "Icon picker on phones", text: "The task type icon grid in Settings now fits on phone screens." } },
     ],
   },

@@ -41,6 +41,7 @@ export function TaskForm({
   specialDays,
   today,
   defaultDate,
+  defaultContentId,
   task,
   canArchive,
   t,
@@ -59,6 +60,8 @@ export function TaskForm({
   specialDays: SpecialDay[];
   today: string;
   defaultDate: string;
+  /** A new task starts with this content ID picked. */
+  defaultContentId?: string;
   task: TaskView | null;
   canArchive: boolean;
   t: Dictionary["tasks"];
@@ -73,7 +76,7 @@ export function TaskForm({
   const [typeId, setTypeId] = useState<string>(task ? (knownType ? task.taskTypeId : OTHER) : "");
   const [typeName, setTypeName] = useState(task && !knownType ? task.typeName : "");
   const [saveType, setSaveType] = useState(false);
-  const [contentId, setContentId] = useState(task?.contentId ?? "");
+  const [contentId, setContentId] = useState(task?.contentId ?? defaultContentId ?? "");
   const [assigneeIds, setAssigneeIds] = useState<string[]>(task?.assignees.map((p) => p.id) ?? []);
   const [date, setDate] = useState(task?.dueDate ?? defaultDate);
   // Days from the task's day to its deadline (0: no deadline, due that same day). Kept when the day
