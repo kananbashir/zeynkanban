@@ -112,3 +112,23 @@ export function formatPeriod(start: Month, end: Month, monthNames: readonly stri
   if (start.year === end.year) return `${name(start)} – ${name(end)} ${start.year}`;
   return `${name(start)} ${start.year} – ${name(end)} ${end.year}`;
 }
+
+/** The longest a content ID's note can be. */
+export const CONTENT_NOTE_MAX = 500;
+
+/**
+ * A content ID's note as typed: spaces trimmed (line breaks kept, at most two in a row), capped
+ * at 500 characters. Empty means "no note".
+ */
+export function cleanContentNote(input: unknown): string | null {
+  const text = String(input ?? "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+    .slice(0, CONTENT_NOTE_MAX)
+    .trim();
+  return text || null;
+}

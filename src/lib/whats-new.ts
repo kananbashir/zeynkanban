@@ -5,13 +5,21 @@ import type { Locale } from "@/i18n/dictionaries";
 
 export type ReleaseKind = "new" | "improved" | "fixed";
 /** The small picture before an item (drawn in whats-new-window.tsx). */
-export type ReleaseIcon = "finished" | "icons" | "motion" | "settings" | "keyboard" | "lock" | "bell" | "brief" | "deadline" | "list" | "search" | "status" | "logout" | "sparkle";
+export type ReleaseIcon = "finished" | "icons" | "motion" | "settings" | "keyboard" | "lock" | "bell" | "brief" | "deadline" | "list" | "search" | "status" | "logout" | "sparkle" | "pin";
 type Text = { title: string; text: string };
 export type ReleaseItem = { kind: ReleaseKind; icon: ReleaseIcon; az: Text; en: Text; /** Only about things admins (and managers) use, e.g. Settings. */ admins?: boolean };
 /** `date`: the day the version went live (merged into main), yyyy-mm-dd. */
 export type Release = { version: string; date: string; items: ReleaseItem[] };
 
 export const RELEASES: Release[] = [
+  {
+    version: "0.15.0",
+    date: "2026-11-24",
+    items: [
+      { kind: "new", icon: "pin", az: { title: "Kontent ID-yə qeyd", text: "Adminlər və menecerlər müştərinin “Kontentlər” bölməsində kontent ID-yə qeyd yaza bilər. Qeyd həmin kontent ID-nin bütün tapşırıqlarında onun altında görünür və tapşırıqlardakı insanlara bildiriş gedir." }, en: { title: "Notes on content IDs", text: "Admins and managers can write a note on a content ID in the customer’s Contents tab. It shows under the content ID on every task of it, and the people on those tasks are notified." } },
+      { kind: "fixed", icon: "icons", admins: true, az: { title: "Telefonda ikon seçimi", text: "Ayarlarda tapşırıq növünün ikon cədvəli artıq telefon ekranına tam sığır." }, en: { title: "Icon picker on phones", text: "The task type icon grid in Settings now fits on phone screens." } },
+    ],
+  },
   {
     version: "0.14.0",
     date: "2026-11-24",

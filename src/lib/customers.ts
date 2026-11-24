@@ -1,7 +1,7 @@
 import "server-only";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { contentTypes, contents, contracts, customers } from "@/db/schema";
+import { contentTypes, contents, contracts, customers, users } from "@/db/schema";
 import { compareCodes } from "./content-rules";
 
 export type ContractRow = { id: string; startMonth: string; endMonth: string };
@@ -34,9 +34,13 @@ export async function contentsOf(customerId: string) {
       typeName: contentTypes.name,
       typeCode: contentTypes.code,
       contractId: contents.contractId,
+      note: contents.note,
+      noteBy: users.name,
+      noteAt: contents.noteAt,
     })
     .from(contents)
     .innerJoin(contentTypes, eq(contentTypes.id, contents.contentTypeId))
+    .leftJoin(users, eq(users.id, contents.noteBy))
     .where(eq(contents.customerId, customerId));
   return rows.sort((a, b) => Number(a.archived) - Number(b.archived) || compareCodes(a.code, b.code));
 }

@@ -77,7 +77,7 @@ export default async function CustomerPage({
         counts={counts}
         statuses={statuses}
         specialDays={specialDays}
-        contents={contentRows.filter((x) => !x.archived).map((x) => ({ id: x.id, code: x.code, typeName: x.typeName, publishDate: publishDate.get(x.id) ?? null }))}
+        contents={contentRows.filter((x) => !x.archived).map((x) => ({ id: x.id, code: x.code, typeName: x.typeName, publishDate: publishDate.get(x.id) ?? null, note: x.note }))}
         types={taskTypes}
         people={people}
         editTask={editing && editing.customerId === id ? editing : null}

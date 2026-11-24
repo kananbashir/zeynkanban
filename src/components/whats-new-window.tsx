@@ -28,6 +28,7 @@ export const RELEASE_ICONS: Record<ReleaseIcon, string> = {
   status: "M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M15 9l-6 6M9 9l6 6",
   logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
   sparkle: "M12 3l1.9 5.6 5.6 1.9-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9zM19 3v4M17 5h4",
+  pin: "M12 17v5M9 10.8V5h6v5.8l2.6 2.7c.3.3.4.6.4 1V15H6v-.5c0-.4.1-.7.4-1zM8 5h8",
 };
 export const KIND_COLORS: Record<ReleaseKind, string> = { new: "bg-leaf-tint text-leaf-ink", improved: "bg-teal-tint text-teal-deep", fixed: "bg-sun-tint text-sun-ink" };
 

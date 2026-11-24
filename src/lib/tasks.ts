@@ -53,6 +53,8 @@ export type TaskView = {
   hasBrief: boolean;
   /** Its content ID has finished work (links to the final video, design or post). */
   hasFinishedWork: boolean;
+  /** The note on its content ID, shown under the content ID on the card (null: none). */
+  contentNote: string | null;
 };
 
 function select(where: SQL | undefined) {
@@ -91,6 +93,7 @@ function select(where: SQL | undefined) {
       remindTime: tasks.remindTime,
       notesCount: sql<number>`(select count(*) from ${taskNotes} where ${taskNotes.taskId} = ${tasks.id})`.mapWith(Number),
       hasBrief: sql<boolean>`exists (select 1 from ${contentBriefs} where ${contentBriefs.contentId} = ${tasks.contentId})`.mapWith(Boolean),
+      contentNote: contents.note,
       hasFinishedWork: sql<boolean>`exists (select 1 from ${finishedWorks} where ${finishedWorks.contentId} = ${tasks.contentId})`.mapWith(Boolean),
       createdAt: tasks.createdAt,
     })
@@ -140,6 +143,7 @@ function toView(row: Row, locale: Locale): TaskView {
     notesCount: row.notesCount,
     hasBrief: row.hasBrief,
     hasFinishedWork: row.hasFinishedWork,
+    contentNote: row.contentNote ?? null,
   };
 }
 

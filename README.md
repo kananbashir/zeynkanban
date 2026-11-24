@@ -84,6 +84,7 @@ A new installation starts with four statuses (Ediləcək / To do, İcrada / In p
 - **Contracts**: renewing adds a new period and keeps the old ones as history. The default renewal starts the month after the current contract and lasts as long.
 - **Content IDs** (admin and manager add and rename; only admin archives) follow the scheme `[short name]-[type code]-[period]-[number]`, e.g. `thrive-vid-nd26-1`. The period uses English month initials and the year, both years when it crosses the new year: `nd26`, `dj2627`, `n26` for a single month. The next free number is suggested and can be overwritten; an ID can't be used twice.
 - Once content IDs use a content type, its code is locked in Settings.
+- **Note on a content ID** (admins and managers write it): an optional note for all tasks of a content ID, up to 500 characters. It can be typed when adding a content ID, once for all the IDs made with "Generate IDs and plan month", or later in the Contents tab: open the content ID's row to see it in a yellow box with **Edit** (empty it and save to remove it), or "+ Add note for all its tasks". A closed row shows a one-line preview. The note shows in a soft strip with a pin under the content ID on every task card of it (long notes show two lines and **More**, which opens smoothly), and under the content ID when it is picked in the task form. The people on its tasks are notified when it is added or changed.
 
 ## Tasks and the managing board
 
@@ -148,6 +149,7 @@ The bell in the top bar shows how many notifications are unread; it checks again
 | Ready for review | Admins and managers, when a task moves into a status marked "Sends ‘Ready for review’" (Settings → Statuses); this replaces "Status changed" for that move |
 | Reminder | The people on a task, when it has reminders set (see below) |
 | Content brief added or updated | Everyone on the tasks of that content ID except whoever wrote it; it opens the task with the brief open. Part of the "Changes to my tasks" setting |
+| Note on a content ID added or changed | The people on the tasks of that content ID, except whoever wrote it. Part of the "Changes to my tasks" setting |
 | Finished work added or updated | Admins, managers and the people on the other tasks of that content ID, except whoever did it; it opens the task with the finished work open. Part of the "Changes to my tasks" setting |
 | 1 day left until the deadline | The people on a task and whoever created it, at 09:00 the day before its deadline (tasks with a deadline only, while unfinished). Part of the Reminders setting |
 | New note on a task | Admins and managers, and the people on the task, when someone else adds a note to it |
@@ -238,6 +240,7 @@ Every change that reaches the live site gets a new version number in `package.js
 
 | Version | What changed |
 |---|---|
+| 0.15.0 | A note on a content ID, written on the Contents tab (or when adding or generating IDs) and shown under the content ID on every task card of it; the task type icon grid fits on phones |
 | 0.14.0 | Finished work on content IDs (asked after "Done", green tag on every task of the content ID, notifications); icons for task types; the "What's new" window and the version list on the About page; a redesigned Settings (menu with icons, rows that open, Undo, switches, groups, theme previews); cancelled and postponed tasks locked for employees |
 | 0.13.1 | The task form's day list in tidy columns (content ID · type · customer; a small tile per task on phones); opening and closing panels (notes, the personal task form, brief fields, Settings rows) ease in and out with no jump; the personal task form no longer brings up the keyboard on phones |
 | 0.13.0 | Statuses that count as cancelled or postponed, shown in the day summary, the board filter and the dashboard; wider board search; the brief's "Add field" list opens upwards when there is no room below |

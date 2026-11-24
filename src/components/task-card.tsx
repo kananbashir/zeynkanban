@@ -15,6 +15,7 @@ import { useMe } from "./me";
 import { Collapse } from "./motion";
 import { AvatarGroup, personColor } from "./avatar-group";
 import { AddBriefButton, BriefTag, BriefWindow } from "./content-brief";
+import { ContentNoteStrip } from "./content-note";
 import { DeadlineStrip } from "./deadline-strip";
 import { AddFinishedButton, FinishedAsk, FinishedTag, FinishedWindow } from "./finished-work";
 import { askForFinished } from "./held-day";
@@ -202,7 +203,8 @@ export function TaskCard({
       className={`zk-card relative flex flex-col gap-2.5 rounded-[22px] border-[1.5px] p-3.5 transition-[background-color] duration-500 sm:gap-3 sm:px-5 sm:py-[18px] ${task.contentArchived ? "border-dashed border-subtle" : "border-transparent"} ${open ? "z-20" : "z-0"}`}
       style={{ "--card": background, "--tint": task.contentArchived || closed ? "var(--color-subtle)" : status.deleted ? "var(--color-subtle)" : status.color } as React.CSSProperties}
     >
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-ink/12 pb-3">
+      <div className="flex flex-col gap-2 border-b border-ink/12 pb-3">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
         <span className="rounded-lg bg-surface px-2 py-1 font-mono text-xs font-medium">{task.contentCode}</span>
         {task.hasBrief && <BriefTag label={t.brief.tag} onOpen={() => setBriefOpen(true)} />}
         {task.hasFinishedWork && <FinishedTag f={t.finished} onOpen={() => setFinishedOpen(true)} />}
@@ -252,6 +254,8 @@ export function TaskCard({
             </>
           )}
         </div>
+      </div>
+      {task.contentNote && <ContentNoteStrip note={task.contentNote} label={fill(t.contents.noteOf, { code: task.contentCode })} more={t.contents.more} less={t.contents.less} />}
       </div>
       <h3 className="flex items-center gap-2.5 text-[17px] font-semibold sm:text-xl">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-surface/75 text-teal-deep sm:size-9">

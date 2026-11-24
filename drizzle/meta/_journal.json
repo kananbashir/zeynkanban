@@ -141,6 +141,13 @@
       "when": 1795509534816,
       "tag": "0019_whats_new",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1795528260723,
+      "tag": "0020_content_note",
+      "breakpoints": true
     }
   ]
 }

@@ -22,6 +22,8 @@ export type NotificationData =
   | ({ kind: "brief"; action: "added" | "updated"; by: string } & TaskRef)
   /** The finished work of the content ID of a task of yours was added or changed. */
   | ({ kind: "finished"; action: "added" | "updated"; by: string; links?: number } & TaskRef)
+  /** The note on the content ID of a task of yours was added or changed (by an admin or manager). */
+  | ({ kind: "contentNote"; action: "added" | "updated"; by: string; text: string } & TaskRef)
   | ({ kind: "note"; by: string; body: string } & TaskRef)
   | { kind: "personal"; title: string; due: string; time: string | null }
   | { kind: "overdueMany"; count: number }
@@ -97,6 +99,8 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
       const by = fill(t.by, { name: d.by });
       return { title: d.action === "added" ? t.kinds.finished : t.finishedUpdated, a, b: viewerIsStaff && d.links ? `${by} · ${d.links === 1 ? t.link1 : fill(t.linksN, { n: d.links })}` : by, href, icon: "finished", ...open, finished: true };
     }
+    case "contentNote":
+      return { title: fill(d.action === "added" ? t.contentNoteAdded : t.contentNoteUpdated, { code: d.code }), a, b: fill(t.noteLine, { name: d.by, body: d.text }), href, icon: "note", ...open };
     case "deadline":
       return { title: t.kinds.deadline, a, b: fill(t.deadlineLine, { date: date(d.due), from: date(d.from) }), href, icon: "reminder", ...open };
     case "changed": {
@@ -137,6 +141,7 @@ export const PREF_OF = {
   deadline: "reminder",
   brief: "changed",
   finished: "changed",
+  contentNote: "changed",
 } as const;
 export type PrefKey = (typeof PREF_OF)[keyof typeof PREF_OF];
 export const STAFF_PREFS: PrefKey[] = ["assigned", "changed", "notes", "reminder", "summary", "review", "status", "overdue"];

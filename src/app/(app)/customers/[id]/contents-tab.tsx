@@ -1,22 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { FinishedTag, FinishedWindow } from "@/components/finished-work";
 import { InlineText } from "@/components/inline-text";
-import { SegmentedControl } from "@/components/motion";
+import { PinIcon } from "@/components/content-note";
+import { Collapse, SegmentedControl } from "@/components/motion";
 import { Toast, useToast } from "@/components/toast";
 import { btn, card, field, row, rowOff } from "@/components/ui";
 import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import { setTaskArchived } from "@/app/actions/tasks";
-import { suggestContentId } from "@/lib/content-rules";
+import { CONTENT_NOTE_MAX, suggestContentId } from "@/lib/content-rules";
 import { shortDate } from "@/lib/format-date";
 import type { TaskView } from "@/lib/tasks";
-import { addContent, renameContent, setContentArchived } from "../actions";
+import { addContent, renameContent, setContentArchived, setContentNote } from "../actions";
 
 type Period = { id: string; label: string; code: string };
-type Content = { id: string; code: string; archived: boolean; contentTypeId: string; typeName: string; typeCode: string; contractId: string | null };
+type Content = { id: string; code: string; archived: boolean; contentTypeId: string; typeName: string; typeCode: string; contractId: string | null; note: string | null; noteBy: string | null; noteAt: Date | null };
 type ContentType = { id: string; code: string; name: string };
 
 export function ContentsTab({
@@ -52,6 +53,7 @@ export function ContentsTab({
   const [contractId, setContractId] = useState(periods[0]?.id ?? "");
   const [typed, setTyped] = useState<string | null>(null); // null = use the suggestion
   const [formError, setFormError] = useState<string | null>(null);
+  const [note, setNote] = useState("");
   // IDs saved from this form, counted for the next suggestion even before the page has refreshed.
   const [justAdded, setJustAdded] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<string[]>([]);
@@ -108,6 +110,12 @@ export function ContentsTab({
             ) : (
               <InlineText mono value={item.code} label={t.editId} onSave={(next) => run(() => renameContent(item.id, next))} />
             )}
+            <Collapse open={!!item.note && !open}>
+              <span className="flex min-w-0 items-center gap-1.5 px-2.5 pt-0.5 text-[12.5px] text-sun-ink">
+                <PinIcon size={13} />
+                <span className="truncate">{item.note}</span>
+              </span>
+            </Collapse>
           </div>
           <span className="whitespace-nowrap rounded-full bg-surface px-2.5 py-1 text-xs font-semibold">{item.typeName}</span>
           {own.some((x) => x.hasFinishedWork) && <FinishedTag f={taskT.finished} onOpen={() => setFinishedOf(item.id)} />}
@@ -124,7 +132,9 @@ export function ContentsTab({
             </button>
           )}
         </div>
-        {open && (
+        <Collapse open={open}>
+          <div className="flex flex-col gap-2">
+          {!item.archived && <NoteBox item={item} taskCount={live.length} t={t} taskT={taskT} errors={errors} onDone={(text) => show(text)} onError={(text) => show(text, "error")} />}
           <div className="flex flex-col rounded-2xl bg-surface px-3.5 py-1.5">
             {own.map((x, i) => (
               <div key={x.id} className={`flex flex-wrap items-center gap-x-4 gap-y-1 py-2.5 text-[13px] text-ink-soft ${i ? "border-t border-line" : ""}`}>
@@ -144,7 +154,8 @@ export function ContentsTab({
             ))}
             {own.length === 0 && <p className="py-3 text-[13px] text-muted">{t.noTasks}</p>}
           </div>
-        )}
+          </div>
+        </Collapse>
       </div>
     );
   };
@@ -175,9 +186,10 @@ export function ContentsTab({
               e.preventDefault();
               setFormError(null);
               startTransition(async () => {
-                const result = await addContent(customerId, typeId, contractId, code);
+                const result = await addContent(customerId, typeId, contractId, code, note);
                 if (!result.ok) return setFormError(errors[result.error]);
                 show(fill(t.saved, { code }));
+                setNote("");
                 setJustAdded((list) => [...list, code]);
                 setTyped(null);
               });
@@ -224,9 +236,16 @@ export function ContentsTab({
                     maxLength={60}
                   />
                 </label>
-                <p className={`text-[13px] ${formError ? "font-medium text-danger" : "text-ink-soft"}`} role={formError ? "alert" : undefined}>
+                <p className={`-mt-2 text-[13px] ${formError ? "font-medium text-danger" : "text-ink-soft"}`} role={formError ? "alert" : undefined}>
                   {formError ?? t.suggestHelp}
                 </p>
+                <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+                  <span>
+                    {t.noteLabel} <span className="font-medium text-muted">· {t.noteHelp}</span>
+                  </span>
+                  <NoteArea value={note} onChange={setNote} label={t.noteLabel} />
+                  <span className="self-end text-xs font-medium text-muted tabular-nums">{fill(t.noteCount, { n: note.length, max: CONTENT_NOTE_MAX })}</span>
+                </label>
                 <div className="flex flex-wrap gap-2.5">
                   <button type="submit" className={btn.primary} disabled={pending || !code}>
                     {t.save}
@@ -257,6 +276,128 @@ export function ContentsTab({
       )}
       {finishedOf && <FinishedWindow contentId={finishedOf} onClose={() => setFinishedOf(null)} t={taskT} />}
       <Toast message={message} />
+    </div>
+  );
+}
+
+/** A box for a content ID's note that grows with its text. */
+function NoteArea({ value, onChange, label, autoFocus = false }: { value: string; onChange: (text: string) => void; label: string; autoFocus?: boolean }) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    // Only with a mouse: on a phone the keyboard would jump up on its own.
+    if (autoFocus && window.matchMedia("(pointer: fine)").matches) ref.current?.focus();
+  }, [autoFocus]);
+  return (
+    <textarea
+      ref={ref}
+      aria-label={label}
+      value={value}
+      maxLength={CONTENT_NOTE_MAX}
+      rows={3}
+      onChange={(e) => onChange(e.target.value)}
+      className={`${field} min-h-[76px] resize-none py-2.5 font-normal leading-normal [field-sizing:content]`}
+    />
+  );
+}
+
+const bakuWhen = (at: Date, taskT: Dictionary["tasks"]) => {
+  const day = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Baku" }).format(at);
+  const clock = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Baku", hour: "2-digit", minute: "2-digit", hour12: false }).format(at);
+  return `${shortDate(day, taskT)}, ${clock}`;
+};
+
+/**
+ * The note of a content ID in its opened row: the note in a yellow box with Edit, an editor that
+ * opens in place (empty it and save to remove the note), or "+ Add note for all its tasks".
+ */
+function NoteBox({
+  item,
+  taskCount,
+  t,
+  taskT,
+  errors,
+  onDone,
+  onError,
+}: {
+  item: Content;
+  taskCount: number;
+  t: Dictionary["customers"]["contents"];
+  taskT: Dictionary["tasks"];
+  errors: Dictionary["errors"];
+  onDone: (text: string) => void;
+  onError: (text: string) => void;
+}) {
+  const [shown, setShown] = useState({ note: item.note, by: item.noteBy, at: item.noteAt });
+  const [seen, setSeen] = useState(item);
+  if (seen !== item) {
+    setSeen(item);
+    setShown({ note: item.note, by: item.noteBy, at: item.noteAt });
+  }
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState("");
+  const [pending, startTransition] = useTransition();
+  const edit = () => {
+    setText(shown.note ?? "");
+    setEditing(true);
+  };
+  const save = () =>
+    startTransition(async () => {
+      const result = await setContentNote(item.id, text);
+      if (!result.ok) return onError(errors[result.error] ?? errors.generic);
+      setShown({ note: result.note ?? null, by: result.by ?? null, at: result.at ? new Date(result.at) : null });
+      setEditing(false);
+      onDone(result.note ? t.noteSaved : t.noteRemoved);
+    });
+  const shared = taskCount === 0 ? t.noteShared0 : taskCount === 1 ? t.noteShared1 : fill(t.noteShared, { n: taskCount });
+  return (
+    <div className="flex flex-col">
+      <Collapse open={!editing && !!shown.note}>
+        <section aria-label={t.noteLabel} className="flex flex-col gap-1.5 rounded-2xl bg-sun-tint px-3.5 py-3">
+          <div className="flex items-center gap-2 text-[11.5px] font-extrabold uppercase tracking-wider text-sun-ink">
+            <PinIcon />
+            <span className="flex-1">{t.noteLabel}</span>
+            <button type="button" aria-label={fill(t.noteEditOf, { code: item.code })} onClick={edit} className="flex min-h-9 items-center gap-1.5 rounded-full bg-surface px-3 text-[13px] font-bold normal-case tracking-normal text-ink">
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" />
+              </svg>
+              {t.noteEdit}
+            </button>
+          </div>
+          <p className="whitespace-pre-line text-sm leading-normal text-ink-body [overflow-wrap:anywhere]">{shown.note}</p>
+          {shown.by && shown.at && <span className="text-xs text-muted">{fill(t.noteBy, { name: shown.by, when: bakuWhen(shown.at, taskT) })}</span>}
+        </section>
+      </Collapse>
+      <Collapse open={!editing && !shown.note}>
+        <button type="button" onClick={edit} className="flex min-h-9 items-center gap-1.5 self-start rounded-full border-[1.5px] border-dashed border-ink/35 bg-surface/60 px-3 text-[13px] font-bold text-ink hover:bg-surface">
+          <span aria-hidden="true" className="text-base leading-none">+</span>
+          {t.noteAdd}
+        </button>
+      </Collapse>
+      <Collapse open={editing}>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            save();
+          }}
+          className="flex flex-col gap-2 rounded-2xl border-[1.5px] border-sun bg-surface p-3"
+        >
+          <span className="text-[11.5px] font-extrabold uppercase tracking-wider text-sun-ink">{t.noteLabel}</span>
+          {editing && <NoteArea value={text} onChange={setText} label={t.noteLabel} autoFocus />}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="flex-[1_1_220px] text-xs text-muted">
+              {shared}
+              {shown.note ? ` ${t.noteEmptyHint}` : ""}
+            </span>
+            <span className="text-xs text-muted tabular-nums">{fill(t.noteCount, { n: text.length, max: CONTENT_NOTE_MAX })}</span>
+            <button type="button" onClick={() => setEditing(false)} className="min-h-10 rounded-full bg-mint px-4 text-[13px] font-semibold">
+              {t.noteCancel}
+            </button>
+            <button type="submit" disabled={pending || (!text.trim() && !shown.note)} className="min-h-10 rounded-full bg-sun px-4 text-[13px] font-bold text-ink disabled:opacity-50">
+              {t.noteSave}
+            </button>
+          </div>
+        </form>
+      </Collapse>
     </div>
   );
 }
