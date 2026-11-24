@@ -5,13 +5,21 @@ import type { Locale } from "@/i18n/dictionaries";
 
 export type ReleaseKind = "new" | "improved" | "fixed";
 /** The small picture before an item (drawn in whats-new-window.tsx). */
-export type ReleaseIcon = "finished" | "icons" | "motion" | "settings" | "keyboard" | "lock" | "bell" | "brief" | "deadline" | "list" | "search" | "status" | "logout" | "sparkle" | "pin";
+export type ReleaseIcon = "finished" | "icons" | "motion" | "settings" | "keyboard" | "lock" | "bell" | "brief" | "deadline" | "list" | "search" | "status" | "logout" | "sparkle" | "pin" | "chart";
 type Text = { title: string; text: string };
 export type ReleaseItem = { kind: ReleaseKind; icon: ReleaseIcon; az: Text; en: Text; /** Only about things admins (and managers) use, e.g. Settings. */ admins?: boolean };
 /** `date`: the day the version went live (merged into main), yyyy-mm-dd. */
 export type Release = { version: string; date: string; items: ReleaseItem[] };
 
 export const RELEASES: Release[] = [
+  {
+    version: "0.16.0",
+    date: "2026-11-24",
+    items: [
+      { kind: "new", icon: "brief", az: { title: "İşçilər də brif yaza bilər", text: "Tapşırığınız olan kontent ID-nin brifi yoxdursa, kartdakı “+ Kontent brifi əlavə et” ilə onu yaza bilərsiniz. Yalnız özünüz əlavə etdiyiniz brifə düzəliş edə və onu silə bilərsiniz. Adminlərə, menecerlərə və digər tapşırıqlardakı insanlara bildiriş gedir." }, en: { title: "Employees can write briefs too", text: "If a content ID you have a task on has no brief, add one with “+ Add content brief” on the card. You can edit or delete only the briefs you added. Admins, managers and the people on the other tasks are notified." } },
+      { kind: "new", icon: "chart", az: { title: "Sizin paneliniz", text: "Daxil olandan sonra öz panelinizi görürsünüz, yalnız sizin tapşırıqlarla: bitənlər (və vaxtında bitənlər), gecikənlər, gün-gün qrafik, qarşıdakı son tarixlər, müştərilər və tapşırıq növləri." }, en: { title: "Your own dashboard", text: "After logging in you land on your own dashboard, with only your tasks: finished (and on time), overdue, a day-by-day chart, your next deadlines, customers and task types." } },
+    ],
+  },
   {
     version: "0.15.1",
     date: "2026-11-24",

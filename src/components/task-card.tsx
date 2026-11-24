@@ -171,7 +171,8 @@ export function TaskCard({
   const lateDays = !closed && !status.postponed && end < today ? daysBetween(end, today) : 0;
   const statusLabel = status.deleted ? fill(t.deletedStatus, { name: status.name }) : status.name;
   const typeLabel = task.typeDeleted ? fill(t.deletedType, { name: task.typeName }) : task.typeName;
-  const addBrief = !task.hasBrief && canWriteBrief;
+  // Anyone who sees the card (on the task, or an admin or manager) may add a brief when there is none.
+  const addBrief = !task.hasBrief;
   // Not while the question is open or folding away: the button shows once the card has moved on.
   const addFinished = status.finished && !task.hasFinishedWork && !asking && !askForFinished.has(task.id);
   const background = task.contentArchived ? ARCHIVED_BACKGROUND : cardBackground(status.color, closed);
