@@ -13,11 +13,18 @@ export type Release = { version: string; date: string; items: ReleaseItem[] };
 
 export const RELEASES: Release[] = [
   {
+    version: "0.15.1",
+    date: "2026-11-24",
+    items: [
+      { kind: "improved", icon: "list", az: { title: "Kontent ID pəncərəsi hamı üçün", text: "İşçilər də “Tapşırıqlarım”da kartdakı kontent ID-yə toxunub onun bütün tapşırıqlarını görə bilər. Öz tapşırıqlarına toxunanda onların günü açılır; başqalarının tapşırıqları yalnız görünür." }, en: { title: "Content ID window for everyone", text: "Employees can also tap the content ID on their cards in My tasks to see all its tasks. Tapping one of their own tasks opens its day; other people’s tasks are only shown." } },
+    ],
+  },
+  {
     version: "0.15.0",
     date: "2026-11-24",
     items: [
       { kind: "new", icon: "pin", az: { title: "Kontent ID-yə qeyd", text: "Adminlər və menecerlər müştərinin “Kontentlər” bölməsində kontent ID-yə qeyd yaza bilər. Qeyd həmin kontent ID-nin bütün tapşırıqlarında onun altında görünür və tapşırıqlardakı insanlara bildiriş gedir." }, en: { title: "Notes on content IDs", text: "Admins and managers can write a note on a content ID in the customer’s Contents tab. It shows under the content ID on every task of it, and the people on those tasks are notified." } },
-      { kind: "new", icon: "list", az: { title: "Kontent ID pəncərəsi", text: "İdarəetmə lövhəsində, müştəri səhifəsində və “Tapşırıqlarım”da kartdakı kontent ID-yə toxunun: onun bütün tapşırıqları, zaman xətti, qeydi və irəliləyişi bir pəncərədə görünür. Tapşırığa toxunanda onun günü açılır." }, en: { title: "Content ID window", text: "On the managing board, the customer page and My tasks, tap the content ID on a card to see all its tasks, a timeline, its note and progress in one window. Tapping a task opens its day." } },
+      { kind: "new", icon: "list", admins: true, az: { title: "Kontent ID pəncərəsi", text: "İdarəetmə lövhəsində və müştəri səhifəsində kartdakı kontent ID-yə toxunun: onun bütün tapşırıqları, zaman xətti, qeydi və irəliləyişi bir pəncərədə görünür. Tapşırığa toxunanda onun günü açılır." }, en: { title: "Content ID window", text: "On the managing board and the customer page, tap the content ID on a card to see all its tasks, a timeline, its note and progress in one window. Tapping a task opens its day." } },
       { kind: "new", icon: "bell", az: { title: "Telefon bildirişləri bir toxunuşla", text: "Daxil olandan sonra sayt bu cihazda bildirişləri açmağı özü təklif edir: “Aç” düyməsinə və telefonun “İcazə ver” sualına toxunmaq kifayətdir." }, en: { title: "Phone notifications in one tap", text: "After logging in, the site offers to turn on notifications on this device: tap “Turn on”, then “Allow” in your phone’s box." } },
       { kind: "fixed", icon: "bell", az: { title: "Bildirişlər daha tez gəlir", text: "Xatırlatmalar və bildirişlər artıq bir-iki dəqiqə gecikmir, bir neçə saniyəyə gəlir. Telefon bildirişləri də dərhal çatdırılır." }, en: { title: "Notifications arrive faster", text: "Reminders and notifications no longer come a minute or two late; they arrive within seconds, and phone notifications are delivered straight away." } },
       { kind: "fixed", icon: "brief", admins: true, az: { title: "Brifdə sahə silinməsi", text: "Brif pəncərəsində sahə silinəndə artıq titrəmə olmur." }, en: { title: "Removing a brief field", text: "Removing a field in the brief window no longer flickers." } },

@@ -239,11 +239,18 @@ If building a new version fails, Railway keeps the previous one running.
 
 ## Versions
 
-Every change that reaches the live site gets a new version number in `package.json`, shown on the About page: the middle number goes up for new features, the last one for fixes only.
+Every change that reaches the live site gets a new version number in `package.json`, shown on the About page and in "What's new". It is written **first.second.third**:
+
+- **First number**: only for a big update, e.g. the whole look of the site changes.
+- **Second number**: a whole new feature is added, e.g. the window with all tasks of a content ID. The third number goes back to 0.
+- **Third number**: fixes and small changes to what is already there.
+
+A version's date is the day it is merged into `main`.
 
 | Version | What changed |
 |---|---|
-| 0.15.0 | The site is called "Zeynmedia project management tool" with the Zeyn Media logo as its icon (browser tab and home screen); phone notifications are offered with one tap right after logging in (and switched on without asking where already allowed); reminders and notifications arrive within seconds (they could be 1–2 minutes late); removing a field in the brief window no longer flickers on Safari; a note on a content ID, written on the Contents tab (or when adding or generating IDs) and shown under the content ID on every task card of it; the content ID window (all its tasks, a timeline and its details) from the board, the customer page and My tasks; the task type icon grid fits on phones |
+| 0.15.1 | Employees can open the content ID window too (from My tasks and the task window), read-only; they can open only their own tasks from it |
+| 0.15.0 | The site is called "Zeynmedia project management tool" with the Zeyn Media logo as its icon (browser tab and home screen); phone notifications are offered with one tap right after logging in (and switched on without asking where already allowed); reminders and notifications arrive within seconds (they could be 1–2 minutes late); removing a field in the brief window no longer flickers on Safari; a note on a content ID, written on the Contents tab (or when adding or generating IDs) and shown under the content ID on every task card of it; the content ID window (all its tasks, a timeline and its details) from the board and the customer page; the task type icon grid fits on phones |
 | 0.14.0 | Finished work on content IDs (asked after "Done", green tag on every task of the content ID, notifications); icons for task types; the "What's new" window and the version list on the About page; a redesigned Settings (menu with icons, rows that open, Undo, switches, groups, theme previews); cancelled and postponed tasks locked for employees |
 | 0.13.1 | The task form's day list in tidy columns (content ID · type · customer; a small tile per task on phones); opening and closing panels (notes, the personal task form, brief fields, Settings rows) ease in and out with no jump; the personal task form no longer brings up the keyboard on phones |
 | 0.13.0 | Statuses that count as cancelled or postponed, shown in the day summary, the board filter and the dashboard; wider board search; the brief's "Add field" list opens upwards when there is no room below |
