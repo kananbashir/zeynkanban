@@ -32,8 +32,9 @@ The repository holds code only. Customers, tasks and users live in the database,
 
 | | Admin | Manager | Employee |
 |---|---|---|---|
-| First page after login | Dashboard | Dashboard | My tasks |
-| Dashboard, managing board, customers | Yes | Yes | No |
+| First page after login | Dashboard | Dashboard | Dashboard (their own) |
+| Dashboard | Yes, everyone's tasks | Yes, everyone's tasks | Yes, only their own tasks |
+| Managing board, customers | Yes | Yes | No |
 | My tasks | Yes | Yes | Yes |
 | Settings: appearance and language | Yes | Yes | Yes |
 | Settings: users, statuses, types, holidays | Yes | No | No |
@@ -92,8 +93,8 @@ A new installation starts with four statuses (Ediləcək / To do, İcrada / In p
 - **Deadline**: a task can have a deadline after its date (same day, +1, +2, +3 days, +1 week, or any date). Until it is finished, it shows on every day from its date to its deadline, and only counts as overdue after the deadline. The card shows a **timeline strip**: the start day on the left, the deadline on the right, and a bar that fills up to today with a "Today" marker. A chip says where it stands: "Starts in 2 days", "1 day left", "Due today" (yellow), "2 days late" (red), or once finished "Done 1 day early", "Done on time" or "Done 1 day late". On phones the chip moves under the bar. Tasks without a deadline keep the plain "Due 26 Nov" line. Moving the task's date moves its deadline with it. Reminders, overdue alerts and the dashboard go by the deadline.
 - **Several people on one task**: in the task form, tap each person to add or remove them. Everyone on a task sees it in My tasks, can change its status and add notes, and gets its notifications and reminders. The card shows the first name and "+N", with overlapping avatars: hover over one (or tap it on a phone, or reach it with Tab) and it rises with a little bounce while a label with the name glides from avatar to avatar. With "reduce motion" switched on in the device's settings, the avatar simply moves up and the label just fades in.
 - **Content brief**: what a content ID is really about, written once and shown on every task of that content ID.
-  - Admins and managers see **+ Add content brief** on a card whose content ID has none. The window starts from the starting fields in Settings; fields can be renamed, dragged, removed (with Undo) and added by type (short text, long text, links with a name each, checklist, date) or from the hidden starting fields. Empty fields are left out. "Reset to starting fields" asks first if something was typed.
-  - Once written, a dark **Brief** tag follows the content ID on all its cards. Everyone on those tasks can read it (links open in a new tab and show their site); admins and managers can also edit or delete it. Employees only see briefs of content IDs they have a task on, and links can only be web addresses.
+  - Everyone on a task sees **+ Add content brief** on a card whose content ID has none (admins and managers on every card). The window starts from the starting fields in Settings; fields can be renamed, dragged, removed (with Undo) and added by type (short text, long text, links with a name each, checklist, date) or from the hidden starting fields. Empty fields are left out. "Reset to starting fields" asks first if something was typed.
+  - Once written, a dark **Brief** tag follows the content ID on all its cards. Everyone on those tasks can read it (links open in a new tab and show their site); admins and managers can also edit or delete any brief. Employees can edit or delete only a brief they added themselves; others' briefs are read-only for them. Employees only see briefs of content IDs they have a task on, and links can only be web addresses.
 - **Finished work**: links to the final video, design or post, saved on the content ID and shown on every task of it.
   - When someone moves a task to a finished status, the card asks "Done! Add the finished work?": named links (several, "+ Another link"), **Save** or **Not now**. Finished cards whose content ID has none show **+ Add finished work**.
   - Once saved, a green **Finished work** tag ("Finished" on phones) follows the content ID on all its cards, and in the customer's Contents tab. It opens a window with the links (site badge, name, Open ↗) and who added or edited it.
@@ -121,7 +122,7 @@ Opened from the customer page (yellow button → Plan month, or "Generate IDs an
 
 ## Dashboard
 
-The first page for admins and managers. It shows counts and charts for a month (the default) or a week, never task details. Arrows move to the previous or next period, and "Go to this month/week" comes back.
+The first page after logging in, for everyone. It shows counts and charts for a month (the default) or a week, never task details. Arrows move to the previous or next period, and "Go to this month/week" comes back.
 
 - **Totals**: tasks (compared with the period before), finished (and their share), overdue (unfinished and past their date), and drafts waiting for an assignee, plus postponed and cancelled tasks (neither counts as overdue; cancelled ones don't count as finished).
 - **Tasks per day**: finished and open tasks for each day, with holidays and special events marked. Pick or hover a day to read its numbers; "Open this day" opens it on the managing board.
@@ -129,9 +130,16 @@ The first page for admins and managers. It shows counts and charts for a month (
 
 Every task with someone on it counts on its deadline (or its date when it has none), for each person on it (a task for two people counts once in the totals and once for each of them by person); archived tasks don't count. Drafts appear only in their own total, just as the managing board leaves them out.
 
+**Employees** get their own dashboard ("My dashboard"), counting only the tasks they are on:
+
+- **Totals**: my tasks (compared with the period before), finished (and how many by their deadline), overdue, postponed and cancelled. No drafts.
+- **My tasks per day**; "Open this day" opens it in My tasks.
+- **Coming up**: their next 5 unfinished deadlines (late ones first) with chips such as "2 days late", "Today", "Tomorrow" or "In 3 days"; tapping one opens it in My tasks (late ones on today's view).
+- **My customers** and **By task type**, then **My tasks by status**. No team workload. "Open My tasks" is at the top.
+
 ## My tasks and personal tasks
 
-Everyone has a My tasks page; it is the first page for employees, and the only one besides logging out.
+Everyone has a My tasks page. For employees it is, with their own dashboard, the only page besides logging out.
 
 - **Assigned tasks**: only the tasks assigned to you, in the same day view as the managing board (overdue on today's view, due, finished), with a calendar and a summary of your day. You can change the status of your own tasks, including straight to a finished status such as Done. Employees can't edit tasks; admins and managers get "Open task" as on the board.
 - **Personal tasks**: private to-dos with a title, an optional note and an optional time, added to the day you are looking at. "Remind me" can be any of: at the time, 15 minutes, 1 hour or 1 day before (without a time, these count from 09:00 that day). Tick to mark done, or delete. Unfinished ones from earlier days also show on today, marked "From [date]".
@@ -149,7 +157,7 @@ The bell in the top bar shows how many notifications are unread; it checks again
 | Status changed | Admins and managers, on every status change made by someone else (old status → new status, and who) |
 | Ready for review | Admins and managers, when a task moves into a status marked "Sends ‘Ready for review’" (Settings → Statuses); this replaces "Status changed" for that move |
 | Reminder | The people on a task, when it has reminders set (see below) |
-| Content brief added or updated | Everyone on the tasks of that content ID except whoever wrote it; it opens the task with the brief open. Part of the "Changes to my tasks" setting |
+| Content brief added or updated | Everyone on the tasks of that content ID except whoever wrote it, and admins and managers too when an employee wrote it; it opens the task with the brief open. Part of the "Changes to my tasks" setting |
 | Note on a content ID added or changed | The people on the tasks of that content ID, except whoever wrote it. Part of the "Changes to my tasks" setting |
 | Finished work added or updated | Admins, managers and the people on the other tasks of that content ID, except whoever did it; it opens the task with the finished work open. Part of the "Changes to my tasks" setting |
 | 1 day left until the deadline | The people on a task and whoever created it, at 09:00 the day before its deadline (tasks with a deadline only, while unfinished). Part of the Reminders setting |
@@ -249,6 +257,7 @@ A version's date is the day it is merged into `main`.
 
 | Version | What changed |
 |---|---|
+| 0.16.0 | Employees can add a content brief to their content IDs and edit or delete the ones they added (admins and managers are notified); employees get their own dashboard and land on it after logging in |
 | 0.15.1 | Employees can open the content ID window too (from My tasks and the task window), read-only; they can open only their own tasks from it |
 | 0.15.0 | The site is called "Zeynmedia project management tool" with the Zeyn Media logo as its icon (browser tab and home screen); phone notifications are offered with one tap right after logging in (and switched on without asking where already allowed); reminders and notifications arrive within seconds (they could be 1–2 minutes late); removing a field in the brief window no longer flickers on Safari; a note on a content ID, written on the Contents tab (or when adding or generating IDs) and shown under the content ID on every task card of it; the content ID window (all its tasks, a timeline and its details) from the board and the customer page; the task type icon grid fits on phones |
 | 0.14.0 | Finished work on content IDs (asked after "Done", green tag on every task of the content ID, notifications); icons for task types; the "What's new" window and the version list on the About page; a redesigned Settings (menu with icons, rows that open, Undo, switches, groups, theme previews); cancelled and postponed tasks locked for employees |

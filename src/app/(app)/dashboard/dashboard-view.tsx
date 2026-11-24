@@ -11,6 +11,8 @@ import { chartTop, percent, shiftPeriod, type Period } from "@/lib/dashboard-rul
 import type { DashboardData } from "@/lib/dashboard";
 import { addDays, monthOf, specialDaysOn, weekdayIndex, type SpecialDay } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
+import { daysBetween } from "@/lib/dates";
+import { TaskTypeIcon } from "@/components/task-type-icon";
 
 type T = Dictionary["dashboard"];
 type TaskT = Dictionary["tasks"];
@@ -74,6 +76,8 @@ export function DashboardView({
     return a.month === b.month ? `${Number(p.from.slice(8))} – ${shortDate(p.to, fmt)} ${b.year}` : `${shortDate(p.from, fmt)} – ${shortDate(p.to, fmt)} ${b.year}`;
   };
 
+  // An employee's own dashboard: only their tasks, with Coming up and By task type instead of the team.
+  const mine = data.mine;
   const pmMonth = months[monthOf(prev.from).month - 1];
   const compare = week ? fill(t.vsWeek, { n: data.previousTotal }) : fill(t.vsMonth, { n: data.previousTotal, month: pmMonth });
   const maxOf = (list: { total: number }[]) => Math.max(1, ...list.map((x) => x.total));
@@ -82,7 +86,7 @@ export function DashboardView({
     <main className="flex flex-col gap-5">
       <header className="flex flex-wrap items-center gap-x-[18px] gap-y-2.5 rounded-[28px] bg-surface p-4 md:px-[22px] md:py-5">
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="text-[13px] font-semibold text-teal-deep">{t.title}</span>
+          <span className="text-[13px] font-semibold text-teal-deep">{mine ? t.myTitle : t.title}</span>
           <div className="flex min-w-0 items-center gap-1">
             <Link href={href(period.kind, prev.from)} scroll={false} aria-label={t.prevPeriod} className="-ml-2.5 flex size-11 shrink-0 items-center justify-center rounded-full text-icon hover:bg-mint">
               {icon("m15 18-6-6 6-6")}
@@ -109,16 +113,20 @@ export function DashboardView({
               { key: "month", label: t.month, href: href("month", current ? undefined : addDays(period.from, 3)) },
             ]}
           />
-          <Link href="/board" className="flex min-h-12 items-center gap-2 whitespace-nowrap rounded-full bg-sun px-5 text-[15px] font-semibold text-ink">
-            {t.openBoard}
+          <Link href={mine ? "/my-tasks" : "/board"} className="flex min-h-12 items-center gap-2 whitespace-nowrap rounded-full bg-sun px-5 text-[15px] font-semibold text-ink">
+            {mine ? t.openMyTasks : t.openBoard}
             {icon("M5 12h14M13 6l6 6-6 6")}
           </Link>
         </div>
       </header>
 
-      <section aria-label={t.totals} className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-6">
-        <Tile label={t.tasks} value={data.total} sub={compare} />
-        <Tile label={t.finished} value={data.finished} sub={data.total ? fill(t.finishedSub, { p: percent(data.finished, data.total) }) : t.noTasks} />
+      <section aria-label={t.totals} className={`grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 ${mine ? "xl:grid-cols-5" : "xl:grid-cols-6"}`}>
+        <Tile label={mine ? t.myTasks : t.tasks} value={data.total} sub={compare} />
+        <Tile
+          label={t.finished}
+          value={data.finished}
+          sub={!data.total ? t.noTasks : mine ? fill(t.myFinishedSub, { p: percent(data.finished, data.total), n: mine.onTime }) : fill(t.finishedSub, { p: percent(data.finished, data.total) })}
+        />
         <Tile
           label={
             <span className="flex items-center gap-1.5 text-danger">
@@ -131,11 +139,53 @@ export function DashboardView({
         />
         <Tile label={<span className="text-sun-ink">{t.postponed}</span>} value={data.postponed} sub={t.postponedSub} />
         <Tile label={t.cancelled} value={data.cancelled} sub={t.cancelledSub} />
-        <Tile label={t.drafts} value={data.drafts} sub={t.draftsSub} />
+        {!mine && <Tile label={t.drafts} value={data.drafts} sub={t.draftsSub} />}
       </section>
 
-      <DayChart period={period} today={today} perDay={data.perDay} specialDays={specialDays} t={t} taskT={taskT} />
+      <DayChart period={period} today={today} perDay={data.perDay} specialDays={specialDays} t={t} taskT={taskT} mine={!!mine} />
 
+      {mine ? (
+        <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))]">
+          <ComingUp tasks={mine.comingUp} today={today} t={t} taskT={taskT} />
+          <Card title={t.myCustomers} hint={t.myCustomersHint}>
+            {data.customers
+              .filter((c) => c.total > 0)
+              .map((c, _i, list) => (
+                <BarRow
+                  key={c.id}
+                  lead={<span className="size-3 shrink-0 rounded-full border-[1.5px] border-black/25" style={{ background: c.color }} />}
+                  name={c.name}
+                  total={c.total}
+                  finished={c.finished}
+                  max={maxOf(list)}
+                  t={t}
+                />
+              ))}
+            {!data.customers.some((c) => c.total > 0) && <Empty t={t} />}
+            {mine.byType.length > 0 && (
+              <>
+                <h3 className="mt-1 text-base font-semibold">{t.byType}</h3>
+                {mine.byType.map((k) => (
+                  <BarRow
+                    key={k.id}
+                    lead={
+                      <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-mint text-teal-deep">
+                        <TaskTypeIcon name={k.icon} size={15} />
+                      </span>
+                    }
+                    name={k.name}
+                    total={k.total}
+                    finished={k.finished}
+                    max={maxOf(mine.byType)}
+                    t={t}
+                  />
+                ))}
+              </>
+            )}
+          </Card>
+          <StatusCard statuses={data.statuses} total={data.total} t={{ ...t, statuses: t.myStatuses, statusesHint: t.myStatusesHint }} taskT={taskT} />
+        </div>
+      ) : (
       <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))]">
         <Card title={t.team} hint={t.teamHint}>
           {data.people.map((p) => (
@@ -185,6 +235,7 @@ export function DashboardView({
           {data.contentTypes.length === 0 && <Empty t={t} />}
         </Card>
       </div>
+      )}
     </main>
   );
 }
@@ -269,7 +320,7 @@ function StatusCard({ statuses, total, t, taskT }: { statuses: DashboardData["st
   );
 }
 
-function DayChart({ period, today, perDay, specialDays, t, taskT }: { period: Period; today: string; perDay: DashboardData["perDay"]; specialDays: SpecialDay[]; t: T; taskT: TaskT }) {
+function DayChart({ period, today, perDay, specialDays, t, taskT, mine = false }: { period: Period; today: string; perDay: DashboardData["perDay"]; specialDays: SpecialDay[]; t: T; taskT: TaskT; mine?: boolean }) {
   const week = period.kind === "week";
   const days = period.days;
   const [picked, setPicked] = useState<string | null>(null);
@@ -288,9 +339,9 @@ function DayChart({ period, today, perDay, specialDays, t, taskT }: { period: Pe
   const events = specialDaysOn(shown, specialDays);
 
   return (
-    <section aria-label={t.perDay} className="flex min-w-0 flex-col gap-3.5 rounded-[28px] bg-surface p-4 md:p-[22px]">
+    <section aria-label={mine ? t.myPerDay : t.perDay} className="flex min-w-0 flex-col gap-3.5 rounded-[28px] bg-surface p-4 md:p-[22px]">
       <div className="flex flex-wrap items-center gap-x-[18px] gap-y-2">
-        <h2 className="flex-1 text-lg font-semibold">{t.perDay}</h2>
+        <h2 className="flex-1 text-lg font-semibold">{mine ? t.myPerDay : t.perDay}</h2>
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-icon">
           <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-[3px]" style={{ background: FINISHED }} />{t.legendFinished}</span>
           <span className="flex items-center gap-1.5"><span className="size-2.5 rounded-[3px]" style={{ background: OPEN }} />{t.legendOpen}</span>
@@ -306,7 +357,7 @@ function DayChart({ period, today, perDay, specialDays, t, taskT }: { period: Pe
             {events.length ? ` · ${events.map((e) => e.name).join(", ")}` : ""}
           </span>
         </span>
-        <Link href={`/board?date=${shown}`} className="ml-auto flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-surface px-3 text-[13px] font-semibold">
+        <Link href={mine ? `/my-tasks?date=${shown}` : `/board?date=${shown}`} className="ml-auto flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full bg-surface px-3 text-[13px] font-semibold">
           {t.openDay}
           {icon("M7 17 17 7M7 7h10v10", 16)}
         </Link>
@@ -363,5 +414,47 @@ function DayChart({ period, today, perDay, specialDays, t, taskT }: { period: Pe
         </div>
       </div>
     </section>
+  );
+}
+
+/** An employee's next deadlines: date tile, task type, content ID, and how soon (late ones first). */
+function ComingUp({ tasks, today, t, taskT }: { tasks: NonNullable<DashboardData["mine"]>["comingUp"]; today: string; t: T; taskT: TaskT }) {
+  const when = (end: string) => {
+    const n = daysBetween(today, end);
+    if (n < 0) return { text: n === -1 ? t.late1 : fill(t.lateN, { n: -n }), tone: "bg-danger/10 text-danger" };
+    if (n === 0) return { text: t.today, tone: "bg-sun-tint text-sun-ink" };
+    return { text: n === 1 ? t.tomorrow : fill(t.inDays, { n }), tone: "bg-mint text-ink-soft" };
+  };
+  return (
+    <Card title={t.comingUp} hint={t.comingUpHint}>
+      <ul className="-my-1 flex flex-col">
+        {tasks.map((x, i) => {
+          const w = when(x.end);
+          return (
+            <li key={x.id} className={i ? "border-t border-line" : ""}>
+              <Link
+                href={`/my-tasks?date=${x.dueDate <= today ? today : x.dueDate}&focus=${x.id}`} // an unfinished task started (or late) shows on today
+                aria-label={fill(t.openTask, { type: x.typeName, date: shortDate(x.end, taskT) })}
+                className="flex items-center gap-3 rounded-xl py-2.5 hover:bg-mint-soft"
+              >
+                <span className="flex h-12 w-11 shrink-0 flex-col items-center justify-center gap-1 rounded-xl bg-mint leading-none">
+                  <b className="text-base font-bold">{Number(x.end.slice(8))}</b>
+                  <span className="text-[9.5px] font-extrabold uppercase tracking-wide text-teal-deep">{taskT.monthsShort[Number(x.end.slice(5, 7)) - 1]}</span>
+                </span>
+                <span className="flex size-[30px] shrink-0 items-center justify-center rounded-[9px] bg-mint-soft text-teal-deep">
+                  <TaskTypeIcon name={x.typeIcon} size={16} />
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <span className="truncate text-sm font-semibold">{x.typeName}</span>
+                  <span className="truncate font-mono text-xs text-muted">{x.code}</span>
+                </span>
+                <span className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1 text-[11.5px] font-extrabold ${w.tone}`}>{w.text}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+      {tasks.length === 0 && <p className="text-sm text-muted">{t.comingUpNone}</p>}
+    </Card>
   );
 }
