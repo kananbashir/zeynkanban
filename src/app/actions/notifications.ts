@@ -75,3 +75,9 @@ export async function removePushSubscription(endpoint: string): Promise<void> {
   const me = await requireUser();
   await db.delete(pushSubscriptions).where(and(eq(pushSubscriptions.endpointHash, endpointHash(String(endpoint))), eq(pushSubscriptions.userId, me.id)));
 }
+
+/** The public key browsers need to subscribe to phone notifications. */
+export async function pushPublicKey(): Promise<string> {
+  await requireUser();
+  return (await vapidKeys()).publicKey;
+}
