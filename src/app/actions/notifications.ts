@@ -10,7 +10,7 @@ import { dateInZone, todayIso } from "@/lib/dates";
 import { endpointHash, vapidKeys } from "@/lib/notify";
 import { notificationText, notificationTime, OWN_PREFS, STAFF_PREFS, type IconKind, type NotificationData, type PrefKey } from "@/lib/notification-text";
 
-export type NotificationItem = { id: string; title: string; a: string; b: string; href: string; icon: IconKind; taskId?: string; notes?: boolean; brief?: boolean; time: string; today: boolean; unread: boolean };
+export type NotificationItem = { id: string; title: string; a: string; b: string; href: string; icon: IconKind; taskId?: string; notes?: boolean; brief?: boolean; finished?: boolean; time: string; today: boolean; unread: boolean };
 
 /** Only the caller's own notifications, written in the site's current language. */
 export async function loadNotifications(): Promise<{ unread: number; items: NotificationItem[]; prefs: Record<PrefKey, boolean>; prefKeys: PrefKey[]; publicKey: string }> {

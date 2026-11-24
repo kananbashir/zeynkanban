@@ -216,13 +216,13 @@ async function notifyChanges(id: string, before: { assigneeIds: string[]; dueDat
 }
 
 /**
- * Admins and managers can change any task's status; employees only tasks they are on, and not to a
- * status that counts as cancelled or postponed.
+ * Admins and managers can change any task's status; employees only tasks they are on, not to a
+ * status that counts as cancelled or postponed, and not while the task is cancelled or postponed.
  */
 export async function setTaskStatus(id: string, statusId: string): Promise<Result> {
   const me = await requireUser();
   const [task] = await db
-    .select({ wasFinished: statuses.isFinished, wasCancelled: statuses.isCancelled, finishedAt: tasks.finishedAt, statusId: tasks.statusId, statusName: statuses.name, statusNameEn: statuses.nameEn })
+    .select({ wasFinished: statuses.isFinished, wasCancelled: statuses.isCancelled, wasPostponed: statuses.isPostponed, finishedAt: tasks.finishedAt, statusId: tasks.statusId, statusName: statuses.name, statusNameEn: statuses.nameEn })
     .from(tasks)
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
     .where(eq(tasks.id, id));
@@ -234,7 +234,8 @@ export async function setTaskStatus(id: string, statusId: string): Promise<Resul
     .from(statuses)
     .where(and(eq(statuses.id, statusId), isNull(statuses.deletedAt)));
   if (!status) return fail("notFound");
-  if (me.role === "employee" && (status.isCancelled || status.isPostponed)) return fail("notAllowed");
+  // Cancelling and postponing are for admins and managers, and so is taking a task out of those statuses.
+  if (me.role === "employee" && (status.isCancelled || status.isPostponed || task.wasCancelled || task.wasPostponed)) return fail("notAllowed");
   // Finished and cancelled tasks are closed: remember the day (kept when moving between closed statuses).
   const closed = status.isFinished || status.isCancelled;
   const finishedAt = closed ? ((task.wasFinished || task.wasCancelled) && task.finishedAt ? task.finishedAt : new Date()) : null;

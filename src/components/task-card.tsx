@@ -16,6 +16,9 @@ import { Collapse } from "./motion";
 import { AvatarGroup, personColor } from "./avatar-group";
 import { AddBriefButton, BriefTag, BriefWindow } from "./content-brief";
 import { DeadlineStrip } from "./deadline-strip";
+import { AddFinishedButton, FinishedAsk, FinishedTag, FinishedWindow } from "./finished-work";
+import { askForFinished } from "./held-day";
+import { TaskTypeIcon } from "./task-type-icon";
 import { initials } from "./top-bar";
 
 export type StatusOption = { id: string; name: string; color: string; isFinished: boolean; isCancelled?: boolean; isPostponed?: boolean };
@@ -48,6 +51,7 @@ export function TaskCard({
   onChanged,
   notesInitiallyOpen = false,
   briefInitiallyOpen = false,
+  finishedInitiallyOpen = false,
 }: {
   task: TaskView;
   statuses: StatusOption[];
@@ -64,12 +68,25 @@ export function TaskCard({
   notesInitiallyOpen?: boolean;
   /** Opened from a brief notification: show the content brief straight away. */
   briefInitiallyOpen?: boolean;
+  /** Opened from a finished-work notification: show the finished work straight away. */
+  finishedInitiallyOpen?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // The content brief window. Admins and managers (who can edit tasks) can also write one.
   const [briefOpen, setBriefOpen] = useState(briefInitiallyOpen);
   const closeBrief = useCallback(() => setBriefOpen(false), []);
   const canWriteBrief = !!(onEdit || editHref);
+  // The finished work of the content ID: its window, and the question asked right after "Done".
+  const [finishedOpen, setFinishedOpen] = useState(finishedInitiallyOpen);
+  const closeFinished = useCallback(() => setFinishedOpen(false), []);
+  // A card that just moved to its "finished" group is a new card: it picks the question up again.
+  const [asking, setAsking] = useState(() => askForFinished.has(task.id) && !task.hasFinishedWork);
+  const [askAppear] = useState(asking);
+  // Answered (Save or Not now): the question folds away first, then the card goes on to its new group.
+  const stopAsking = useCallback(() => {
+    setAsking(false);
+    setTimeout(() => askForFinished.stop(task.id), 420);
+  }, [task.id]);
   // Notes: loaded the first time they are opened (before opening, so nothing jumps), then kept and
   // refreshed whenever the task's note count changes, e.g. after someone else adds one.
   const [notesOpen, setNotesOpen] = useState(false);
@@ -140,20 +157,34 @@ export function TaskCard({
   const closed = status.finished || status.cancelled;
   // Only admins and managers (who can edit tasks) may cancel or postpone.
   const choices = canWriteBrief ? statuses : statuses.filter((s) => !s.isCancelled && !s.isPostponed);
+  // A cancelled or postponed task is locked for employees: only admins and managers can move it on.
+  const locked = !canWriteBrief && (task.cancelled || task.postponed);
+  const canChange = canChangeStatus && !locked;
   const end = taskEnd(task); // the deadline, or the task's day without one
   const lateDays = !closed && !status.postponed && end < today ? daysBetween(end, today) : 0;
   const statusLabel = status.deleted ? fill(t.deletedStatus, { name: status.name }) : status.name;
   const typeLabel = task.typeDeleted ? fill(t.deletedType, { name: task.typeName }) : task.typeName;
+  const addBrief = !task.hasBrief && canWriteBrief;
+  // Not while the question is open or folding away: the button shows once the card has moved on.
+  const addFinished = status.finished && !task.hasFinishedWork && !asking && !askForFinished.has(task.id);
   const background = task.contentArchived ? ARCHIVED_BACKGROUND : cardBackground(status.color, closed);
 
   function choose(next: string) {
     setOpen(false);
     if (next === task.statusId) return;
+    const picked = statuses.find((s) => s.id === next);
+    const ask = !!picked?.isFinished && !picked.isCancelled && !task.hasFinishedWork;
+    if (ask && picked) askForFinished.start(task.id, { statusId: picked.id, statusName: picked.name, statusColor: picked.color, finished: true, cancelled: false, postponed: false, finishedOn: today });
+    else askForFinished.stop(task.id);
+    setAsking(ask);
     startTransition(async () => {
       setStatusId(next);
       const result = await setTaskStatus(task.id, next);
-      if (!result.ok) onError?.(result.error);
-      else await onChanged?.();
+      if (!result.ok) {
+        setAsking(false);
+        askForFinished.stop(task.id);
+        onError?.(result.error);
+      } else await onChanged?.();
     });
   }
 
@@ -174,6 +205,7 @@ export function TaskCard({
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-ink/12 pb-3">
         <span className="rounded-lg bg-surface px-2 py-1 font-mono text-xs font-medium">{task.contentCode}</span>
         {task.hasBrief && <BriefTag label={t.brief.tag} onOpen={() => setBriefOpen(true)} />}
+        {task.hasFinishedWork && <FinishedTag f={t.finished} onOpen={() => setFinishedOpen(true)} />}
         {showCustomer && (
           <span className="flex items-center gap-1.5 text-sm font-semibold">
             <span className="size-2.5 rounded-full border-[1.5px] border-black/25" style={{ background: task.customerColor }} />
@@ -188,16 +220,17 @@ export function TaskCard({
         <div className="relative ml-auto">
           <button
             type="button"
-            disabled={!canChangeStatus}
+            disabled={!canChange}
             aria-haspopup="true"
             aria-expanded={open}
             aria-label={fill(t.statusAria, { name: statusLabel })}
+            title={locked ? t.statusLocked : undefined}
             onClick={() => setOpen((v) => !v)}
             className="flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-full bg-surface pl-2.5 pr-2 text-xs font-semibold disabled:cursor-default sm:min-h-11 sm:gap-2 sm:pl-3.5 sm:pr-3 sm:text-[13px]"
           >
             <span className="size-[9px] rounded-full transition-colors duration-500" style={{ background: status.deleted ? "var(--color-subtle)" : status.color }} />
             <span>{statusLabel}</span>
-            {canChangeStatus && <Icon d="m6 9 6 6 6-6" />}
+            {canChange && <Icon d="m6 9 6 6 6-6" />}
           </button>
           {open && (
             <>
@@ -220,12 +253,20 @@ export function TaskCard({
           )}
         </div>
       </div>
-      <h3 className="text-[17px] font-semibold sm:text-xl">{typeLabel}</h3>
+      <h3 className="flex items-center gap-2.5 text-[17px] font-semibold sm:text-xl">
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-surface/75 text-teal-deep sm:size-9">
+          <TaskTypeIcon name={task.typeIcon} size={18} />
+        </span>
+        <span className="min-w-0">{typeLabel}</span>
+      </h3>
       {task.description && <p className="max-w-[70ch] whitespace-pre-line text-sm leading-normal text-ink-body">{task.description}</p>}
       {task.deadline && (
         // A status just picked as finished has no finish day from the server yet: that is today.
         <DeadlineStrip start={task.dueDate} end={task.deadline} today={today} finished={status.finished} cancelled={status.cancelled} postponed={status.postponed} finishedOn={task.finished ? task.finishedOn : status.finished ? today : null} t={t} />
       )}
+      <Collapse open={asking && !task.hasFinishedWork} appear={askAppear}>
+        <FinishedAsk contentId={task.contentId} code={task.contentCode} taskId={task.id} t={t} onClose={stopAsking} onError={onError} />
+      </Collapse>
       <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1.5 border-t border-ink/12 pt-2 text-[13px] text-ink-soft">
         {(showAssignee || task.assignees.length > 1) && (
           <span className="flex min-w-0 items-center gap-2">
@@ -253,9 +294,14 @@ export function TaskCard({
             {task.note}
           </span>
         )}
-        {!task.hasBrief && canWriteBrief && (
+        {addBrief && (
           <span className="ml-auto">
             <AddBriefButton label={t.brief.add} onOpen={() => setBriefOpen(true)} />
+          </span>
+        )}
+        {addFinished && (
+          <span className={addBrief ? "" : "ml-auto"}>
+            <AddFinishedButton label={t.finished.add} onOpen={() => setFinishedOpen(true)} />
           </span>
         )}
         <button
@@ -263,7 +309,7 @@ export function TaskCard({
           aria-expanded={notesOpen}
           aria-busy={loadingNotes}
           onClick={toggleNotes}
-          className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold transition-colors sm:min-h-10 ${notesOpen ? "bg-surface text-ink" : "text-ink hover:bg-surface/60"} ${!task.hasBrief && canWriteBrief ? "" : "ml-auto"}`}
+          className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold transition-colors sm:min-h-10 ${notesOpen ? "bg-surface text-ink" : "text-ink hover:bg-surface/60"} ${addBrief || addFinished ? "" : "ml-auto"}`}
         >
           {loadingNotes ? (
             <span className="size-4 shrink-0 animate-spin rounded-full border-2 border-ink/20 border-t-ink" aria-hidden="true" />
@@ -290,6 +336,7 @@ export function TaskCard({
           </div>
         )}
       </Collapse>
+      {finishedOpen && <FinishedWindow contentId={task.contentId} taskId={task.id} onClose={closeFinished} t={t} />}
       {briefOpen && <BriefWindow contentId={task.contentId} startEditing={!task.hasBrief} onClose={closeBrief} t={t} />}
     </article>
   );

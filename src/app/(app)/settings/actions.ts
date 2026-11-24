@@ -19,6 +19,7 @@ import {
   unfinishProblem,
 } from "@/lib/settings-rules";
 import { decryptCode } from "@/lib/codes";
+import { DEFAULT_TASK_ICON, isTaskIcon } from "@/lib/task-icons";
 import { found, insertUserWithCode, isUniqueViolation, replaceCode } from "@/lib/users";
 
 export type Result = { ok: true } | { ok: false; error: ErrorKey };
@@ -109,19 +110,36 @@ function cleanNameEn(input: unknown): { ok: true; value: string | null } | { ok:
   return clean;
 }
 
-export async function addStatus(name: string, nameEn = ""): Promise<Result> {
+export async function addStatus(name: string, nameEn = ""): Promise<Result & { id?: string; color?: string; name?: string; nameEn?: string | null }> {
   await requireRole("admin");
   const clean = cleanName(name);
   if (!clean.ok) return fail(clean.error);
   const en = cleanNameEn(nameEn);
   if (!en.ok) return fail(en.error);
   const live = await liveStatuses();
-  await db.insert(statuses).values({
-    name: clean.value,
-    nameEn: en.value,
-    color: nextStatusColor(live.map((s) => s.color)),
-    position: live.length,
+  const id = crypto.randomUUID();
+  const color = nextStatusColor(live.map((s) => s.color));
+  await db.insert(statuses).values({ id, name: clean.value, nameEn: en.value, color, position: live.length });
+  revalidatePath("/settings");
+  return { ok: true, id, color, name: clean.value, nameEn: en.value };
+}
+
+/** Puts back these items (just deleted, brought back by Undo) at their old places in the order. */
+async function putBack(table: typeof statuses | typeof taskTypes, live: { id: string }[], id: string, index: number) {
+  const ids = live.map((x) => x.id).filter((x) => x !== id);
+  ids.splice(Math.max(0, Math.min(index, ids.length)), 0, id);
+  await db.transaction(async (tx) => {
+    await tx.update(table).set({ deletedAt: null }).where(eq(table.id, id));
+    for (const [position, x] of ids.entries()) await tx.update(table).set({ position }).where(eq(table.id, x));
   });
+}
+
+/** Undo for a deleted status: it comes back at its place. */
+export async function restoreStatus(id: string, index: number): Promise<Result> {
+  await requireRole("admin");
+  const [row] = await db.select({ id: statuses.id }).from(statuses).where(eq(statuses.id, id));
+  if (!row) return fail("notFound");
+  await putBack(statuses, await liveStatuses(), id, index);
   return done();
 }
 
@@ -213,15 +231,25 @@ async function liveTaskTypes() {
     .orderBy(asc(taskTypes.position));
 }
 
-export async function addTaskType(name: string, nameEn = ""): Promise<Result> {
+export async function addTaskType(name: string, nameEn = "", icon: string = DEFAULT_TASK_ICON): Promise<Result & { id?: string }> {
   await requireRole("admin");
   const clean = cleanName(name);
   if (!clean.ok) return fail(clean.error);
   const en = cleanNameEn(nameEn);
   if (!en.ok) return fail(en.error);
   const live = await liveTaskTypes();
-  await db.insert(taskTypes).values({ name: clean.value, nameEn: en.value, position: live.length });
-  return done();
+  const id = crypto.randomUUID();
+  await db.insert(taskTypes).values({ id, name: clean.value, nameEn: en.value, position: live.length, icon: isTaskIcon(icon) ? icon : DEFAULT_TASK_ICON });
+  revalidatePath("/settings");
+  return { ok: true, id };
+}
+
+/** The icon shown before a task type's name on task cards. */
+export async function setTaskTypeIcon(id: string, icon: string): Promise<Result> {
+  await requireRole("admin");
+  if (!isTaskIcon(icon)) return fail("notFound");
+  const rows = await db.update(taskTypes).set({ icon }).where(and(eq(taskTypes.id, id), isNull(taskTypes.deletedAt)));
+  return found(rows) ? done() : fail("notFound");
 }
 
 export async function renameTaskTypeEn(id: string, nameEn: string): Promise<Result> {
@@ -250,6 +278,15 @@ export async function reorderTaskTypes(ids: string[]): Promise<Result> {
   return done();
 }
 
+/** Undo for a deleted task type: it comes back at its place. */
+export async function restoreTaskType(id: string, index: number): Promise<Result> {
+  await requireRole("admin");
+  const [row] = await db.select({ id: taskTypes.id }).from(taskTypes).where(and(eq(taskTypes.id, id), eq(taskTypes.oneOff, false)));
+  if (!row) return fail("notFound");
+  await putBack(taskTypes, await liveTaskTypes(), id, index);
+  return done();
+}
+
 export async function deleteTaskType(id: string): Promise<Result> {
   await requireRole("admin");
   const target = (await liveTaskTypes()).find((t) => t.id === id);
@@ -261,19 +298,21 @@ export async function deleteTaskType(id: string): Promise<Result> {
 
 /* ---------- Content types ---------- */
 
-export async function addContentType(code: string, name: string): Promise<Result> {
+export async function addContentType(code: string, name: string): Promise<Result & { id?: string; code?: string; name?: string }> {
   await requireRole("admin");
   const cleanCode = cleanContentCode(code);
   if (!cleanCode) return fail("codeInvalid");
   const clean = cleanName(name);
   if (!clean.ok) return fail(clean.error);
+  const id = crypto.randomUUID();
   try {
-    await db.insert(contentTypes).values({ code: cleanCode, name: clean.value });
+    await db.insert(contentTypes).values({ id, code: cleanCode, name: clean.value });
   } catch (error) {
     if (isUniqueViolation(error)) return fail("codeTaken");
     throw error;
   }
-  return done();
+  revalidatePath("/settings");
+  return { ok: true, id, code: cleanCode, name: clean.value };
 }
 
 export async function setContentTypeCode(id: string, code: string): Promise<Result> {
@@ -306,7 +345,8 @@ export async function setContentTypeArchived(id: string, archived: boolean): Pro
 
 /* ---------- Holidays and special events ---------- */
 
-export async function addSpecialDay(input: { date: string; name: string; nameEn?: string; kind: string; yearly: boolean }): Promise<Result> {
+/** Adds a holiday or special event. With `id`: puts back one just removed (Undo). */
+export async function addSpecialDay(input: { id?: string; date: string; name: string; nameEn?: string | null; kind: string; yearly: boolean }): Promise<Result & { id?: string; name?: string; nameEn?: string | null }> {
   await requireRole("admin");
   if (!isIsoDate(input.date)) return fail("dateInvalid");
   const clean = cleanName(input.name);
@@ -314,13 +354,20 @@ export async function addSpecialDay(input: { date: string; name: string; nameEn?
   const en = cleanNameEn(input.nameEn);
   if (!en.ok) return fail(en.error);
   if (!isDayKind(input.kind)) return fail("generic");
-  await db.insert(specialDays).values({ date: input.date, name: clean.value, nameEn: en.value, kind: input.kind, yearly: !!input.yearly });
-  return done();
+  const id = input.id && /^[0-9a-f-]{36}$/.test(input.id) ? input.id : crypto.randomUUID();
+  try {
+    await db.insert(specialDays).values({ id, date: input.date, name: clean.value, nameEn: en.value, kind: input.kind, yearly: !!input.yearly });
+  } catch (error) {
+    if (isUniqueViolation(error)) return fail("notFound");
+    throw error;
+  }
+  revalidatePath("/settings");
+  return { ok: true, id, name: clean.value, nameEn: en.value };
 }
 
 export async function updateSpecialDay(
   id: string,
-  patch: Partial<{ date: string; name: string; nameEn: string; kind: string; yearly: boolean }>,
+  patch: Partial<{ date: string; name: string; nameEn: string | null; kind: string; yearly: boolean }>,
 ): Promise<Result> {
   await requireRole("admin");
   const set: Partial<typeof specialDays.$inferInsert> = {};

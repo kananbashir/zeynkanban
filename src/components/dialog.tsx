@@ -5,14 +5,14 @@ import { prefersReducedMotion, springOrFallback } from "@/lib/spring";
 
 /** Windows open right now, newest last: Escape closes only the one on top (e.g. a brief over a task window). */
 const openWindows: object[] = [];
-function track(me: object) {
+export function track(me: object) {
   openWindows.push(me);
   return () => {
     const i = openWindows.lastIndexOf(me);
     if (i >= 0) openWindows.splice(i, 1);
   };
 }
-const onTop = (me: object) => openWindows[openWindows.length - 1] === me;
+export const onTop = (me: object) => openWindows[openWindows.length - 1] === me;
 
 /** A pop-up window over the page. Closes with Escape or a click on the dimmed background. */
 export function Dialog({ label, onClose, children, wide = false }: { label: string; onClose: () => void; children: ReactNode; wide?: boolean }) {

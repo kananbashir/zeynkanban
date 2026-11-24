@@ -120,6 +120,27 @@
       "when": 1795462992618,
       "tag": "0016_cancelled_postponed",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1795508737898,
+      "tag": "0017_task_type_icons",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1795508820939,
+      "tag": "0018_finished_work",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1795509534816,
+      "tag": "0019_whats_new",
+      "breakpoints": true
     }
   ]
 }

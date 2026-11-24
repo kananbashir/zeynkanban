@@ -1,11 +1,10 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
-import Link from "next/link";
-import { Fragment } from "react";
 import { db } from "@/db";
 import { briefFields, contents, contentTypes, specialDays, statuses, taskTypes, users } from "@/db/schema";
 import { getDictionary } from "@/i18n/server";
 import { cookies } from "next/headers";
 import { requireUser } from "@/lib/auth";
+import { todayIso } from "@/lib/dates";
 import { DEFAULT_THEME, isTheme, THEME_COOKIE } from "@/lib/theme";
 import { BriefFieldsSection } from "./brief-fields-section";
 import { PreferencesSection } from "./preferences-section";
@@ -13,6 +12,7 @@ import { ContentTypesSection } from "./content-types-section";
 import { SpecialDaysSection } from "./special-days-section";
 import { StatusesSection } from "./statuses-section";
 import { TaskTypesSection } from "./task-types-section";
+import { SettingsShell } from "./settings-shell";
 import { UsersSection } from "./users-section";
 
 const ADMIN_SECTIONS = ["users", "statuses", "types", "content", "brief", "days"] as const;
@@ -29,10 +29,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
 
   const counts = admin
     ? await Promise.all([
-        db.$count(users, undefined),
+        db.$count(users, eq(users.active, true)),
         db.$count(statuses, isNull(statuses.deletedAt)),
         db.$count(taskTypes, and(isNull(taskTypes.deletedAt), eq(taskTypes.oneOff, false))),
-        db.$count(contentTypes, undefined),
+        db.$count(contentTypes, eq(contentTypes.archived, false)),
         db.$count(briefFields, undefined),
         db.$count(specialDays, undefined),
       ])
@@ -57,7 +57,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
     content = <StatusesSection statuses={list} locale={locale} t={t.settings} errors={t.errors} />;
   } else if (section === "types") {
     const list = await db
-      .select({ id: taskTypes.id, name: taskTypes.name, nameEn: taskTypes.nameEn, isPublishing: taskTypes.isPublishing })
+      .select({ id: taskTypes.id, name: taskTypes.name, nameEn: taskTypes.nameEn, isPublishing: taskTypes.isPublishing, icon: taskTypes.icon })
       .from(taskTypes)
       .where(and(isNull(taskTypes.deletedAt), eq(taskTypes.oneOff, false)))
       .orderBy(asc(taskTypes.position), asc(taskTypes.createdAt));
@@ -87,7 +87,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       .select({ id: specialDays.id, date: specialDays.date, name: specialDays.name, nameEn: specialDays.nameEn, kind: specialDays.kind, yearly: specialDays.yearly })
       .from(specialDays)
       .orderBy(asc(specialDays.date), asc(specialDays.createdAt));
-    content = <SpecialDaysSection days={list} t={t.settings} errors={t.errors} />;
+    content = <SpecialDaysSection days={list} today={todayIso()} t={t.settings} errors={t.errors} />;
   }
 
   const heading = (
@@ -108,31 +108,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   return (
     <main className="flex flex-col gap-5">
       {heading}
-      <div className="flex flex-wrap items-start gap-6">
-        <nav
-          aria-label={t.settings.sectionsLabel}
-          className="flex min-w-0 flex-[1_1_240px] flex-col gap-1 rounded-[28px] bg-surface p-3 lg:max-w-[300px]"
-        >
-          {allowed.map((key, i) => {
-            const active = key === section;
-            return (
-              <Fragment key={key}>
-              {key === "preferences" && <div aria-hidden="true" className="mx-2 my-1.5 border-t border-line" />}
-              <Link
-                href={{ pathname: "/settings", query: { section: key } }}
-                scroll={false}
-                aria-current={active ? "page" : undefined}
-                className={`flex min-h-[52px] items-center gap-3 rounded-[18px] px-3.5 py-1.5 text-[15px] font-semibold transition-colors ${active ? "bg-teal text-white" : "text-ink hover:bg-mint"}`}
-              >
-                <span className="min-w-0 flex-1">{t.settings.sections[key]}</span>
-                {counts[i] !== undefined && <span className="text-[13px] font-medium">{counts[i]}</span>}
-              </Link>
-              </Fragment>
-            );
-          })}
-        </nav>
-        <div className="flex min-w-0 flex-[999_1_520px] flex-col gap-5">{content}</div>
-      </div>
+      <SettingsShell sections={allowed.map((key, i) => ({ key, label: t.settings.sections[key], count: counts[i] }))} current={section} label={t.settings.sectionsLabel}>
+        {content}
+      </SettingsShell>
     </main>
   );
 }

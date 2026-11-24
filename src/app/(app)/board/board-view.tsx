@@ -14,6 +14,7 @@ import { fill } from "@/i18n/format";
 import { shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
 import type { Section } from "@/lib/task-rules";
+import { useHeldDay } from "@/components/held-day";
 import type { DayTasks, TaskView } from "@/lib/tasks";
 
 type Segment = "all" | Section;
@@ -22,7 +23,7 @@ export function BoardView({
   date,
   today,
   shownMonth,
-  day,
+  day: serverDay,
   counts,
   statuses,
   specialDays,
@@ -45,6 +46,8 @@ export function BoardView({
   months: readonly string[];
   errors: Dictionary["errors"];
 }) {
+  // Cards still asking for their finished work stay where they were until it is answered.
+  const day = useHeldDay(serverDay);
   const router = useRouter();
   const pathname = usePathname();
   const { message, show } = useToast();

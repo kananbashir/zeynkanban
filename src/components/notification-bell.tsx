@@ -32,6 +32,7 @@ const ICONS: Record<IconKind, string> = {
   status: "M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5",
   reminder: "M12 7v5l3 2M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0",
   note: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM8 9h8M8 13h5",
+  finished: "M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3",
 };
 const TINTS: Record<IconKind, [string, string]> = {
   assigned: ["#d9f0ee", "#0a5e5b"],
@@ -43,6 +44,7 @@ const TINTS: Record<IconKind, [string, string]> = {
   status: ["#edf6f4", "#0a5e5b"],
   reminder: ["#fff3cc", "#5c4300"],
   note: ["#e9e4fb", "#3b2f8f"],
+  finished: ["#dff3e8", "#1d6b42"],
 };
 
 const svg = (d: string, size = 18) => (
@@ -175,6 +177,8 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
       else url.searchParams.delete("notes");
       if (item.brief) url.searchParams.set("brief", "1");
       else url.searchParams.delete("brief");
+      if (item.finished) url.searchParams.set("finished", "1");
+      else url.searchParams.delete("finished");
       router.push(`${url.pathname}${url.search}`, { scroll: false });
     } else router.push(item.href);
   }

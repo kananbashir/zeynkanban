@@ -32,6 +32,9 @@
   --color-filled-line: #9fcfcb;
   --color-track: #cfe7e4; /* empty part of small progress bars */
   --color-done: #f0f5f3; /* finished items */
+  --color-leaf: #1d6b42; /* the "Finished work" tag (white text) */
+  --color-leaf-tint: #dff3e8;
+  --color-leaf-ink: #1d6b42;
   --color-on-pastel: #18232f; /* text on customer colours and other pastels, in both themes */
 
   /* Pastel card colours */
@@ -86,6 +89,9 @@ html[data-dark] {
   --color-filled-line: #3e7470;
   --color-track: #23413e;
   --color-done: #1f2b31;
+  --color-leaf: #23824f;
+  --color-leaf-tint: #183a29;
+  --color-leaf-ink: #7fd9a6;
 }
 /* Yellow stays yellow, so what sits on it stays dark. */
 html[data-dark] .bg-sun {
@@ -164,6 +170,14 @@ a {
   to { opacity: 1; transform: none; }
 }
 .zk-pop { animation: zk-pop 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+/* An access code being shown: each character blurs into view after the one before. */
+@keyframes zk-char {
+  from { opacity: 0; filter: blur(6px); transform: translateY(6px); }
+  to { opacity: 1; filter: none; transform: none; }
+}
+.zk-char { animation: zk-char 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+/* A Settings section coming in after switching sections. */
+.zk-section-in { animation: zk-fade-up 0.42s cubic-bezier(0.2, 0.8, 0.2, 1); }
 @keyframes zk-grow-y {
   from { transform: scaleY(0); }
   to { transform: none; }
