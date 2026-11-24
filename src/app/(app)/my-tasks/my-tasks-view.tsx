@@ -15,6 +15,7 @@ import { shortDate } from "@/lib/format-date";
 import type { PersonalTask } from "@/lib/personal";
 import { PERSONAL_REMINDERS } from "@/lib/reminder-rules";
 import type { Section } from "@/lib/task-rules";
+import { useHeldDay } from "@/components/held-day";
 import type { DayTasks } from "@/lib/tasks";
 
 type T = Dictionary["myTasks"];
@@ -30,7 +31,7 @@ export function MyTasksView({
   date,
   today,
   shownMonth,
-  day,
+  day: serverDay,
   counts,
   statuses,
   specialDays,
@@ -55,6 +56,8 @@ export function MyTasksView({
   months: readonly string[];
   errors: Dictionary["errors"];
 }) {
+  // Cards still asking for their finished work stay where they were until it is answered.
+  const day = useHeldDay(serverDay);
   const router = useRouter();
   const pathname = usePathname();
   const { message, show } = useToast();

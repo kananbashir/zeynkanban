@@ -56,17 +56,6 @@ export function AddFinishedButton({ label, onOpen }: { label: string; onOpen: ()
 // ── Asking after "Done" ─────────────────────────────────────────────────────
 
 /**
- * Tasks whose card should ask for the finished work. Kept outside the card because choosing a
- * finished status moves the card to another group (a new card), which must still ask. Expires.
- */
-const asking = new Map<string, number>();
-export const askForFinished = {
-  start: (taskId: string) => asking.set(taskId, Date.now()),
-  stop: (taskId: string) => asking.delete(taskId),
-  has: (taskId: string) => (asking.get(taskId) ?? 0) > Date.now() - 120_000,
-};
-
-/**
  * The panel in a card just moved to a finished status: "Done! Add the finished work?" with named
  * links, Save and Not now. Saving puts it on the content ID, so every task of it shows the tag.
  */

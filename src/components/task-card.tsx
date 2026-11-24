@@ -16,7 +16,8 @@ import { Collapse } from "./motion";
 import { AvatarGroup, personColor } from "./avatar-group";
 import { AddBriefButton, BriefTag, BriefWindow } from "./content-brief";
 import { DeadlineStrip } from "./deadline-strip";
-import { AddFinishedButton, askForFinished, FinishedAsk, FinishedTag, FinishedWindow } from "./finished-work";
+import { AddFinishedButton, FinishedAsk, FinishedTag, FinishedWindow } from "./finished-work";
+import { askForFinished } from "./held-day";
 import { TaskTypeIcon } from "./task-type-icon";
 import { initials } from "./top-bar";
 
@@ -81,9 +82,10 @@ export function TaskCard({
   // A card that just moved to its "finished" group is a new card: it picks the question up again.
   const [asking, setAsking] = useState(() => askForFinished.has(task.id) && !task.hasFinishedWork);
   const [askAppear] = useState(asking);
+  // Answered (Save or Not now): the question folds away first, then the card goes on to its new group.
   const stopAsking = useCallback(() => {
-    askForFinished.stop(task.id);
     setAsking(false);
+    setTimeout(() => askForFinished.stop(task.id), 420);
   }, [task.id]);
   // Notes: loaded the first time they are opened (before opening, so nothing jumps), then kept and
   // refreshed whenever the task's note count changes, e.g. after someone else adds one.
@@ -171,14 +173,15 @@ export function TaskCard({
     if (next === task.statusId) return;
     const picked = statuses.find((s) => s.id === next);
     const ask = !!picked?.isFinished && !picked.isCancelled && !task.hasFinishedWork;
-    if (ask) askForFinished.start(task.id);
+    if (ask && picked) askForFinished.start(task.id, { statusId: picked.id, statusName: picked.name, statusColor: picked.color, finished: true, cancelled: false, postponed: false, finishedOn: today });
     else askForFinished.stop(task.id);
     setAsking(ask);
     startTransition(async () => {
       setStatusId(next);
       const result = await setTaskStatus(task.id, next);
       if (!result.ok) {
-        stopAsking();
+        setAsking(false);
+        askForFinished.stop(task.id);
         onError?.(result.error);
       } else await onChanged?.();
     });

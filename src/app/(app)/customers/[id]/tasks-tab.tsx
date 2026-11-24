@@ -15,6 +15,7 @@ import { fill } from "@/i18n/format";
 import { shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
 import { dayLabel, longDate } from "@/lib/format-date";
 import { groupByPerson, type Section } from "@/lib/task-rules";
+import { useHeldDay } from "@/components/held-day";
 import type { DayTasks, TaskView } from "@/lib/tasks";
 import { PlanMonth, type PlanContent, type PlanPeriod, type PlanType } from "./plan-month";
 import { TaskTypeIcon } from "@/components/task-type-icon";
@@ -26,7 +27,7 @@ export function TasksTab({
   date,
   today,
   shownMonth,
-  day,
+  day: serverDay,
   drafts,
   counts,
   statuses,
@@ -63,6 +64,8 @@ export function TasksTab({
   months: readonly string[];
   errors: Dictionary["errors"];
 }) {
+  // Cards still asking for their finished work stay where they were until it is answered.
+  const day = useHeldDay(serverDay);
   const router = useRouter();
   const pathname = usePathname();
   const { message, show } = useToast();
