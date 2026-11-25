@@ -13,14 +13,12 @@ import { CONTENT_NOTE_MAX, compareCodes, suggestContentIds } from "@/lib/content
 import { addDays, firstOfMonth, monthGrid, shiftMonth, specialDaysOn, weekdayIndex, type SpecialDay } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
 import { prefersReducedMotion } from "@/lib/spring";
+import { typeColor } from "@/lib/type-colors";
 import { rhythm, shortChip, spreadEvenly } from "@/lib/plan-rules";
 
 export type PlanContent = { id: string; code: string; typeCode: string; publishDate: string | null };
 export type PlanPeriod = { id: string; start: string; end: string; label: string; code: string };
 export type PlanType = { id: string; code: string; name: string };
-
-/** One colour per content type, in the order the types are listed in Settings (videos, posts, reels, …). */
-const TYPE_COLORS = ["var(--color-status-purple)", "var(--color-status-blue)", "var(--color-status-amber)", "var(--color-status-teal)", "#c2410c", "#4e6b1f"];
 
 const icon = (d: string, size = 20) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -111,10 +109,7 @@ export function PlanMonth({
   const [selected, setSelected] = useState<string | null>(items[0]?.id ?? null);
   const codeOf = (id: string) => all.find((c) => c.id === id)?.code ?? "";
   const kindOf = (id: string) => all.find((c) => c.id === id)?.typeCode ?? "";
-  const colorOf = (kind: string) => {
-    const i = contentTypes.findIndex((x) => x.code === kind);
-    return i < 0 ? "var(--color-subtle)" : TYPE_COLORS[i % TYPE_COLORS.length];
-  };
+  const colorOf = (kind: string) => typeColor(kind, contentTypes);
   const typeName = (kind: string) => contentTypes.find((x) => x.code === kind)?.name ?? kind;
   const colorRank = (kind: string) => {
     const i = contentTypes.findIndex((x) => x.code === kind);

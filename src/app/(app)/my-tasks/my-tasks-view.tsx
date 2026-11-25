@@ -5,6 +5,10 @@ import { useEffect, useOptimistic, useRef, useState, useTransition } from "react
 import { addPersonalTask, deletePersonalTask, setPersonalDone } from "@/app/actions/personal";
 import { MiniCalendar } from "@/components/mini-calendar";
 import { DaySwitcher, EventChips, lineButton } from "@/components/day-header";
+import { DaySummary } from "@/components/day-summary";
+import { FilterSheet, StickyDayBar, TaskSearch, useDayFilters, useFitHeight, useScrolledEdge } from "@/components/day-filters";
+import { FilterBar } from "@/components/filter-bar";
+import { isFiltered } from "@/lib/task-filters";
 import { Collapse, scrollIntoViewSoftly, useFlip, useIsWide } from "@/components/motion";
 import { prefersReducedMotion } from "@/lib/spring";
 import { TaskCard, type StatusOption } from "@/components/task-card";
@@ -66,7 +70,13 @@ export function MyTasksView({
   const pathname = usePathname();
   const { message, show } = useToast();
   const [sideOpen, setSideOpen] = useState(false);
+  const [sheet, setSheet] = useState(false);
   const wide = useIsWide();
+  // On a computer the page fits the screen and only the tasks scroll.
+  const page = useRef<HTMLDivElement>(null);
+  useFitHeight(page);
+  const { onScroll, edge, compact } = useScrolledEdge();
+  const headerBox = useRef<HTMLElement>(null);
   const sidePanel = useRef<HTMLDivElement>(null);
   // On phones the calendar opens above the list; glide up to it when it opens.
   const toggleSide = () => {
@@ -105,12 +115,15 @@ export function MyTasksView({
     { key: "finished", label: isToday ? taskT.sections.finished : taskT.sections.finishedOn, color: "text-teal-deep" },
     { key: "cancelled", label: isToday ? taskT.sections.cancelled : taskT.sections.cancelledOn, color: "text-muted" },
   ];
-  const visible = sections.filter((s) => day[s.key].length > 0);
+  // Admins and managers can also open a customer's page from the customer filter.
+  const { filters, query, setQuery, filtered, shown, groups, count, clearAll } = useDayFilters({ day, t: taskT, date, staff: canOpenTasks, people: false });
+  const visible = sections.filter((s) => filtered[s.key].length > 0);
+  const hasFilters = isFiltered(filters);
   const total = day.overdue.length + day.due.length + day.postponed.length + day.finished.length + day.cancelled.length;
 
   return (
-    <div className="flex flex-wrap items-start gap-x-6 lg:gap-y-6">
-      <div ref={sidePanel} className="min-w-0 flex-[1_1_300px] scroll-mt-3 max-lg:basis-full lg:max-w-[340px]">
+    <div ref={page} className="flex flex-wrap items-start gap-x-6 lg:flex-nowrap lg:items-stretch lg:gap-y-6">
+      <div ref={sidePanel} className="min-w-0 flex-[1_1_300px] scroll-mt-3 max-lg:basis-full lg:max-w-[340px] lg:overflow-y-auto lg:[scrollbar-width:thin]">
       <Collapse open={sideOpen} keepMounted inertWhenClosed={!wide} className="zk-collapse-lg-open">
       <aside className="flex flex-col gap-5 pb-5 lg:pb-0">
         <section aria-label={t.calendar} className="rounded-[28px] bg-surface px-5 pb-[18px] pt-[22px]">
@@ -137,56 +150,54 @@ export function MyTasksView({
           </div>
         </section>
 
-        <section aria-label={fill(t.summary, { date: shortDate(date, taskT) })} className="flex flex-col gap-3.5 rounded-[28px] bg-teal p-[22px] text-white">
-          <div className="flex flex-col gap-1">
-            <span className="text-[13px] text-teal-tint">{fill(t.summary, { date: shortDate(date, taskT) })}</span>
-            <span key={total} className="zk-fade-up text-[26px] font-semibold">{total === 1 ? taskT.task1 : fill(taskT.tasksN, { n: total })}</span>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            {([[day.overdue.length, t.overdue], [day.due.length, t.open], [day.postponed.length, t.postponed], [day.finished.length, t.finished], [day.cancelled.length, t.cancelled]] as const).map(([n, label]) => (
-              <div key={label} className="flex flex-col gap-0.5">
-                <span key={n} className="zk-fade-up text-xl font-semibold">{n}</span>
-                <span className="text-xs text-teal-tint">{label}</span>
-              </div>
-            ))}
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-teal-deep">
-            <div className="h-2 rounded-full bg-sun transition-[width] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]" style={{ width: `${total ? Math.round((day.finished.length / total) * 100) : 0}%` }} />
-          </div>
-        </section>
+        <DaySummary
+          label={fill(t.summary, { date: shortDate(date, taskT) })}
+          title={t.summaryTitle}
+          total={total === 1 ? taskT.task1 : fill(taskT.tasksN, { n: total })}
+          counts={{ overdue: day.overdue.length, open: day.due.length, postponed: day.postponed.length, finished: day.finished.length, cancelled: day.cancelled.length }}
+          labels={{ overdue: t.overdue, open: t.open, postponed: t.postponed, finished: t.finished, cancelled: t.cancelled }}
+        />
       </aside>
       </Collapse>
       </div>
 
-      <main className="flex min-w-0 flex-[999_1_520px] flex-col gap-5">
-        <header className="flex flex-col gap-2.5 rounded-[28px] bg-surface px-3.5 py-3 sm:px-[22px] sm:py-[18px]">
-          <DaySwitcher
-            date={date}
-            today={today}
-            onGo={(iso) => go({ date: iso })}
-            t={taskT}
-            months={months}
-            actions={
-              <button type="button" onClick={toggleSide} aria-expanded={sideOpen} className={`${lineButton} lg:hidden`}>
-                {icon("M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M3 10h18", 15)}
-                {t.calendar}
-              </button>
-            }
-          />
-          <EventChips events={events} t={taskT} />
+      <main className="flex min-w-0 flex-[999_1_520px] flex-col gap-5 lg:min-h-0">
+        {/* The day and its holidays, then the search box and the filters. On a computer the date line folds
+            away while the list is scrolled, and comes back at the top. */}
+        <header ref={headerBox} className="flex flex-col gap-3 rounded-[28px] bg-surface px-3.5 py-3 sm:px-[22px] sm:py-4">
+          <Collapse open={!(compact && wide)}>
+            <DaySwitcher
+              date={date}
+              today={today}
+              onGo={(iso) => go({ date: iso })}
+              t={taskT}
+              months={months}
+              titleClass="text-[19px] sm:text-[24px] lg:text-[22px]"
+              extra={<EventChips events={events} t={taskT} max={2} />}
+              actions={
+                <button type="button" onClick={toggleSide} aria-expanded={sideOpen} className={`${lineButton} lg:hidden`}>
+                  {icon("M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M3 10h18", 15)}
+                  {t.calendar}
+                </button>
+              }
+            />
+          </Collapse>
+          <FilterBar groups={groups} t={taskT.filters} onClearAll={clearAll} lead={<TaskSearch value={query} onChange={setQuery} label={taskT.board.search} className="lg:rounded-2xl" />} />
         </header>
 
+        {/* On a computer only this part scrolls (the tasks, then the personal tasks). */}
+        <div data-task-scroll onScroll={onScroll} className={`flex flex-col gap-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:rounded-[28px] lg:[scrollbar-width:thin] ${edge}`}>
         <div ref={list} className="flex flex-col gap-[26px] rounded-[28px] bg-surface p-4 sm:p-[22px]">
           {visible.map((section) => (
             <section key={section.key} className="flex flex-col gap-3">
               <div data-flip={`heading-${section.key}`} className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
                 <h2 className={`text-base font-semibold ${section.color}`}>{section.label}</h2>
                 <span className="text-[13px] text-muted">
-                  {day[section.key].length}
+                  {filtered[section.key].length}
                   {section.hint ? ` · ${section.hint}` : ""}
                 </span>
               </div>
-              {day[section.key].map((task) => (
+              {filtered[section.key].map((task) => (
                 <TaskCard
                   contentWindow
                   key={task.id}
@@ -205,14 +216,17 @@ export function MyTasksView({
           {visible.length === 0 && (
             <div className="flex flex-col items-center gap-1.5 px-4 py-9 text-center">
               <span className="flex size-14 items-center justify-center rounded-full bg-mint text-teal-deep">{icon("M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M8.5 12l2.5 2.5 4.5-5")}</span>
-              <span className="text-lg font-semibold">{t.emptyTitle}</span>
-              <span className="text-sm text-muted">{t.emptyHint}</span>
+              <span className="text-lg font-semibold">{hasFilters ? taskT.emptyFiltered : t.emptyTitle}</span>
+              <span className="text-sm text-muted">{hasFilters ? taskT.emptyFilteredHint : t.emptyHint}</span>
             </div>
           )}
         </div>
 
         <PersonalTasks key={date} date={date} items={personal} t={t} taskT={taskT} errors={errors} onError={onError} onAdded={() => show(t.added)} />
+        </div>
       </main>
+      <StickyDayBar watch={headerBox} title={t.title} date={date} onGo={(iso) => go({ date: iso })} t={taskT} count={count} onFilter={() => setSheet(true)} />
+      {sheet && <FilterSheet onClose={() => setSheet(false)} groups={groups} query={query} setQuery={setQuery} onClearAll={clearAll} shown={shown} t={taskT} />}
       <Toast message={message} />
     </div>
   );
