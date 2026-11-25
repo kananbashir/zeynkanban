@@ -6,6 +6,7 @@ import type { Locale } from "@/i18n/dictionaries";
 export type ReleaseKind = "new" | "improved" | "fixed";
 /** The small picture before an item (drawn in whats-new-window.tsx). */
 export type ReleaseIcon = "finished" | "icons" | "motion" | "settings" | "keyboard" | "lock" | "bell" | "brief" | "deadline" | "list" | "search" | "status" | "logout" | "sparkle" | "pin" | "chart";
+/** `text` may be empty: then only the title is shown. */
 type Text = { title: string; text: string };
 /** Who sees an item: "staff" (admins and managers) or "employees". Without it, everyone. */
 export type Audience = "staff" | "employees";
@@ -14,6 +15,16 @@ export type ReleaseItem = { kind: ReleaseKind; icon: ReleaseIcon; az: Text; en: 
 export type Release = { version: string; date: string; items: ReleaseItem[] };
 
 export const RELEASES: Release[] = [
+  {
+    version: "0.18.1",
+    date: "2026-11-25",
+    items: [
+      { kind: "improved", icon: "sparkle", for: "employees", az: { title: "Təkmilləşdirmələr edildi", text: "" }, en: { title: "Improvements were made", text: "" } },
+      { kind: "improved", icon: "list", for: "staff", az: { title: "“Bərabər payla” ritmlə", text: "Ayı planlayanda “Bərabər payla” kontent ID-ləri ritmlə yerləşdirir: 2 post, 1 video, 2 post… Hər növ öz sırasını saxlayır, əvvəl planlaşdırılan paylaşımlar da nəzərə alınır." }, en: { title: "“Spread evenly” in a rhythm", text: "When planning a month, “Spread evenly” places content IDs in a rhythm: 2 posts, a video, 2 posts, … Each type keeps its order, and publications planned earlier are taken into account." } },
+      { kind: "new", icon: "pin", for: "staff", az: { title: "Əl ilə qoyulanlar yerində qalır", text: "Təqvimə özünüz qoyduğunuz kontent ID sancaqla işarələnir və “Bərabər payla” onu yerindən tərpətmir." }, en: { title: "IDs placed by hand stay put", text: "A content ID you put on a day yourself gets a pin, and “Spread evenly” leaves it there." } },
+      { kind: "improved", icon: "deadline", for: "staff", az: { title: "Paylaşım ritmi bir sütunda", text: "Ritm indi solda, yuxarıdan aşağıdır: müştərinin bütün paylaşımları birincidən sonuncuya qədər, aylar üzrə, hər növ öz rəngi ilə. “ID-ləri yarat” təqvimin altına keçib." }, en: { title: "The publishing rhythm in one column", text: "The rhythm is now on the left, top to bottom: every publication of the customer from the first to the last, by month, each type in its own colour. “Generate IDs” has moved under the calendar." } },
+    ],
+  },
   {
     version: "0.17.0",
     date: "2026-11-25",
