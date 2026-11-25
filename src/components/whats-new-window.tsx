@@ -67,11 +67,11 @@ function Groups({ items, t }: { items: ShownItem[]; t: T }) {
                   <span className="flex size-[34px] shrink-0 items-center justify-center rounded-[11px] bg-mint text-teal-deep">
                     <Svg d={RELEASE_ICONS[i.icon]} />
                   </span>
-                  <div className="flex min-w-0 flex-col gap-0.5">
+                  <div className={`flex min-w-0 flex-col gap-0.5 ${i.text ? "" : "justify-center"}`}>
                     <b className="text-sm font-semibold">
                       {i.title}
                     </b>
-                    <span className="text-[13px] leading-snug text-ink-soft">{i.text}</span>
+                    {i.text && <span className="text-[13px] leading-snug text-ink-soft">{i.text}</span>}
                   </div>
                 </li>
               ))}

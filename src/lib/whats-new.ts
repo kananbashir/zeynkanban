@@ -6,6 +6,7 @@ import type { Locale } from "@/i18n/dictionaries";
 export type ReleaseKind = "new" | "improved" | "fixed";
 /** The small picture before an item (drawn in whats-new-window.tsx). */
 export type ReleaseIcon = "finished" | "icons" | "motion" | "settings" | "keyboard" | "lock" | "bell" | "brief" | "deadline" | "list" | "search" | "status" | "logout" | "sparkle" | "pin" | "chart";
+/** `text` may be empty: then only the title is shown. */
 type Text = { title: string; text: string };
 /** Who sees an item: "staff" (admins and managers) or "employees". Without it, everyone. */
 export type Audience = "staff" | "employees";
@@ -14,6 +15,11 @@ export type ReleaseItem = { kind: ReleaseKind; icon: ReleaseIcon; az: Text; en: 
 export type Release = { version: string; date: string; items: ReleaseItem[] };
 
 export const RELEASES: Release[] = [
+  {
+    version: "0.18.1",
+    date: "2026-11-25",
+    items: [{ kind: "improved", icon: "sparkle", for: "employees", az: { title: "Təkmilləşdirmələr edildi", text: "" }, en: { title: "Improvements were made", text: "" } }],
+  },
   {
     version: "0.18.0",
     date: "2026-11-25",
