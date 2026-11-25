@@ -259,8 +259,7 @@ A version's date is the day it is merged into `main`.
 
 | Version | What changed |
 |---|---|
-| 0.18.1 | A short "Improvements were made" note in What's new for employees (0.18.0 had nothing for them) |
-| 0.18.0 | The month planner: "Spread evenly" places IDs in a rhythm of types (posts first, each type in order), keeps IDs placed by hand (pinned) and counts publications already planned; the publishing rhythm as a column with every publication across months; colours for content types; "Generate IDs" under the calendar |
+| 0.18.1 | The month planner: "Spread evenly" places IDs in a rhythm of types (posts first, each type in order), keeps IDs placed by hand (pinned) and counts publications already planned; the publishing rhythm as a column with every publication across months; colours for content types; "Generate IDs" under the calendar; employees see only "Improvements were made" in What's new |
 | 0.17.0 | The reminder bell on task cards for admins and managers; the task type as a dropdown with search in the task form; the side menu stays in view on computers, with Settings and About at the bottom of the screen; the phone's bottom bar shows icons only; "What's new" and the About page's version list show each person only the items for their role |
 | 0.16.0 | Employees can add a content brief to their content IDs and edit or delete the ones they added (admins and managers are notified); employees get their own dashboard and land on it after logging in |
 | 0.15.1 | Employees can open the content ID window too (from My tasks and the task window), read-only; they can open only their own tasks from it |
