@@ -7,8 +7,10 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "Zeynmedia",
     start_url: "/",
     display: "standalone",
-    background_color: "#edf6f4",
-    theme_color: "#edf6f4",
+    // The dark page colour: the installed app opens dark (no mint flash), and Android's bars match it.
+    // The page then sets the bar colour to the theme picked in Settings (see components/theme-color).
+    background_color: "#0b1215",
+    theme_color: "#0b1215",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { src: "/icon-512.png", sizes: "512x512", type: "image/png" },

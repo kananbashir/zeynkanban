@@ -1,3 +1,4 @@
+import { ThemeColor } from "@/components/theme-color";
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
 import "@fontsource-variable/inter";
@@ -16,6 +17,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // The page may draw to the screen's edges (on Android, behind the gesture bar instead of a white
+  // strip); the bottom menu and floating buttons keep clear of it with env(safe-area-inset-*).
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#c9dfd8" },
     { media: "(prefers-color-scheme: dark)", color: "#0b1215" },
@@ -35,6 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="min-h-full">
         {children}
         <PressAnimation />
+        <ThemeColor />
       </body>
     </html>
   );
