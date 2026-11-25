@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { runReminders } from "@/lib/reminders";
@@ -269,6 +269,33 @@ export async function setTaskStatus(id: string, statusId: string): Promise<Resul
       push(rows);
     }
   }
+  return refresh();
+}
+
+/** How long after a reminder with the bell the same task can be rung again. */
+const NUDGE_GAP_MS = 60_000;
+
+/**
+ * The bell on a card: an admin or manager reminds the people on the task (everyone but themselves)
+ * with a notification in the site and on their phones. Once a minute per task at most.
+ */
+export async function nudgeTask(id: string): Promise<Result> {
+  const me = await requireRole("admin", "manager");
+  const [task] = await db.select({ archived: tasks.archived, nudgedAt: tasks.nudgedAt }).from(tasks).where(eq(tasks.id, id));
+  if (!task || task.archived) return fail("notFound");
+  const people = (await assigneesOf(id)).filter((p) => p !== me.id);
+  if (!people.length) return fail("notAllowed");
+  const now = new Date();
+  if (task.nudgedAt && now.getTime() - task.nudgedAt.getTime() < NUDGE_GAP_MS) return fail("nudgeTooSoon");
+  // Claim the minute first, so two quick taps (or two people at once) send it only once.
+  const since = new Date(now.getTime() - NUDGE_GAP_MS);
+  const claimed = await db
+    .update(tasks)
+    .set({ nudgedAt: now, nudgedBy: me.id })
+    .where(and(eq(tasks.id, id), or(isNull(tasks.nudgedAt), lt(tasks.nudgedAt, since))));
+  if (!found(claimed)) return fail("nudgeTooSoon");
+  const ref = await taskRef(id);
+  if (ref) push(await notify(people, "nudge", { kind: "nudge", by: me.name, ...refOnly(ref) }, id));
   return refresh();
 }
 

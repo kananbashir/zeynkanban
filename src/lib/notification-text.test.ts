@@ -43,6 +43,12 @@ describe("notificationText", () => {
     expect(text({ kind: "reminder", ...ref, due: "2026-11-23" }).b).toBe("Due tomorrow");
     expect(text({ kind: "reminder", ...ref, due: "2026-11-25" }).b).toBe("Due in 3 days · 25 Nov");
   });
+  it("a reminder rung with the bell names who sent it and opens the task", () => {
+    const x = text({ kind: "nudge", by: "Aysel", ...ref, due: "2026-11-20" });
+    expect([x.title, x.a, x.b, x.href, x.taskId]).toEqual(["Aysel sent you a reminder", "Video edit · thrive-vid-nd26-3 · Thrive", "Was due 20 Nov", "/my-tasks?task=t1", "t1"]);
+    const az = notificationText({ kind: "nudge", by: "Aysel", ...ref }, false, "2026-11-22", dictionaries.az.notifications, dictionaries.az.tasks);
+    expect(az.title).toBe("Aysel xatırladır");
+  });
   it("Azerbaijani", () => {
     const x = notificationText({ kind: "overdueMany", count: 5 }, true, "2026-11-22", dictionaries.az.notifications, dictionaries.az.tasks);
     expect(x.title).toBe("5 tapşırığın vaxtı keçdi");

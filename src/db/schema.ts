@@ -209,6 +209,9 @@ export const tasks = mysqlTable(
     /** Time of day ("09:00", Baku) for the task's reminders (see taskReminders). */
     remindTime: varchar("remind_time", { length: 5 }),
     createdBy: varchar("created_by", { length: 36 }).references(() => users.id),
+    /** The last reminder an admin or manager sent to the people on the task with the bell (when, and who). */
+    nudgedAt: datetime("nudged_at", { mode: "date", fsp: 3 }),
+    nudgedBy: varchar("nudged_by", { length: 36 }).references(() => users.id),
     createdAt: createdAt(),
     updatedAt: now("updated_at"),
   },
@@ -349,7 +352,7 @@ export const taskReminders = mysqlTable(
   (t) => [primaryKey({ columns: [t.taskId, t.daysBefore] })],
 );
 
-export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder", "note", "personal", "deadline", "brief", "finished", "contentNote"] as const;
+export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder", "note", "personal", "deadline", "brief", "finished", "contentNote", "nudge"] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 /**

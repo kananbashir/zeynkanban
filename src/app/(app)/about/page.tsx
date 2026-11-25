@@ -5,11 +5,11 @@ import { getDictionary } from "@/i18n/server";
 import { fill } from "@/i18n/format";
 import { requireUser } from "@/lib/auth";
 import { appVersion } from "@/lib/version";
-import { localRelease, RELEASES } from "@/lib/whats-new";
+import { localRelease, releasesFor } from "@/lib/whats-new";
 
 /** About the site: version, purpose, what it does, roles. Every role can open it. */
 export default async function AboutPage() {
-  await requireUser();
+  const me = await requireUser();
   const { t, locale } = await getDictionary();
   const a = t.about;
   const { version, stage } = appVersion();
@@ -82,7 +82,7 @@ export default async function AboutPage() {
           <h2 className="flex items-center gap-2 text-lg font-semibold">{t.whatsNew.listTitle}</h2>
           <p className="text-sm text-ink-soft">{t.whatsNew.listIntro}</p>
         </div>
-        <VersionList releases={RELEASES.filter((r) => r.items.length).map((r) => localRelease(r, locale))} current={version} t={t.whatsNew} />
+        <VersionList releases={releasesFor(me.role).map((r) => localRelease(r, locale))} current={version} t={t.whatsNew} />
       </section>
       <p className="px-2 text-center text-xs text-muted">{a.madeFor}</p>
     </main>

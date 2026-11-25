@@ -25,6 +25,8 @@ export type NotificationData =
   /** The note on the content ID of a task of yours was added or changed (by an admin or manager). */
   | ({ kind: "contentNote"; action: "added" | "updated"; by: string; text: string } & TaskRef)
   | ({ kind: "note"; by: string; body: string } & TaskRef)
+  /** An admin or manager rang the bell on a task of yours. */
+  | ({ kind: "nudge"; by: string } & TaskRef)
   | { kind: "personal"; title: string; due: string; time: string | null }
   | { kind: "overdueMany"; count: number }
   | { kind: "summary"; scope: "staff" | "own"; date: string; tasks: number; customers: number; overdue: number; drafts: number };
@@ -88,10 +90,11 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
       return { title: t.kinds.note, a, b: fill(t.noteLine, { name: d.by, body: d.body }), href, icon: "note", ...open };
     case "status":
       return { title: t.kinds.status, a, b: `${localName(d.from, d.fromEn, locale)} → ${localName(d.to, d.toEn, locale)} · ${d.by}`, href, icon: "status", ...open };
-    case "reminder": {
+    case "reminder":
+    case "nudge": {
       const left = daysBetween(today, d.due);
       const b = left < 0 ? fill(t.wasDue, { date: date(d.due) }) : left === 0 ? t.remindToday : left === 1 ? t.remindTomorrow : fill(t.remindIn, { n: left, date: date(d.due) });
-      return { title: t.kinds.reminder, a, b, href, icon: "reminder", ...open };
+      return { title: d.kind === "nudge" ? fill(t.kinds.nudge, { name: d.by }) : t.kinds.reminder, a, b, href, icon: "reminder", ...open };
     }
     case "brief":
       return { title: d.action === "added" ? t.kinds.brief : t.briefUpdated, a, b: fill(t.by, { name: d.by }), href, icon: "changed", ...open, brief: true };
@@ -142,6 +145,7 @@ export const PREF_OF = {
   brief: "changed",
   finished: "changed",
   contentNote: "changed",
+  nudge: "reminder",
 } as const;
 export type PrefKey = (typeof PREF_OF)[keyof typeof PREF_OF];
 export const STAFF_PREFS: PrefKey[] = ["assigned", "changed", "notes", "reminder", "summary", "review", "status", "overdue"];
