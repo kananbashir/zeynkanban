@@ -148,14 +148,23 @@ export function useFitHeight(ref: RefObject<HTMLElement | null>) {
   }, [ref, wide]);
 }
 
-/** A scrolling area that fades at its top edge once it has been scrolled (so it is clear more is above). */
+/**
+ * The task list's scrolling area: it fades at its top edge once scrolled (so it is clear more is
+ * above), and says when it is properly scrolled (`compact`), so the date line above can fold away
+ * and give the list more room; back at the top, it comes back. Only when there is plenty to scroll,
+ * so folding it can't leave the list with nothing left to scroll.
+ */
 export function useScrolledEdge() {
   const [scrolled, setScrolled] = useState(false);
+  const [compact, setCompact] = useState(false);
   const onScroll = (e: React.UIEvent<HTMLElement>) => {
-    const now = e.currentTarget.scrollTop > 4;
-    if (now !== scrolled) setScrolled(now);
+    const el = e.currentTarget;
+    const top = el.scrollTop;
+    if (top > 4 !== scrolled) setScrolled(top > 4);
+    if (!compact && top > 24 && el.scrollHeight - el.clientHeight > 240) setCompact(true);
+    else if (compact && top <= 2) setCompact(false);
   };
-  return { onScroll, edge: scrolled ? "[mask-image:linear-gradient(to_bottom,transparent,black_20px)]" : "" };
+  return { onScroll, compact, edge: scrolled ? "[mask-image:linear-gradient(to_bottom,transparent,black_20px)]" : "" };
 }
 
 /**

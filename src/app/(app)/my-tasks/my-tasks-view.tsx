@@ -78,8 +78,8 @@ export function MyTasksView({
   // On a computer the page fits the screen and only the tasks scroll.
   const page = useRef<HTMLDivElement>(null);
   useFitHeight(page);
-  const { onScroll, edge } = useScrolledEdge();
-  const filterBox = useRef<HTMLElement>(null);
+  const { onScroll, edge, compact } = useScrolledEdge();
+  const headerBox = useRef<HTMLElement>(null);
   const sidePanel = useRef<HTMLDivElement>(null);
   // On phones the calendar opens above the list; glide up to it when it opens.
   const toggleSide = () => {
@@ -154,37 +154,39 @@ export function MyTasksView({
         </section>
 
         <DaySummary
-          title={fill(t.summary, { date: shortDate(date, taskT) })}
+          label={fill(t.summary, { date: shortDate(date, taskT) })}
+          title={t.summaryTitle}
           total={total === 1 ? taskT.task1 : fill(taskT.tasksN, { n: total })}
           counts={{ overdue: day.overdue.length, open: day.due.length, postponed: day.postponed.length, finished: day.finished.length, cancelled: day.cancelled.length }}
-          labels={{ overdue: t.overdue, open: t.open, postponed: t.postponed, finished: t.finished, cancelled: t.cancelled, done: taskT.board.done }}
+          labels={{ overdue: t.overdue, open: t.open, postponed: t.postponed, finished: t.finished, cancelled: t.cancelled }}
         />
       </aside>
       </Collapse>
       </div>
 
       <main className="flex min-w-0 flex-[999_1_520px] flex-col gap-5 lg:min-h-0">
-        <header className="flex flex-col gap-2.5 rounded-[28px] bg-surface px-3.5 py-3 sm:px-[22px] sm:py-[18px]">
-          <DaySwitcher
-            date={date}
-            today={today}
-            onGo={(iso) => go({ date: iso })}
-            t={taskT}
-            months={months}
-            actions={
-              <button type="button" onClick={toggleSide} aria-expanded={sideOpen} className={`${lineButton} lg:hidden`}>
-                {icon("M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M3 10h18", 15)}
-                {t.calendar}
-              </button>
-            }
-          />
-          <EventChips events={events} t={taskT} />
-          <TaskSearch value={query} onChange={setQuery} label={taskT.board.search} />
+        {/* The day and its holidays, then the search box and the filters. On a computer the date line folds
+            away while the list is scrolled, and comes back at the top. */}
+        <header ref={headerBox} className="flex flex-col gap-3 rounded-[28px] bg-surface px-3.5 py-3 sm:px-[22px] sm:py-4">
+          <Collapse open={!(compact && wide)}>
+            <DaySwitcher
+              date={date}
+              today={today}
+              onGo={(iso) => go({ date: iso })}
+              t={taskT}
+              months={months}
+              titleClass="text-[19px] sm:text-[24px] lg:text-[22px]"
+              extra={<EventChips events={events} t={taskT} max={2} />}
+              actions={
+                <button type="button" onClick={toggleSide} aria-expanded={sideOpen} className={`${lineButton} lg:hidden`}>
+                  {icon("M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M3 10h18", 15)}
+                  {t.calendar}
+                </button>
+              }
+            />
+          </Collapse>
+          <FilterBar groups={groups} t={taskT.filters} onClearAll={clearAll} lead={<TaskSearch value={query} onChange={setQuery} label={taskT.board.search} className="lg:rounded-2xl" />} />
         </header>
-
-        <section ref={filterBox} aria-label={taskT.filters.label} className="rounded-[28px] bg-surface p-3">
-          <FilterBar groups={groups} t={taskT.filters} onClearAll={clearAll} />
-        </section>
 
         {/* On a computer only this part scrolls (the tasks, then the personal tasks). */}
         <div data-task-scroll onScroll={onScroll} className={`flex flex-col gap-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:rounded-[28px] lg:[scrollbar-width:thin] ${edge}`}>
@@ -226,7 +228,7 @@ export function MyTasksView({
         <PersonalTasks key={date} date={date} items={personal} t={t} taskT={taskT} errors={errors} onError={onError} onAdded={() => show(t.added)} />
         </div>
       </main>
-      <StickyDayBar watch={filterBox} title={t.title} date={date} onGo={(iso) => go({ date: iso })} t={taskT} count={count} onFilter={() => setSheet(true)} />
+      <StickyDayBar watch={headerBox} title={t.title} date={date} onGo={(iso) => go({ date: iso })} t={taskT} count={count} onFilter={() => setSheet(true)} />
       {sheet && <FilterSheet onClose={() => setSheet(false)} groups={groups} query={query} setQuery={setQuery} onClearAll={clearAll} shown={shown} t={taskT} />}
       <Toast message={message} />
     </div>

@@ -1,7 +1,5 @@
 "use client";
 
-import { fill } from "@/i18n/format";
-
 const ICONS = {
   overdue: "M12 8v4M12 16h.01M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0",
   open: "M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M12 7v5l3 2",
@@ -23,27 +21,27 @@ const TINT: Record<Key, string> = {
 export type SummaryCounts = { overdue: number; open: number; postponed: number; finished: number; cancelled: number };
 
 /**
- * The day in short, on the teal card beside the task list: how many tasks, how much is finished
- * (the ring), and a small tile per group with an icon, its number and its name. Groups with nothing
- * are faded. On the board a sixth tile shows how many people work that day (their names on hover).
+ * The day in short, on the teal card beside the task list: one line with how many tasks, then a
+ * small tile per group with an icon, its number and its name. Groups with nothing are faded. On the
+ * board a sixth tile shows how many people work that day (their names on hover).
  */
 export function DaySummary({
+  label,
   title,
   total,
   counts,
   labels,
   working,
 }: {
+  /** For screen readers, with the date ("Day summary · 26 Nov"). */
+  label: string;
+  /** Shown before the number of tasks ("Day summary"). */
   title: string;
   total: string;
   counts: SummaryCounts;
-  labels: Record<keyof SummaryCounts, string> & { done: string; working?: string };
+  labels: Record<keyof SummaryCounts, string> & { working?: string };
   working?: { count: number; names: string[] };
 }) {
-  const all = counts.overdue + counts.open + counts.postponed + counts.finished + counts.cancelled;
-  const pct = all ? Math.round((counts.finished / all) * 100) : 0;
-  const r = 19;
-  const around = 2 * Math.PI * r;
   const tiles: { key: Key; n: number; label: string; title?: string }[] = [
     { key: "overdue", n: counts.overdue, label: labels.overdue },
     { key: "open", n: counts.open, label: labels.open },
@@ -53,31 +51,10 @@ export function DaySummary({
     ...(working && labels.working ? [{ key: "working" as const, n: working.count, label: labels.working, title: working.names.join(", ") }] : []),
   ];
   return (
-    <section aria-label={title} className="flex flex-col gap-2.5 rounded-[24px] bg-teal px-4 pb-4 pt-3.5 text-white">
-      <div className="flex items-center gap-3">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="text-xs font-medium text-white/80">{title}</span>
-          <span key={total} className="zk-fade-up text-[21px] font-semibold leading-tight">{total}</span>
-        </div>
-        <span role="img" aria-label={fill(labels.done, { n: pct })} title={fill(labels.done, { n: pct })} className="relative size-[46px] shrink-0">
-          <svg viewBox="0 0 46 46" width="46" height="46" aria-hidden="true" className="block">
-            <circle cx="23" cy="23" r={r} fill="none" stroke="rgb(0 0 0 / 0.22)" strokeWidth="5" />
-            <circle
-              cx="23"
-              cy="23"
-              r={r}
-              fill="none"
-              stroke="var(--color-sun)"
-              strokeWidth="5"
-              strokeLinecap="round"
-              strokeDasharray={`${Math.max(0.01, (around * pct) / 100)} ${around}`}
-              transform="rotate(-90 23 23)"
-              className="transition-[stroke-dasharray] duration-500 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
-            />
-          </svg>
-          <span aria-hidden="true" className="absolute inset-0 flex items-center justify-center text-xs font-bold">{pct}%</span>
-        </span>
-      </div>
+    <section aria-label={label} className="flex flex-col gap-2.5 rounded-[24px] bg-teal px-4 pb-4 pt-3 text-white">
+      <p className="text-[13px] font-medium text-white/80">
+        {title} · <b key={total} className="zk-fade-up inline-block font-semibold text-white">{total}</b>
+      </p>
       <ul className="grid grid-cols-3 gap-1.5">
         {tiles.map((x) => (
           <li key={x.key} data-summary={x.key} title={x.title} className={`flex min-w-0 flex-col gap-1 rounded-xl bg-black/15 px-2 pb-[9px] pt-2 transition-opacity duration-300 ${x.n ? "" : "opacity-55"}`}>

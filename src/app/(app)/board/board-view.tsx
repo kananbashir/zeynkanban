@@ -66,8 +66,8 @@ export function BoardView({
   // On a computer the page fits the screen and only the task list scrolls.
   const page = useRef<HTMLDivElement>(null);
   useFitHeight(page);
-  const { onScroll, edge } = useScrolledEdge();
-  const filterBox = useRef<HTMLElement>(null);
+  const { onScroll, edge, compact } = useScrolledEdge();
+  const headerBox = useRef<HTMLElement>(null);
 
   const go = (params: { date?: string; m?: string }) => {
     const search = new URLSearchParams();
@@ -124,10 +124,11 @@ export function BoardView({
           </section>
 
           <DaySummary
-            title={fill(b.summary, { date: shortDate(date, t) })}
+            label={fill(b.summary, { date: shortDate(date, t) })}
+            title={b.summaryTitle}
             total={total === 1 ? t.task1 : fill(t.tasksN, { n: total })}
             counts={{ overdue: day.overdue.length, open: day.due.length, postponed: day.postponed.length, finished: day.finished.length, cancelled: day.cancelled.length }}
-            labels={{ overdue: b.overdue, open: b.open, postponed: b.postponed, finished: b.finished, cancelled: b.cancelled, working: b.working, done: b.done }}
+            labels={{ overdue: b.overdue, open: b.open, postponed: b.postponed, finished: b.finished, cancelled: b.cancelled, working: b.working }}
             working={{ count: peopleToday.length, names: peopleToday }}
           />
         </aside>
@@ -135,23 +136,22 @@ export function BoardView({
         </div>
 
         <main className="flex min-w-0 flex-[999_1_520px] flex-col gap-5 lg:min-h-0">
-          <header className="flex flex-wrap items-center gap-x-[18px] gap-y-2.5 rounded-[28px] bg-surface px-3.5 py-3 sm:px-[22px] sm:py-[18px]">
-            <div className="flex w-full min-w-0 flex-col gap-1 sm:w-auto">
-              <div className="flex items-center gap-2">
-                <span className="flex-1 text-[13px] font-semibold text-teal-deep">{b.title}</span>
-                <button type="button" onClick={toggleSide} aria-expanded={sideOpen} className="flex min-h-11 items-center gap-2 rounded-full bg-mint px-3.5 text-[13px] font-semibold lg:hidden">
-                  {b.filters}
-                </button>
+          {/* The day and its holidays, then the search box and the filters. On a computer the date line folds
+              away while the list is scrolled, and comes back at the top. */}
+          <header ref={headerBox} className="flex flex-col gap-3 rounded-[28px] bg-surface px-3.5 py-3 sm:px-[22px] sm:py-4">
+            <Collapse open={!(compact && wide)}>
+              <div className="flex min-w-0 flex-col gap-1">
+                <div className="flex items-center gap-2 lg:hidden">
+                  <span className="flex-1 text-[13px] font-semibold text-teal-deep">{b.title}</span>
+                  <button type="button" onClick={toggleSide} aria-expanded={sideOpen} className="flex min-h-11 items-center gap-2 rounded-full bg-mint px-3.5 text-[13px] font-semibold">
+                    {b.filters}
+                  </button>
+                </div>
+                <DaySwitcher date={date} today={today} onGo={(iso) => go({ date: iso })} t={t} months={months} titleClass="text-[19px] sm:text-[24px] lg:text-[22px]" extra={<EventChips events={events} t={t} max={2} />} />
               </div>
-              <DaySwitcher date={date} today={today} onGo={(iso) => go({ date: iso })} t={t} months={months} />
-              <EventChips events={events} t={t} />
-            </div>
-            <TaskSearch value={query} onChange={setQuery} label={b.search} />
+            </Collapse>
+            <FilterBar groups={groups} t={t.filters} onClearAll={clearAll} lead={<TaskSearch value={query} onChange={setQuery} label={b.search} className="lg:rounded-2xl" />} />
           </header>
-
-          <section ref={filterBox} aria-label={t.filters.label} className="rounded-[28px] bg-surface p-3">
-            <FilterBar groups={groups} t={t.filters} onClearAll={clearAll} />
-          </section>
 
           {/* On a computer only this part scrolls; the calendar, summary, header and filters stay put. */}
           <div data-task-scroll onScroll={onScroll} className={`lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain lg:rounded-[28px] lg:[scrollbar-width:thin] ${edge}`}>
@@ -190,7 +190,7 @@ export function BoardView({
           </div>
         </main>
       </div>
-      <StickyDayBar watch={filterBox} title={b.title} date={date} onGo={(iso) => go({ date: iso })} t={t} count={count} onFilter={() => setSheet(true)} />
+      <StickyDayBar watch={headerBox} title={b.title} date={date} onGo={(iso) => go({ date: iso })} t={t} count={count} onFilter={() => setSheet(true)} />
       {sheet && <FilterSheet onClose={() => setSheet(false)} groups={groups} query={query} setQuery={setQuery} onClearAll={clearAll} shown={shown} t={t} />}
       <Toast message={message} />
     </div>

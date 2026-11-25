@@ -135,14 +135,32 @@ function ChoiceList({ group, t, autoFocus }: { group: FilterGroup; t: T; autoFoc
  * (two per row on phones). On a computer a list opens under its button; on a phone (or with
  * `inline`) it opens in place under the buttons. What is picked shows as chips with ×, plus Clear all.
  */
-export function FilterBar({ groups, t, onClearAll, columns, className = "" }: { groups: FilterGroup[]; t: T; onClearAll: () => void; columns?: number; className?: string }) {
+export function FilterBar({
+  groups,
+  t,
+  onClearAll,
+  columns,
+  lead,
+  className = "",
+}: {
+  groups: FilterGroup[];
+  t: T;
+  onClearAll: () => void;
+  columns?: number;
+  /** A first cell before the filters (the search box): its own row on phones, a wider first column on a computer. */
+  lead?: React.ReactNode;
+  className?: string;
+}) {
   const wide = useIsWide();
   const [open, setOpen] = useState<string | null>(null);
   const [closing, setClosing] = useState(false);
   const bar = useRef<HTMLDivElement>(null);
   const pop = useRef<HTMLDivElement>(null);
   const floating = wide && !columns; // a list floats under its button only in the full-width bar on a computer
-  const current = groups.find((g) => g.key === open) ?? null;
+  // The list shown in place (phones): the one open, or the one closing (kept until it has folded away).
+  const [last, setLast] = useState<string | null>(null);
+  if (open && open !== last) setLast(open);
+  const current = groups.find((g) => g.key === (open ?? last)) ?? null;
 
   useLayoutEffect(() => {
     if (!floating || !open || closing || !pop.current || prefersReducedMotion()) return;
@@ -187,9 +205,10 @@ export function FilterBar({ groups, t, onClearAll, columns, className = "" }: { 
   return (
     <div ref={bar} className={`flex flex-col gap-2.5 ${className}`}>
       <div
-        className={`grid gap-2 ${columns ? "" : "grid-cols-2 sm:[grid-template-columns:var(--cols)]"}`}
-        style={{ "--cols": `repeat(${cols}, minmax(0, 1fr))`, ...(columns ? { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` } : {}) } as React.CSSProperties}
+        className={`grid gap-2 ${columns ? "" : "grid-cols-2 lg:[grid-template-columns:var(--cols)]"}`}
+        style={{ "--cols": `${lead ? "minmax(0, 1.15fr) " : ""}repeat(${cols}, minmax(0, 1fr))`, ...(columns ? { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` } : {}) } as React.CSSProperties}
       >
+        {lead && <div className="col-span-2 min-w-0 lg:col-span-1">{lead}</div>}
         {groups.map((g) => {
           const isOpen = open === g.key && !closing;
           const on = g.selected.length > 0;
@@ -222,7 +241,7 @@ export function FilterBar({ groups, t, onClearAll, columns, className = "" }: { 
         })}
       </div>
       {!floating && (
-        <Collapse open={!!current && !closing}>
+        <Collapse open={!!open && !closing}>
           {current && (
             <div className="rounded-[18px] border border-line bg-surface p-2">
               <ChoiceList key={current.key} group={current} t={t} autoFocus={false} />
