@@ -21,12 +21,12 @@ export const RELEASES: Release[] = [
       { kind: "new", icon: "bell", for: "staff", az: { title: "Zənglə xatırlatma", text: "Tapşırıq kartındakı zəngə toxunub tapşırıqdakı insanlara xatırlatma göndərin. Onlara saytda və telefonda bildiriş gedir." }, en: { title: "Remind with the bell", text: "Tap the bell on a task card to remind the people on the task. They get a notification in the site and on their phone." } },
       { kind: "new", icon: "bell", for: "employees", az: { title: "Admin və menecerdən xatırlatma", text: "Admin və ya menecer tapşırığınızın kartındakı zəngə toxunanda saytda və telefonunuzda bildiriş alırsınız. Bildirişə toxunanda tapşırıq açılır." }, en: { title: "Reminders from admins and managers", text: "When an admin or manager rings the bell on your task, you get a notification in the site and on your phone. Tapping it opens the task." } },
       { kind: "improved", icon: "list", for: "staff", az: { title: "Tapşırıq növü siyahıda", text: "Tapşırıq formasında növlər artıq düymələrdə yox, axtarışı olan açılan siyahıdadır, ona görə forma daha az yer tutur." }, en: { title: "Task type in a dropdown", text: "In the task form, the task types are now in a dropdown with search instead of buttons, so the form takes less space." } },
-      { kind: "improved", icon: "settings", az: { title: "Ayarlar və Haqqında bölmələri hər zaman ekranın sol alt hissəsində görünəcək", text: "Kompüterdə səhifəni sürüşdürəndə soldakı menyu yerində qalır." }, en: { title: "Settings and About are always at the bottom left of the screen", text: "On computers, the menu on the left stays in place while you scroll." } },
+      { kind: "improved", icon: "settings", az: { title: "Tənzimləmələr və Haqqında bölmələri hər zaman ekranın sol alt hissəsində görünəcək", text: "Kompüterdə səhifəni sürüşdürəndə soldakı menyu yerində qalır." }, en: { title: "Settings and About are always at the bottom left of the screen", text: "On computers, the menu on the left stays in place while you scroll." } },
     ],
   },
   {
     version: "0.16.0",
-    date: "2026-11-24",
+    date: "2026-11-25",
     items: [
       { kind: "new", icon: "brief", for: "employees", az: { title: "İşçilər də brif yaza bilər", text: "Tapşırığınız olan kontent ID-nin brifi yoxdursa, kartdakı “+ Kontent brifi əlavə et” ilə onu yaza bilərsiniz. Yalnız özünüz əlavə etdiyiniz brifə düzəliş edə və onu silə bilərsiniz. Adminlərə, menecerlərə və digər tapşırıqlardakı insanlara bildiriş gedir." }, en: { title: "Employees can write briefs too", text: "If a content ID you have a task on has no brief, add one with “+ Add content brief” on the card. You can edit or delete only the briefs you added. Admins, managers and the people on the other tasks are notified." } },
       { kind: "new", icon: "chart", for: "employees", az: { title: "Sizin paneliniz", text: "Daxil olandan sonra öz panelinizi görürsünüz, yalnız sizin tapşırıqlarla: bitənlər (və vaxtında bitənlər), gecikənlər, gün-gün qrafik, qarşıdakı son tarixlər, müştərilər və tapşırıq növləri." }, en: { title: "Your own dashboard", text: "After logging in you land on your own dashboard, with only your tasks: finished (and on time), overdue, a day-by-day chart, your next deadlines, customers and task types." } },
@@ -50,7 +50,7 @@ export const RELEASES: Release[] = [
       { kind: "new", icon: "bell", az: { title: "Telefon bildirişləri bir toxunuşla", text: "Daxil olandan sonra sayt bu cihazda bildirişləri açmağı özü təklif edir: “Aç” düyməsinə və telefonun “İcazə ver” sualına toxunmaq kifayətdir." }, en: { title: "Phone notifications in one tap", text: "After logging in, the site offers to turn on notifications on this device: tap “Turn on”, then “Allow” in your phone’s box." } },
       { kind: "fixed", icon: "bell", az: { title: "Bildirişlər daha tez gəlir", text: "Xatırlatmalar və bildirişlər artıq bir-iki dəqiqə gecikmir, bir neçə saniyəyə gəlir. Telefon bildirişləri də dərhal çatdırılır." }, en: { title: "Notifications arrive faster", text: "Reminders and notifications no longer come a minute or two late; they arrive within seconds, and phone notifications are delivered straight away." } },
       { kind: "fixed", icon: "brief", for: "staff", az: { title: "Brifdə sahə silinməsi", text: "Brif pəncərəsində sahə silinəndə artıq titrəmə olmur." }, en: { title: "Removing a brief field", text: "Removing a field in the brief window no longer flickers." } },
-      { kind: "fixed", icon: "icons", for: "staff", az: { title: "Telefonda ikon seçimi", text: "Ayarlarda tapşırıq növünün ikon cədvəli artıq telefon ekranına tam sığır." }, en: { title: "Icon picker on phones", text: "The task type icon grid in Settings now fits on phone screens." } },
+      { kind: "fixed", icon: "icons", for: "staff", az: { title: "Telefonda ikon seçimi", text: "Tənzimləmələrdə tapşırıq növünün ikon cədvəli artıq telefon ekranına tam sığır." }, en: { title: "Icon picker on phones", text: "The task type icon grid in Settings now fits on phone screens." } },
     ],
   },
   {
@@ -60,7 +60,7 @@ export const RELEASES: Release[] = [
       { kind: "new", icon: "finished", az: { title: "Kontent ID-də tamamlanmış iş", text: "Tapşırıq bitəndə yekun video və ya dizaynın linklərini əlavə edin. Əlavə olunmuş material bu kontent ID-nin bütün tapşırıqlarında yaşıl “Tamamlanmış iş” etiketi kimi görünür." }, en: { title: "Finished work on content IDs", text: "When a task is done, add links to the final video or design. It shows as a green “Finished work” tag on every task of that content ID." } },
       { kind: "new", icon: "icons", az: { title: "Tapşırıq növləri üçün ikonlar", text: "Hər tapşırıq növü üçün uyğun ikonlar əlavə edildi. Bu ikonlara sonradan düzəliş edilə bilir." }, en: { title: "Icons for task types", text: "Each task type has an icon before its name on cards and in the task form." } },
       { kind: "new", icon: "sparkle", az: { title: "Yeniliklər pəncərəsi", text: "Yeni versiyadan sonra nələrin dəyişdiyini burada görürsünüz. Bütün versiyalar “Haqqında” səhifəsindədir." }, en: { title: "This “What’s new” window", text: "After an update you see what changed, right here. Every version is listed on the About page." } },
-      { kind: "improved", icon: "settings", for: "staff", az: { title: "Yenilənmiş Ayarlar", text: "Bölmələr ikonlu menyuda; sətirlər açılıb-bağlanır, silinən sətri geri qaytarmaq olar, tapşırıq növünə ikon seçilir." }, en: { title: "Redesigned Settings", text: "Sections in a menu with icons; rows open and close, a deleted row can be brought back with Undo, and task types get an icon picker." } },
+      { kind: "improved", icon: "settings", for: "staff", az: { title: "Yenilənmiş Tənzimləmələr", text: "Bölmələr ikonlu menyuda; sətirlər açılıb-bağlanır, silinən sətri geri qaytarmaq olar, tapşırıq növünə ikon seçilir." }, en: { title: "Redesigned Settings", text: "Sections in a menu with icons; rows open and close, a deleted row can be brought back with Undo, and task types get an icon picker." } },
       { kind: "improved", icon: "lock", az: { title: "Ləğv edilmiş və təxirə salınmış tapşırıqlar kilidlənir", text: "Bu statusları yalnız admin və menecerlər dəyişə bilər." }, en: { title: "Cancelled and postponed tasks are locked", text: "Only admins and managers can change their status." } },
       { kind: "improved", icon: "motion", az: { title: "Daha gözəl animasiyalar", text: "Əlavə edilən, silinən və açılan hər şey sıçramadan hərəkət edir." }, en: { title: "Smoother animations", text: "Everything that is added, removed or opened moves without jumping." } },
     ],
@@ -87,7 +87,7 @@ export const RELEASES: Release[] = [
     date: "2026-11-23",
     items: [
       { kind: "new", icon: "brief", az: { title: "Kontent brifləri", text: "Kontent ID-yə brif: mətnlər, linklər, yoxlama siyahısı. Bütün tapşırıqlarında tünd “Brif” etiketi kimi görünür." }, en: { title: "Content briefs", text: "A brief on a content ID: texts, links, a checklist. It shows as a dark “Brief” tag on all its tasks." } },
-      { kind: "new", icon: "settings", for: "staff", az: { title: "Brifin başlanğıc sahələri", text: "Ayarlar → Kontent brifi: hər yeni brifin hansı sahələrlə başladığını seçin." }, en: { title: "Starting fields for briefs", text: "Settings → Content brief: choose the fields every new brief starts with." } },
+      { kind: "new", icon: "settings", for: "staff", az: { title: "Brifin başlanğıc sahələri", text: "Tənzimləmələr → Kontent brifi: hər yeni brifin hansı sahələrlə başladığını seçin." }, en: { title: "Starting fields for briefs", text: "Settings → Content brief: choose the fields every new brief starts with." } },
     ],
   },
   {
@@ -96,7 +96,7 @@ export const RELEASES: Release[] = [
     items: [
       { kind: "new", icon: "deadline", az: { title: "Kartda vaxt zolağı", text: "Son tarixi olan tapşırıqda başlanğıcdan son tarixə qədər zolaq." }, en: { title: "Timeline strip on cards", text: "A task with a deadline shows a strip from its start to its deadline." } },
       { kind: "new", icon: "bell", az: { title: "“1 gün qalıb” bildirişi", text: "Son tarixdən bir gün əvvəl tapşırıqdakı insanlara və onu yaradana." }, en: { title: "“1 day left” notifications", text: "One day before a deadline, to the people on the task and whoever created it." } },
-      { kind: "improved", icon: "logout", az: { title: "Çıxış Ayarlarda", text: "Çıxış düyməsi Ayarlardadır və əvvəlcə soruşur." }, en: { title: "Log out in Settings", text: "The log out button is in Settings and asks first." } },
+      { kind: "improved", icon: "logout", az: { title: "Çıxış Tənzimləmələrdə", text: "Çıxış düyməsi Tənzimləmələrdədir və əvvəlcə soruşur." }, en: { title: "Log out in Settings", text: "The log out button is in Settings and asks first." } },
     ],
   },
   {
