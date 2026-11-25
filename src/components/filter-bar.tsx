@@ -6,6 +6,7 @@ import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import { prefersReducedMotion, springOrFallback } from "@/lib/spring";
 import { personColor } from "./avatar-group";
+import { TaskTypeIcon } from "./task-type-icon";
 import { Collapse, useIsWide } from "./motion";
 import { initials } from "./top-bar";
 
@@ -31,8 +32,8 @@ function Icon({ d, size = 16, className = "" }: { d: string; size?: number; clas
   );
 }
 
-/** One choice: a status, a customer, a person or a content type. `dot`: a colour; `avatar`: show initials. */
-export type FilterChoice = { id: string; label: string; count: number; dot?: string; ring?: boolean; avatar?: boolean };
+/** One choice: a status, a customer, a person or a task type. `dot`: a colour; `avatar`: show initials; `taskIcon`: a task type's icon. */
+export type FilterChoice = { id: string; label: string; count: number; dot?: string; ring?: boolean; avatar?: boolean; taskIcon?: string };
 export type FilterGroup = {
   key: keyof typeof FILTER_ICONS;
   label: string;
@@ -57,6 +58,7 @@ function Swatch({ c, small = false }: { c: FilterChoice; small?: boolean }) {
         {initials(c.label)}
       </span>
     );
+  if (c.taskIcon) return <TaskTypeIcon name={c.taskIcon} size={small ? 14 : 16} className="text-teal-deep" />;
   if (!c.dot) return null;
   return <span aria-hidden="true" className={`shrink-0 rounded-full ${c.ring ? "size-3 border-[1.5px] border-black/25" : small ? "size-2" : "size-[9px]"}`} style={{ background: c.dot }} />;
 }
@@ -209,7 +211,7 @@ export function FilterBar({
         style={{ "--cols": `${lead ? "minmax(0, 1.15fr) " : ""}repeat(${cols}, minmax(0, 1fr))`, ...(columns ? { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` } : {}) } as React.CSSProperties}
       >
         {lead && <div className="col-span-2 min-w-0 lg:col-span-1">{lead}</div>}
-        {groups.map((g) => {
+        {groups.map((g, i) => {
           const isOpen = open === g.key && !closing;
           const on = g.selected.length > 0;
           return (
@@ -232,7 +234,7 @@ export function FilterBar({
                 <Icon d={CHEVRON} size={15} className={`text-icon transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`} />
               </button>
               {floating && open === g.key && (
-                <div ref={pop} className="absolute left-0 top-[calc(100%+8px)] z-30 w-full min-w-[280px] origin-top rounded-[20px] border border-line bg-surface p-2 shadow-[0_18px_44px_rgba(24,35,47,0.28)]">
+                <div ref={pop} className={`absolute top-[calc(100%+8px)] z-30 w-full min-w-[280px] rounded-[20px] ${i === groups.length - 1 ? "right-0 origin-top-right" : "left-0 origin-top-left"} border border-line bg-surface p-2 shadow-[0_18px_44px_rgba(24,35,47,0.28)]`}>
                   <ChoiceList group={g} t={t} autoFocus />
                 </div>
               )}

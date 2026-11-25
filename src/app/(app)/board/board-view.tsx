@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { MiniCalendar } from "@/components/mini-calendar";
 import { DaySwitcher, EventChips } from "@/components/day-header";
 import { DaySummary } from "@/components/day-summary";
-import { FilterSheet, StickyDayBar, TaskSearch, useDayFilters, useFitHeight, useScrolledEdge, type ContentTypeName } from "@/components/day-filters";
+import { FilterSheet, StickyDayBar, TaskSearch, useDayFilters, useFitHeight, useScrolledEdge } from "@/components/day-filters";
 import { FilterBar } from "@/components/filter-bar";
 import { Collapse, scrollIntoViewSoftly, useFlip, useIsWide } from "@/components/motion";
 import { TaskCard, type StatusOption } from "@/components/task-card";
@@ -27,7 +27,6 @@ export function BoardView({
   counts,
   statuses,
   specialDays,
-  contentTypes,
   t,
   months,
   errors,
@@ -39,8 +38,6 @@ export function BoardView({
   counts: Record<string, number>;
   statuses: StatusOption[];
   specialDays: SpecialDay[];
-  /** Content types in the order of Settings, for the content type filter's names and colours. */
-  contentTypes: ContentTypeName[];
   t: Dictionary["tasks"];
   months: readonly string[];
   errors: Dictionary["errors"];
@@ -76,7 +73,7 @@ export function BoardView({
     router.push(`${pathname}?${search}`, { scroll: false });
   };
 
-  const { filters, query, setQuery, filtered, shown, groups, count, clearAll } = useDayFilters({ day, contentTypes, t, date, staff: true, people: true });
+  const { filters, query, setQuery, filtered, shown, groups, count, clearAll } = useDayFilters({ day, t, date, staff: true, people: true });
   const all = SECTIONS.flatMap((s) => day[s]);
   const total = all.length;
   const isToday = date === today;

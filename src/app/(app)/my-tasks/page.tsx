@@ -2,7 +2,6 @@ import { getDictionary } from "@/i18n/server";
 import { requireUser } from "@/lib/auth";
 import { isIsoDateString, monthGrid, monthOf, todayIso } from "@/lib/dates";
 import { personalCounts, personalForDay } from "@/lib/personal";
-import { activeContentTypes } from "@/lib/customers";
 import { allSpecialDays, countsByDay, dayTasks, liveStatuses } from "@/lib/tasks";
 import { MyTasksView } from "./my-tasks-view";
 
@@ -18,14 +17,13 @@ export default async function MyTasksPage({ searchParams }: { searchParams: Prom
   const from = grid[0].iso;
   const to = grid[grid.length - 1].iso;
 
-  const [day, counts, own, statuses, specialDays, personal, types] = await Promise.all([
+  const [day, counts, own, statuses, specialDays, personal] = await Promise.all([
     dayTasks(date, today, { assigneeId: me.id }),
     countsByDay(from, to, { assigneeId: me.id }),
     personalCounts(me.id, from, to),
     liveStatuses(),
     allSpecialDays(),
     personalForDay(me.id, date, today),
-    activeContentTypes(),
   ]);
   // The calendar is private to its owner, so it counts personal tasks too.
   const allCounts = { ...counts };
@@ -43,7 +41,6 @@ export default async function MyTasksPage({ searchParams }: { searchParams: Prom
       personal={personal}
       canOpenTasks={me.role !== "employee"}
       focusTask={params.focus ?? null}
-      contentTypes={types.map((x) => ({ code: x.code, name: x.name }))}
       t={t.myTasks}
       taskT={t.tasks}
       months={t.customers.months}

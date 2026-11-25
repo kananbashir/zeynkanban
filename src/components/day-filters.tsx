@@ -8,13 +8,11 @@ import { shortDate } from "@/lib/format-date";
 import { filterCount, filterDay, filterOptions, NO_FILTERS, SECTIONS, type Filters, type Option } from "@/lib/task-filters";
 import type { Section } from "@/lib/task-rules";
 import type { DayTasks } from "@/lib/tasks";
-import { typeColor } from "@/lib/type-colors";
 import { FilterBar, type FilterGroup } from "./filter-bar";
 import { useIsWide } from "./motion";
 import { Sheet, useSheetClose } from "./sheet";
 
 type TaskT = Dictionary["tasks"];
-export type ContentTypeName = { code: string; name: string };
 
 const SECTION_DOTS: Record<Section, string> = {
   overdue: "var(--color-danger)",
@@ -26,10 +24,10 @@ const SECTION_DOTS: Record<Section, string> = {
 
 /**
  * The filters of a day's task list and what they show: the groups for the filter bar (status,
- * customers, people on the board, content types), the filtered day, and how many are picked.
+ * customers, people on the board, task types), the filtered day, and how many are picked.
  * The picks are kept when moving to another day.
  */
-export function useDayFilters({ day, contentTypes, t, date, staff, people }: { day: DayTasks; contentTypes: ContentTypeName[]; t: TaskT; date: string; staff: boolean; people: boolean }) {
+export function useDayFilters({ day, t, date, staff, people }: { day: DayTasks; t: TaskT; date: string; staff: boolean; people: boolean }) {
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
   // Names of customers and people picked earlier, so a pick with nothing on this day still shows.
   const [known, setKnown] = useState<{ customers: Option[]; people: Option[] }>({ customers: [], people: [] });
@@ -39,7 +37,6 @@ export function useDayFilters({ day, contentTypes, t, date, staff, people }: { d
   const set = <K extends keyof Filters>(key: K, value: Filters[K]) => setFilters((old) => ({ ...old, [key]: value }));
   const remember = (key: "customers" | "people", ids: string[], list: Option[]) =>
     setKnown((old) => ({ ...old, [key]: [...old[key].filter((o) => !ids.includes(o.id)), ...list.filter((o) => ids.includes(o.id))] }));
-  const typeName = (code: string) => contentTypes.find((x) => x.code === code)?.name ?? code;
 
   const groups: FilterGroup[] = [
     {
@@ -88,7 +85,7 @@ export function useDayFilters({ day, contentTypes, t, date, staff, people }: { d
       key: "types",
       label: f.types,
       all: f.allTypes,
-      choices: options.types.map((x) => ({ ...x, label: typeName(x.id), dot: typeColor(x.id, contentTypes) })),
+      choices: options.types.map((x) => ({ ...x, taskIcon: x.icon })),
       selected: filters.types,
       onChange: (ids) => set("types", ids),
       hint: f.typesHint,

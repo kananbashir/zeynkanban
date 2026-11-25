@@ -3,10 +3,10 @@ import { filterDay, filterOptions, isFiltered, NO_FILTERS, type Filters } from "
 import type { DayTasks, TaskView } from "./tasks";
 
 const task = (id: string, over: Partial<TaskView>): TaskView =>
-  ({ id, customerId: "c1", customerName: "Thrive", customerColor: "#fff", contentCode: `thrive-${id}`, contentTypeCode: "gpost", typeName: "Graphic design", assignees: [{ id: "p1", name: "Murad" }], description: "", note: "", ...over }) as TaskView;
+  ({ id, customerId: "c1", customerName: "Thrive", customerColor: "#fff", contentCode: `thrive-${id}`, taskTypeId: "tt-design", typeName: "Graphic design", typeIcon: "palette", assignees: [{ id: "p1", name: "Murad" }], description: "", note: "", ...over }) as TaskView;
 const day: DayTasks = {
-  overdue: [task("a", {}), task("b", { contentTypeCode: "vid", assignees: [{ id: "p2", name: "Leyla" }] })],
-  due: [task("c", { customerId: "c2", customerName: "Aliday", contentTypeCode: "vid" })],
+  overdue: [task("a", {}), task("b", { taskTypeId: "tt-shoot", typeName: "Video shooting", typeIcon: "camera", assignees: [{ id: "p2", name: "Leyla" }] })],
+  due: [task("c", { customerId: "c2", customerName: "Aliday", taskTypeId: "tt-shoot", typeName: "Video shooting", typeIcon: "camera" })],
   postponed: [],
   finished: [task("d", { customerId: "c2", customerName: "Aliday", note: "Logo ready" })],
   cancelled: [],
@@ -21,8 +21,8 @@ describe("filterDay", () => {
   });
   it("any of the picks within a filter, all filters together", () => {
     expect(ids(filterDay(day, f({ customers: ["c2"] })))).toBe("cd");
-    expect(ids(filterDay(day, f({ customers: ["c1", "c2"], types: ["vid"] })))).toBe("bc");
-    expect(ids(filterDay(day, f({ sections: ["overdue", "due"], types: ["vid"] })))).toBe("bc");
+    expect(ids(filterDay(day, f({ customers: ["c1", "c2"], types: ["tt-shoot"] })))).toBe("bc");
+    expect(ids(filterDay(day, f({ sections: ["overdue", "due"], types: ["tt-shoot"] })))).toBe("bc");
     expect(ids(filterDay(day, f({ people: ["p2"] })))).toBe("b");
   });
   it("search looks at the content ID, type, customer, people, description and note", () => {
@@ -39,15 +39,15 @@ describe("filterOptions", () => {
     expect(o.total).toBe(2);
     // The customer list itself still counts every customer (its own filter is left out).
     expect(o.customers.map((c) => [c.label, c.count])).toEqual([["Aliday", 2], ["Thrive", 2]]);
-    expect(o.types.map((t) => [t.id, t.count])).toEqual([["gpost", 1], ["vid", 1]]);
+    expect(o.types.map((t) => [t.label, t.count])).toEqual([["Graphic design", 1], ["Video shooting", 1]]);
   });
   it("status picks narrow the other counts", () => {
     const o = filterOptions(day, f({ sections: ["overdue"] }));
     expect(o.customers.map((c) => [c.label, c.count])).toEqual([["Aliday", 0], ["Thrive", 2]]);
     expect(o.people.map((p) => [p.label, p.count])).toEqual([["Leyla", 1], ["Murad", 1]]);
   });
-  it("only the content types of the day's tasks", () => {
-    expect(filterOptions(day, NO_FILTERS).types.map((t) => t.id)).toEqual(["gpost", "vid"]);
+  it("only the task types of the day's tasks, with their icons", () => {
+    expect(filterOptions(day, NO_FILTERS).types.map((t) => [t.id, t.icon])).toEqual([["tt-design", "palette"], ["tt-shoot", "camera"]]);
   });
   it("a customer picked on another day stays listed with 0", () => {
     const o = filterOptions(day, f({ customers: ["c9"] }), { customers: [{ id: "c9", label: "Nar Café", count: 0, color: "#000" }] });

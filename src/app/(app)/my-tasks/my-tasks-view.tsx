@@ -6,7 +6,7 @@ import { addPersonalTask, deletePersonalTask, setPersonalDone } from "@/app/acti
 import { MiniCalendar } from "@/components/mini-calendar";
 import { DaySwitcher, EventChips, lineButton } from "@/components/day-header";
 import { DaySummary } from "@/components/day-summary";
-import { FilterSheet, StickyDayBar, TaskSearch, useDayFilters, useFitHeight, useScrolledEdge, type ContentTypeName } from "@/components/day-filters";
+import { FilterSheet, StickyDayBar, TaskSearch, useDayFilters, useFitHeight, useScrolledEdge } from "@/components/day-filters";
 import { FilterBar } from "@/components/filter-bar";
 import { isFiltered } from "@/lib/task-filters";
 import { Collapse, scrollIntoViewSoftly, useFlip, useIsWide } from "@/components/motion";
@@ -43,7 +43,6 @@ export function MyTasksView({
   personal,
   canOpenTasks,
   focusTask,
-  contentTypes,
   t,
   taskT,
   months,
@@ -60,8 +59,6 @@ export function MyTasksView({
   canOpenTasks: boolean;
   /** Show this task: scroll to its card and outline it for a moment (?focus=, from a content ID window). */
   focusTask: string | null;
-  /** Content types in the order of Settings, for the content type filter's names and colours. */
-  contentTypes: ContentTypeName[];
   t: T;
   taskT: TaskT;
   months: readonly string[];
@@ -119,7 +116,7 @@ export function MyTasksView({
     { key: "cancelled", label: isToday ? taskT.sections.cancelled : taskT.sections.cancelledOn, color: "text-muted" },
   ];
   // Admins and managers can also open a customer's page from the customer filter.
-  const { filters, query, setQuery, filtered, shown, groups, count, clearAll } = useDayFilters({ day, contentTypes, t: taskT, date, staff: canOpenTasks, people: false });
+  const { filters, query, setQuery, filtered, shown, groups, count, clearAll } = useDayFilters({ day, t: taskT, date, staff: canOpenTasks, people: false });
   const visible = sections.filter((s) => filtered[s.key].length > 0);
   const hasFilters = isFiltered(filters);
   const total = day.overdue.length + day.due.length + day.postponed.length + day.finished.length + day.cancelled.length;
