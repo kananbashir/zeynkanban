@@ -13,6 +13,15 @@ export type Release = { version: string; date: string; items: ReleaseItem[] };
 
 export const RELEASES: Release[] = [
   {
+    version: "0.17.0",
+    date: "2026-11-25",
+    items: [
+      { kind: "new", icon: "bell", az: { title: "Zənglə xatırlatma", text: "Adminlər və menecerlər tapşırıq kartındakı zəngə toxunub tapşırıqdakı insanlara xatırlatma göndərə bilər. Onlara saytda və telefonda bildiriş gedir." }, en: { title: "Remind with the bell", text: "Admins and managers can tap the bell on a task card to remind the people on the task. They get a notification in the site and on their phone." } },
+      { kind: "improved", icon: "list", admins: true, az: { title: "Tapşırıq növü siyahıda", text: "Tapşırıq formasında növlər artıq düymələrdə yox, axtarışı olan açılan siyahıdadır, ona görə forma daha az yer tutur." }, en: { title: "Task type in a dropdown", text: "In the task form, the task types are now in a dropdown with search instead of buttons, so the form takes less space." } },
+      { kind: "improved", icon: "settings", az: { title: "Menyu həmişə görünür", text: "Kompüterdə soldakı menyu səhifə sürüşdürüləndə yerində qalır: Ayarlar və Haqqında həmişə ekranın aşağısındadır." }, en: { title: "The menu stays in view", text: "On computers, the menu on the left stays in place while you scroll, so Settings and About are always at the bottom of the screen." } },
+    ],
+  },
+  {
     version: "0.16.0",
     date: "2026-11-24",
     items: [

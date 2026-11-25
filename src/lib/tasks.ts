@@ -55,6 +55,8 @@ export type TaskView = {
   hasFinishedWork: boolean;
   /** The note on its content ID, shown under the content ID on the card (null: none). */
   contentNote: string | null;
+  /** The last reminder sent with the bell on the card: when (ISO time) and by whom. */
+  nudged: { at: string; by: string } | null;
 };
 
 function select(where: SQL | undefined) {
@@ -96,6 +98,8 @@ function select(where: SQL | undefined) {
       contentNote: contents.note,
       hasFinishedWork: sql<boolean>`exists (select 1 from ${finishedWorks} where ${finishedWorks.contentId} = ${tasks.contentId})`.mapWith(Boolean),
       createdAt: tasks.createdAt,
+      nudgedAt: tasks.nudgedAt,
+      nudgedBy: sql<string | null>`(select ${users.name} from ${users} where ${users.id} = ${tasks.nudgedBy})`,
     })
     .from(tasks)
     .innerJoin(customers, eq(customers.id, tasks.customerId))
@@ -144,6 +148,7 @@ function toView(row: Row, locale: Locale): TaskView {
     hasBrief: row.hasBrief,
     hasFinishedWork: row.hasFinishedWork,
     contentNote: row.contentNote ?? null,
+    nudged: row.nudgedAt ? { at: new Date(row.nudgedAt).toISOString(), by: row.nudgedBy ?? "" } : null,
   };
 }
 

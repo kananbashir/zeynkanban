@@ -14,8 +14,8 @@ const isActive = (pathname: string, href: string) => pathname === href || pathna
 
 /**
  * Navigation. On wide screens: the icon rail on the left, main pages on top, settings and about at
- * the bottom. On phones: a bar along the bottom of the screen with a sliding marker; About is on the
- * Settings page there. Logging out is only on the Settings page, behind a confirmation.
+ * the bottom of the screen (the rail stays in view while the page scrolls). On phones: a bar along
+ * the bottom of the screen with a sliding marker; About is on the Settings page there. Logging out is only on the Settings page, behind a confirmation.
  */
 export function Rail({ items, about, mainLabel }: { items: Item[]; about: Item; mainLabel: string }) {
   const pathname = usePathname();
@@ -42,7 +42,8 @@ export function Rail({ items, about, mainLabel }: { items: Item[]; about: Item; 
 
   return (
     <>
-      <nav aria-label={mainLabel} className="hidden w-[72px] flex-col items-center gap-3 lg:flex">
+      {/* Stays in view while the page scrolls, so Settings and About are always at the bottom of the screen. */}
+      <nav aria-label={mainLabel} className="sticky top-11 hidden h-[calc(100dvh-88px)] min-h-fit w-[72px] shrink-0 flex-col items-center gap-3 self-start lg:flex">
         <Image src="/logo-mark.png" alt="Zeyn Media" width={256} height={256} className="size-[52px] rounded-[18px]" />
         <div className="flex flex-col gap-1.5 rounded-[36px] bg-surface p-2">{top.map(link)}</div>
         <div className="flex-1" />

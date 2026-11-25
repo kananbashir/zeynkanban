@@ -18,6 +18,7 @@ import { AddBriefButton, BriefTag, BriefWindow } from "./content-brief";
 import { ContentNoteStrip } from "./content-note";
 import { ContentWindow } from "./content-window";
 import { DeadlineStrip } from "./deadline-strip";
+import { NudgeButton } from "./nudge-button";
 import { AddFinishedButton, FinishedAsk, FinishedTag, FinishedWindow } from "./finished-work";
 import { askForFinished } from "./held-day";
 import { TaskTypeIcon } from "./task-type-icon";
@@ -77,6 +78,9 @@ export function TaskCard({
   contentWindow?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  // The bell's small window is open (the card is lifted above the next ones, as for the status menu).
+  const [nudgeOpen, setNudgeOpen] = useState(false);
+  const me = useMe();
   // The content brief window. Admins and managers (who can edit tasks) can also write one.
   const [briefOpen, setBriefOpen] = useState(briefInitiallyOpen);
   const closeBrief = useCallback(() => setBriefOpen(false), []);
@@ -207,7 +211,7 @@ export function TaskCard({
     <article
       data-task={task.id}
       data-flip={task.id}
-      className={`zk-card relative flex flex-col gap-2.5 rounded-[22px] border-[1.5px] p-3.5 transition-[background-color] duration-500 sm:gap-3 sm:px-5 sm:py-[18px] ${task.contentArchived ? "border-dashed border-subtle" : "border-transparent"} ${open ? "z-20" : "z-0"}`}
+      className={`zk-card relative flex flex-col gap-2.5 rounded-[22px] border-[1.5px] p-3.5 transition-[background-color] duration-500 sm:gap-3 sm:px-5 sm:py-[18px] ${task.contentArchived ? "border-dashed border-subtle" : "border-transparent"} ${open || nudgeOpen ? "z-20" : "z-0"}`}
       style={{ "--card": background, "--tint": task.contentArchived || closed ? "var(--color-subtle)" : status.deleted ? "var(--color-subtle)" : status.color } as React.CSSProperties}
     >
       <div className="flex flex-col gap-2 border-b border-ink/12 pb-3">
@@ -241,7 +245,10 @@ export function TaskCard({
           <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-bold text-danger">{lateDays === 1 ? t.dayOverdue : fill(t.daysOverdue, { n: lateDays })}</span>
         )}
         {!task.assignees.length && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.draft}</span>}
-        <div className="relative ml-auto">
+        <div className="relative ml-auto flex items-center gap-2">
+        {/* Admins and managers can remind the people on the task with the bell. */}
+        {canWriteBrief && !task.archived && <NudgeButton task={task} meId={me?.id} t={t} onError={onError} onOpenChange={setNudgeOpen} />}
+        <div className="relative">
           <button
             type="button"
             disabled={!canChange}
@@ -275,6 +282,7 @@ export function TaskCard({
               </div>
             </>
           )}
+        </div>
         </div>
       </div>
       {task.contentNote && <ContentNoteStrip note={task.contentNote} label={fill(t.contents.noteOf, { code: task.contentCode })} more={t.contents.more} less={t.contents.less} />}

@@ -4,11 +4,12 @@ import { PinIcon } from "@/components/content-note";
 
 import { Collapse } from "@/components/motion";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createTask, loadDay, loadMonthCounts, setTaskArchived, updateTask } from "@/app/actions/tasks";
 import { CloseButton, Dialog } from "@/components/dialog";
 import { MiniCalendar } from "@/components/mini-calendar";
 import { TaskTypeIcon } from "@/components/task-type-icon";
+import { TypePicker } from "@/components/type-picker";
 import { avatarColor } from "@/components/task-card";
 import { initials } from "@/components/top-bar";
 import { btn, field } from "@/components/ui";
@@ -72,6 +73,7 @@ export function TaskForm({
   onNewContent: () => void;
 }) {
   const f = t.form;
+  const otherName = useRef<HTMLInputElement>(null);
   const knownType = task && types.some((x) => x.id === task.taskTypeId);
   const [typeId, setTypeId] = useState<string>(task ? (knownType ? task.taskTypeId : OTHER) : "");
   const [typeName, setTypeName] = useState(task && !knownType ? task.typeName : "");
@@ -171,19 +173,23 @@ export function TaskForm({
           <div className="flex min-w-0 flex-[1_1_400px] flex-col gap-4">
             <section className={card}>
               <h3 id="f-type" className="text-[15px] font-semibold">{f.type}</h3>
-              <div role="group" aria-labelledby="f-type" className="flex flex-wrap gap-2">
-                {[...types, { id: OTHER, name: f.other, icon: undefined }].map((x) => (
-                  <button key={x.id} type="button" aria-pressed={typeId === x.id} onClick={() => setTypeId(x.id)} className={`flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full border-2 px-4 text-sm font-semibold ${pick(typeId === x.id)}`}>
-                    {x.icon && <TaskTypeIcon name={x.icon} size={16} className="text-teal-deep" />}
-                    {x.name}
-                  </button>
-                ))}
-              </div>
-              {typeId === OTHER && (
+              <TypePicker
+                types={types}
+                value={typeId}
+                other={OTHER}
+                onChange={(id) => {
+                  setTypeId(id);
+                  // "Other…": the name field grows in below, ready to type.
+                  if (id === OTHER) setTimeout(() => otherName.current?.focus({ preventScroll: true }), 60);
+                }}
+                labelledBy="f-type"
+                labels={{ placeholder: f.typePlaceholder, search: f.typeSearch, none: f.typeNone, other: f.other, otherHint: f.otherHint }}
+              />
+              <Collapse open={typeId === OTHER}>
                 <div className="flex flex-col gap-2.5">
                   <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
                     {f.typeName}
-                    <input className={field} value={typeName} onChange={(e) => setTypeName(e.target.value)} placeholder={f.typeNamePlaceholder} maxLength={60} autoComplete="off" />
+                    <input ref={otherName} className={field} value={typeName} onChange={(e) => setTypeName(e.target.value)} placeholder={f.typeNamePlaceholder} maxLength={60} autoComplete="off" />
                   </label>
                   {canArchive && (
                     <label className="flex min-h-8 cursor-pointer items-center gap-2.5 text-sm">
@@ -192,7 +198,7 @@ export function TaskForm({
                     </label>
                   )}
                 </div>
-              )}
+              </Collapse>
             </section>
 
             <section className={card}>
