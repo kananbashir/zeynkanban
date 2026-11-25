@@ -34,7 +34,6 @@ export const en = {
     about: "About",
     logout: "Log out",
     main: "Main",
-    short: { dashboard: "Dashboard", board: "Board", customers: "Customers", myTasks: "My tasks", settings: "Settings", about: "About" },
   },
   roles: { admin: "Admin", manager: "Manager", employee: "Employee" },
   common: {
@@ -1011,7 +1010,6 @@ export const az: Dictionary = {
     about: "Haqqında",
     logout: "Çıxış",
     main: "Əsas",
-    short: { dashboard: "Panel", board: "Lövhə", customers: "Müştərilər", myTasks: "Tapşırıqlarım", settings: "Tənzimləmələr", about: "Haqqında" },
   },
   roles: { admin: "Admin", manager: "Menecer", employee: "Əməkdaş" },
   common: {
