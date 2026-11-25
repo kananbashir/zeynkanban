@@ -1,21 +1,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { generateContentIds, savePublishingPlan } from "@/app/actions/plan";
 import { loadMonthCounts } from "@/app/actions/tasks";
+import { PinIcon } from "@/components/content-note";
 import { CloseButton, Dialog } from "@/components/dialog";
-import { Collapse, SlideByDate, useFlip } from "@/components/motion";
+import { Collapse, SlideByDate } from "@/components/motion";
 import type { Dictionary, ErrorKey } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import { CONTENT_NOTE_MAX, compareCodes, suggestContentIds } from "@/lib/content-rules";
 import { addDays, firstOfMonth, monthGrid, shiftMonth, specialDaysOn, weekdayIndex, type SpecialDay } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
+import { prefersReducedMotion } from "@/lib/spring";
 import { rhythm, shortChip, spreadEvenly } from "@/lib/plan-rules";
 
 export type PlanContent = { id: string; code: string; typeCode: string; publishDate: string | null };
 export type PlanPeriod = { id: string; start: string; end: string; label: string; code: string };
 export type PlanType = { id: string; code: string; name: string };
+
+/** One colour per content type, in the order the types are listed in Settings (videos, posts, reels, …). */
+const TYPE_COLORS = ["var(--color-status-purple)", "var(--color-status-blue)", "var(--color-status-amber)", "var(--color-status-teal)", "#c2410c", "#4e6b1f"];
 
 const icon = (d: string, size = 20) => (
   <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -92,8 +97,30 @@ export function PlanMonth({
   const fixed = all.filter((c) => c.publishDate) as (PlanContent & { publishDate: string })[];
 
   const [staged, setStaged] = useState<Record<string, string>>({});
+  // IDs placed by hand (not by "Spread evenly"): spreading leaves them where they are.
+  const [pinned, setPinned] = useState<Set<string>>(() => new Set());
+  // Counts presses of "Spread evenly", so the rhythm list can go to the month afterwards.
+  const [spreads, setSpreads] = useState(0);
+  const pin = (id: string, on: boolean) =>
+    setPinned((old) => {
+      const next = new Set(old);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
   const [selected, setSelected] = useState<string | null>(items[0]?.id ?? null);
   const codeOf = (id: string) => all.find((c) => c.id === id)?.code ?? "";
+  const kindOf = (id: string) => all.find((c) => c.id === id)?.typeCode ?? "";
+  const colorOf = (kind: string) => {
+    const i = contentTypes.findIndex((x) => x.code === kind);
+    return i < 0 ? "var(--color-subtle)" : TYPE_COLORS[i % TYPE_COLORS.length];
+  };
+  const typeName = (kind: string) => contentTypes.find((x) => x.code === kind)?.name ?? kind;
+  const colorRank = (kind: string) => {
+    const i = contentTypes.findIndex((x) => x.code === kind);
+    return i < 0 ? contentTypes.length : i;
+  };
+  const dot = (kind: string, size = 7) => <span aria-hidden="true" className="shrink-0 rounded-full" style={{ background: colorOf(kind), width: size, height: size }} />;
   const nextUnplaced = (st: Record<string, string>, after?: string) => {
     const open = items.filter((c) => !st[c.id]);
     const index = after ? items.findIndex((c) => c.id === after) : -1;
@@ -104,12 +131,14 @@ export function PlanMonth({
     if (!selected) return;
     const st = { ...staged, [selected]: iso };
     setStaged(st);
+    pin(selected, true);
     setSelected(nextUnplaced(st, selected));
   };
   const unplace = (id: string) => {
     const st = { ...staged };
     delete st[id];
     setStaged(st);
+    pin(id, false);
     setSelected(id);
   };
   // Spread evenly works between a first and a last day; they follow the month shown until changed.
@@ -131,8 +160,14 @@ export function PlanMonth({
     if (rangeProblem) return onMessage(rangeProblem, "error");
     const days: string[] = [];
     for (let d = range.from < today ? today : range.from; d <= range.to; d = addDays(d, 1)) days.push(d);
-    setStaged(spreadEvenly(days, fixed.map((c) => c.publishDate), items.map((c) => ({ id: c.id, kind: c.typeCode }))));
+    // Those placed by hand stay; they and the publications planned earlier shape the rhythm around them.
+    const kept = Object.fromEntries(Object.entries(staged).filter(([id]) => pinned.has(id)));
+    const open = items.filter((c) => !pinned.has(c.id));
+    if (!open.length) return onMessage(p.noItems, "error");
+    const around = [...fixed.map((c) => ({ date: c.publishDate, kind: c.typeCode })), ...Object.entries(kept).map(([id, date]) => ({ date, kind: kindOf(id) }))];
+    setStaged({ ...kept, ...spreadEvenly(days, around, open.map((c) => ({ id: c.id, kind: c.typeCode }))) });
     setSelected(null);
+    setSpreads((n) => n + 1);
   };
 
   // Generating IDs: for the contract that covers the month shown, or the newest one.
@@ -178,20 +213,50 @@ export function PlanMonth({
       onSaved(result.created === 1 ? p.saved1 : fill(p.saved, { n: result.created }));
     });
 
-  // Rhythm of this month: publications already planned plus the new ones.
-  const monthDates = [...fixed.map((c) => c.publishDate), ...Object.values(staged)].filter((d) => d.startsWith(ym));
-  const flow = rhythm(monthDates);
+  // The publishing rhythm: every publication of the customer, from the first to the last, across
+  // months: those planned earlier (or already out) and the new ones of this plan.
+  type Entry = { id: string; code: string; kind: string; date: string; state: "published" | "planned" | "new" | "byHand" };
+  const entries: Entry[] = [
+    ...fixed.map((c): Entry => ({ id: c.id, code: c.code, kind: c.typeCode, date: c.publishDate, state: c.publishDate < today ? "published" : "planned" })),
+    ...stagedIds.map((id): Entry => ({ id, code: codeOf(id), kind: kindOf(id), date: staged[id], state: pinned.has(id) ? "byHand" : "new" })),
+  ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : compareCodes(a.code, b.code)));
+  const flow = rhythm(entries.map((e) => e.date));
   const gapText = (n: number) => (n === 1 ? p.day1 : fill(p.daysN, { n }));
+  const dayMonth = (iso: string) => `${Number(iso.slice(8))} ${months[Number(iso.slice(5, 7)) - 1]}`;
   const summary =
     flow.steps.length === 0
       ? p.rhythmNone
       : flow.steps.length === 1
         ? p.rhythmOne
-        : flow.shortest === flow.longest
-          ? fill(p.rhythmEven, { n: flow.steps.length, gap: gapText(flow.longest) })
-          : fill(p.rhythmRange, { n: flow.steps.length, min: flow.shortest, max: flow.longest });
-  const row = useRef<HTMLDivElement>(null);
-  useFlip(row);
+        : [
+            fill(p.rhythmAll, { n: flow.steps.length, from: dayMonth(flow.steps[0].date), to: dayMonth(flow.steps[flow.steps.length - 1].date) }),
+            flow.longest === 0 ? "" : flow.shortest === flow.longest ? fill(p.rhythmEven, { gap: gapText(flow.longest) }) : fill(p.rhythmRange, { min: flow.shortest, max: flow.longest }),
+          ].join(" ");
+  // The rhythm of the month shown, in short: its kinds in order, and "2 Graphic post → 1 Video".
+  const monthKinds = entries.filter((e) => e.date.startsWith(ym)).map((e) => e.kind);
+  const monthCounts = [...monthKinds.reduce((m, k) => m.set(k, (m.get(k) ?? 0) + 1), new Map<string, number>())].sort((a, b) => b[1] - a[1]);
+  const fewest = Math.min(...monthCounts.map(([, n]) => n));
+  const pattern = monthCounts.length > 1 ? monthCounts.map(([k, n]) => `${Math.max(1, Math.round(n / fewest))} ${typeName(k)}`).join(" → ") : null;
+  const totals = [...entries.reduce((m, e) => m.set(e.kind, (m.get(e.kind) ?? 0) + 1), new Map<string, number>())].sort((a, b) => colorRank(a[0]) - colorRank(b[0]));
+  // The list opens at the month shown in the calendar, and follows it when the month changes.
+  const list = useRef<HTMLDivElement>(null);
+  const listed = flow.steps.length > 0;
+  // Months in the list: when one is added, or after "Spread evenly", the list goes to the month shown.
+  const listMonths = [...new Set(flow.steps.map((x) => x.date.slice(0, 7)))].join(",");
+  // It glides when the month changes; when the list itself changes (opening, spreading) it jumps there.
+  const scrolledFor = useRef<string | null>(null);
+  useEffect(() => {
+    const box = list.current;
+    if (!box) return;
+    const heads = [...box.querySelectorAll<HTMLElement>("[data-month]")];
+    const target = heads.find((h) => h.dataset.month! >= ym) ?? heads[heads.length - 1];
+    if (!target) return;
+    // A sticky heading reports where it is stuck; its place in the list is where its first row starts.
+    const top = (target.nextElementSibling as HTMLElement | null)?.offsetTop ?? target.offsetTop;
+    const glide = scrolledFor.current !== null && scrolledFor.current !== ym && !prefersReducedMotion();
+    box.scrollTo({ top: Math.max(0, top - target.offsetHeight), behavior: glide ? "smooth" : "auto" });
+    scrolledFor.current = ym;
+  }, [ym, listMonths, spreads]);
 
   const placedCount = items.filter((c) => staged[c.id]).length;
   const monthDays = cells.filter((c) => c.inMonth).map((c) => c.iso);
@@ -211,17 +276,23 @@ export function PlanMonth({
     const chips = (
       <>
         {fixed.filter((c) => c.publishDate === iso).map((c) => (
-          <span key={c.id} title={c.code} className="pointer-events-none overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-neutral-card px-[5px] py-[3px] font-mono text-[10px] font-medium">{wide ? c.code : shortChip(c.code)}</span>
+          <span key={c.id} title={c.code} className="pointer-events-none flex min-w-0 items-center gap-1 rounded-md bg-neutral-card px-[5px] py-[3px] font-mono text-[10px] font-medium">
+            {dot(c.typeCode, 6)}
+            <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{wide ? c.code : shortChip(c.code)}</span>
+          </span>
         ))}
         {here.map((id) => (
           <button
             key={id}
             type="button"
             aria-label={fill(p.remove, { code: codeOf(id), date: dateText })}
-            title={codeOf(id)}
+            title={pinned.has(id) ? `${codeOf(id)} · ${p.pinned}` : codeOf(id)}
+            data-pinned={pinned.has(id) || undefined}
             onClick={() => unplace(id)}
             className="zk-pop relative flex min-h-6 items-center gap-1 rounded-md border-[1.5px] border-teal bg-teal-tint px-1 py-0.5 text-left font-mono text-[10px] font-medium"
           >
+            {pinned.has(id) && <PinIcon size={10} className="text-teal-deep" />}
+            {dot(kindOf(id), 6)}
             <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{wide ? codeOf(id) : shortChip(codeOf(id))}</span>
             {icon("M6 6l12 12M18 6 6 18", 10)}
           </button>
@@ -272,7 +343,7 @@ export function PlanMonth({
         <CloseButton label={t.form.close} onClick={onClose} />
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
         <div className="contents lg:flex lg:w-[300px] lg:shrink-0 lg:flex-col lg:gap-4">
           <section className="order-1 flex flex-col gap-3 rounded-[20px] bg-surface p-4 lg:order-none">
             <div className="flex items-baseline gap-2">
@@ -292,8 +363,12 @@ export function PlanMonth({
                       onClick={() => setSelected(on ? null : c.id)}
                       className={`flex min-h-11 flex-wrap items-center gap-x-2.5 gap-y-0.5 rounded-[14px] border-[1.5px] px-3 py-1.5 text-left transition-colors duration-200 ${on ? "border-teal bg-teal-tint" : "border-line bg-surface hover:bg-mint"}`}
                     >
+                      {dot(c.typeCode)}
                       <span className="font-mono text-[13px] font-medium">{c.code}</span>
-                      <span className={`ml-auto whitespace-nowrap text-xs font-semibold ${when ? "text-teal-deep" : "text-muted"}`}>{when ? shortDate(when, fmt) : p.notPlaced}</span>
+                      <span className={`ml-auto flex items-center gap-1 whitespace-nowrap text-xs font-semibold ${when ? "text-teal-deep" : "text-muted"}`}>
+                        {when && pinned.has(c.id) && <PinIcon size={11} />}
+                        {when ? shortDate(when, fmt) : p.notPlaced}
+                      </span>
                     </button>
                   );
                 })}
@@ -303,51 +378,89 @@ export function PlanMonth({
             )}
           </section>
 
-          {period && contentTypes.length > 0 && (
-            <section className="order-4 flex flex-col gap-3 rounded-[20px] bg-surface p-4 lg:order-none">
-              <div className="flex flex-col gap-1">
-                <h3 className="text-[15px] font-semibold">{p.generate}</h3>
-                <span className="text-[13px] text-ink-soft">{p.forContract} {period.label}</span>
-              </div>
-              {contentTypes.map((type) => {
-                const n = want[type.id] ?? 0;
-                const step = (d: number) => setWant((w) => ({ ...w, [type.id]: Math.max(0, Math.min(20, n + d)) }));
-                return (
-                  <div key={type.id} className="flex items-center gap-2.5">
-                    <span className="flex-1 text-sm font-medium">{type.name}</span>
-                    <button type="button" aria-label={fill(p.fewer, { type: type.name })} disabled={n === 0} onClick={() => step(-1)} className="flex size-10 shrink-0 items-center justify-center rounded-full bg-mint disabled:opacity-40">{icon("M5 12h14", 18)}</button>
-                    <span aria-live="polite" className="w-7 text-center text-base font-semibold tabular-nums">
-                      <SlideByDate date={String(n).padStart(3, "0")}>{n}</SlideByDate>
+          <section aria-label={p.rhythmTitle} className="order-3 flex min-h-0 flex-col gap-3 rounded-[20px] bg-surface p-4 lg:order-none lg:flex-1 lg:basis-0">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-[15px] font-semibold">{p.rhythmTitle}</h3>
+              <p className="text-[13px] leading-snug text-ink-soft">{summary}</p>
+            </div>
+            {listed && (
+              <div className="flex flex-col gap-1.5 text-xs text-ink-soft">
+                {pattern && (
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span aria-hidden="true" className="flex gap-[3px]">
+                      {monthKinds.slice(0, 9).map((k, i) => <span key={i} className="h-[7px] w-[13px] rounded-full" style={{ background: colorOf(k) }} />)}
                     </span>
-                    <button type="button" aria-label={fill(p.more, { type: type.name })} disabled={n === 20} onClick={() => step(1)} className="flex size-10 shrink-0 items-center justify-center rounded-full bg-mint disabled:opacity-40">{icon("M12 5v14M5 12h14", 18)}</button>
-                  </div>
-                );
-              })}
-              <p className="text-xs leading-normal text-ink-soft [overflow-wrap:anywhere]">{preview.length ? fill(p.creates, { list: preview.join(", ") }) : p.continues}</p>
-              <Collapse open={total > 0}>
-                <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
-                  {p.noteLabel}
-                  <textarea
-                    aria-label={p.noteLabel}
-                    value={idNote}
-                    maxLength={CONTENT_NOTE_MAX}
-                    rows={2}
-                    onChange={(e) => setIdNote(e.target.value)}
-                    className="min-h-[64px] w-full resize-none rounded-[14px] border-[1.5px] border-line-strong bg-surface px-3 py-2 text-sm font-normal leading-normal [field-sizing:content]"
-                  />
-                  <span className="text-xs font-normal text-muted">{p.noteHelp}</span>
-                </label>
-              </Collapse>
-              <button
-                type="button"
-                disabled={!total || pending}
-                onClick={generate}
-                className={`min-h-11 rounded-full px-4 text-sm font-semibold transition-colors duration-200 ${total ? "bg-teal text-white" : "bg-line text-icon"}`}
-              >
-                {total === 0 ? p.createIds : total === 1 ? p.create1 : fill(p.createN, { n: total })}
-              </button>
-            </section>
-          )}
+                    <b className="font-semibold text-ink">{pattern}</b>
+                  </span>
+                )}
+                <span className="flex flex-wrap gap-x-3 gap-y-1">
+                  {totals.map(([k, n]) => (
+                    <span key={k} className="flex items-center gap-1.5">
+                      {dot(k)}
+                      {typeName(k)} · {n}
+                    </span>
+                  ))}
+                </span>
+              </div>
+            )}
+            {listed && (
+              <div ref={list} role="list" aria-label={p.rhythmList} tabIndex={0} className="relative -mr-1.5 flex max-h-[65vh] flex-col overflow-y-auto overscroll-contain pr-1.5 [scrollbar-width:thin] lg:max-h-none lg:min-h-[260px] lg:flex-1 lg:basis-0">
+                {flow.steps.map((step, i) => {
+                  const month = step.date.slice(0, 7);
+                  const opensMonth = i === 0 || flow.steps[i - 1].date.slice(0, 7) !== month;
+                  const here = entries.filter((e) => e.date === step.date);
+                  const state = (["byHand", "new", "planned", "published"] as const).find((x) => here.some((e) => e.state === x))!;
+                  const fresh = state === "new" || state === "byHand";
+                  const inMonth = entries.filter((e) => e.date.startsWith(month)).length;
+                  return (
+                    <Fragment key={step.date}>
+                      {step.gap !== null && (
+                        <div aria-hidden="true" className="flex shrink-0 items-center gap-2 py-[3px] pl-[26px] text-[11px] font-semibold text-ink-soft">
+                          <span className="h-[18px] w-0.5 rounded-full bg-line-strong" />
+                          <span title={step.longest ? p.longest : undefined} className={`rounded-full px-2 py-0.5 ${step.longest ? "bg-sun-tint text-sun-ink" : "bg-mint"}`}>{gapText(step.gap)}</span>
+                        </div>
+                      )}
+                      {opensMonth && (
+                        <div data-month={month} className={`sticky top-0 z-[2] flex shrink-0 justify-between gap-2 bg-surface py-1.5 text-xs font-bold uppercase tracking-[0.04em] ${month === ym ? "text-teal-deep" : "text-muted"}`}>
+                          <span>{months[Number(month.slice(5)) - 1]} {month.slice(0, 4)}</span>
+                          <span>{inMonth === 1 ? p.monthCount1 : fill(p.monthCountN, { n: inMonth })}</span>
+                        </div>
+                      )}
+                      <div
+                        role="listitem"
+                        data-state={state}
+                        className={`zk-fade-up relative flex shrink-0 items-center gap-2.5 overflow-hidden rounded-[14px] border-[1.5px] py-[7px] pl-3.5 pr-2.5 transition-colors duration-300 ${fresh ? "border-teal bg-teal-tint" : "border-line-strong bg-mint-soft"} ${state === "published" ? "opacity-55" : ""}`}
+                      >
+                        <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1" style={{ background: colorOf(here[0].kind) }} />
+                        <span className="flex w-[34px] shrink-0 flex-col items-center leading-none">
+                          <span className="text-[10.5px] font-semibold text-ink-soft">{t.weekdaysShort[weekdayIndex(step.date)]}</span>
+                          <span className="text-[19px] font-semibold">{Number(step.date.slice(8))}</span>
+                        </span>
+                        <span className="flex min-w-0 flex-wrap gap-1">
+                          {here.map((e) => (
+                            <span key={e.id} title={e.code} className="flex min-w-0 items-center gap-[5px] rounded-[7px] bg-surface px-[7px] py-[3px] font-mono text-[11.5px] font-medium">
+                              {e.state === "byHand" && <PinIcon size={11} className="text-teal-deep" />}
+                              {dot(e.kind)}
+                              <span className="overflow-hidden text-ellipsis whitespace-nowrap">{shortChip(e.code)}</span>
+                            </span>
+                          ))}
+                        </span>
+                        <span className={`ml-auto shrink-0 whitespace-nowrap text-[11px] font-semibold ${fresh ? "text-teal-deep" : "text-muted"}`}>
+                          {state === "byHand" ? p.statusByHand : state === "new" ? p.statusNew : state === "planned" ? p.statusPlanned : p.statusPublished}
+                        </span>
+                      </div>
+                    </Fragment>
+                  );
+                })}
+              </div>
+            )}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-soft">
+              <span className="flex items-center gap-1.5"><span className="size-3 rounded border-[1.5px] border-line-strong bg-mint-soft" />{p.legendFixed}</span>
+              <span className="flex items-center gap-1.5"><span className="size-3 rounded border-[1.5px] border-teal bg-teal-tint" />{p.legendNewShort}</span>
+              <span className="flex items-center gap-1.5"><PinIcon size={12} className="text-teal-deep" />{p.legendByHand}</span>
+              <span className="flex items-center gap-1.5"><span className="size-3 rounded-full border border-event bg-sun-tint" />{p.longest}</span>
+            </div>
+          </section>
         </div>
 
         <div className="contents lg:flex lg:min-w-0 lg:flex-1 lg:flex-col lg:gap-4">
@@ -376,7 +489,7 @@ export function PlanMonth({
             </div>
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
               {stagedIds.length > 0 && (
-                <button type="button" onClick={() => { setStaged({}); setSelected(items[0]?.id ?? null); }} className="zk-pop min-h-11 whitespace-nowrap rounded-full bg-mint px-4 text-sm font-semibold">{p.clear}</button>
+                <button type="button" onClick={() => { setStaged({}); setPinned(new Set()); setSelected(items[0]?.id ?? null); }} className="zk-pop min-h-11 whitespace-nowrap rounded-full bg-mint px-4 text-sm font-semibold">{p.clear}</button>
               )}
               <span aria-live="polite" className="ml-auto text-right text-[13px] font-semibold text-teal-deep">
                 {selected ? fill(p.placing, { code: codeOf(selected) }) : items.length ? p.pickOne : ""}
@@ -397,46 +510,61 @@ export function PlanMonth({
               <span className="flex items-center gap-1.5"><span className="h-2.5 w-3.5 rounded-[3px] border border-subtle bg-neutral-card" />{p.legendFixed}</span>
               <span className="flex items-center gap-1.5"><span className="h-2.5 w-3.5 rounded-[3px] border-[1.5px] border-teal bg-teal-tint" />{p.legendNew}</span>
               <span className="flex items-center gap-1.5"><span className="h-2.5 w-3.5 rounded-[3px] border border-event bg-sun-tint" />{p.legendEvent}</span>
+              <span className="flex items-center gap-1.5"><PinIcon size={12} className="text-teal-deep" />{p.legendPinned}</span>
               <span>{p.legendAll}</span>
             </div>
           </section>
 
-          <section className="order-3 flex min-w-0 flex-col gap-3 rounded-[20px] bg-surface p-4 lg:order-none">
-            <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-0.5">
-              <h3 className="text-[15px] font-semibold">{fill(p.rhythmTitle, { month: months[month.month - 1] })}</h3>
-              <p className="text-[13px] text-ink-soft">{summary}</p>
-            </div>
-            {flow.steps.length > 0 && (
-              <div ref={row} tabIndex={0} role="group" aria-label={p.scrollHint} className="flex flex-nowrap items-center overflow-x-auto px-0.5 pb-2.5 pt-0.5 [scrollbar-width:thin]">
-                {flow.steps.map((step) => {
-                  const ids = [...fixed.filter((c) => c.publishDate === step.date).map((c) => c.code), ...stagedIds.filter((id) => staged[id] === step.date).map(codeOf)];
-                  const isNew = stagedIds.some((id) => staged[id] === step.date);
-                  return (
-                    <div key={step.date} data-flip={step.date} className="flex shrink-0 items-center">
-                      {step.gap !== null && (
-                        <span className="flex shrink-0 items-center">
-                          <span className="h-0.5 w-1.5 bg-line-strong" />
-                          <span title={step.longest ? p.longest : undefined} className={`whitespace-nowrap rounded-full px-2 py-[3px] text-[11px] font-semibold ${step.longest ? "bg-sun-tint text-sun-ink" : "bg-mint text-ink-soft"}`}>{gapText(step.gap)}</span>
-                          <span className="h-0.5 w-1.5 bg-line-strong" />
-                        </span>
-                      )}
-                      <div className={`flex w-[78px] shrink-0 flex-col items-center gap-[3px] rounded-[14px] border-[1.5px] px-[5px] py-2 transition-colors duration-300 ${isNew ? "border-teal bg-teal-tint" : "border-line-strong bg-mint-soft"}`}>
-                        <span className="text-[11px] font-semibold leading-tight text-ink-soft">{t.weekdaysShort[weekdayIndex(step.date)]}</span>
-                        <span className="text-xl font-semibold leading-none">{Number(step.date.slice(8))}</span>
-                        {ids.map((code) => <span key={code} title={code} className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-md bg-surface px-1.5 py-0.5 font-mono text-[10px] font-medium">{shortChip(code)}</span>)}
-                      </div>
-                    </div>
-                  );
-                })}
+          {period && contentTypes.length > 0 && (
+            <section className="order-4 flex flex-col gap-3 rounded-[20px] bg-surface p-4 lg:order-none">
+              <div className="flex flex-col gap-1">
+                <h3 className="text-[15px] font-semibold">{p.generate}</h3>
+                <span className="text-[13px] text-ink-soft">{p.forContract} {period.label}</span>
               </div>
-            )}
-            <div className="flex flex-wrap items-center gap-x-3.5 gap-y-1 text-xs text-ink-soft">
-              <span className="flex items-center gap-1.5"><span className="size-3 rounded border-[1.5px] border-line-strong bg-mint-soft" />{p.legendFixed}</span>
-              <span className="flex items-center gap-1.5"><span className="size-3 rounded border-[1.5px] border-teal bg-teal-tint" />{p.legendNewShort}</span>
-              <span className="flex items-center gap-1.5"><span className="size-3 rounded-full border border-event bg-sun-tint" />{p.longest}</span>
-              {flow.steps.length > 4 && <span className="ml-auto">{p.scrollHint}</span>}
-            </div>
-          </section>
+              <div className="grid gap-x-6 gap-y-2.5 sm:grid-cols-2 xl:grid-cols-3">
+              {contentTypes.map((type) => {
+                const n = want[type.id] ?? 0;
+                const step = (d: number) => setWant((w) => ({ ...w, [type.id]: Math.max(0, Math.min(20, n + d)) }));
+                return (
+                  <div key={type.id} className="flex items-center gap-2.5">
+                    <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium">
+                      {dot(type.code)}
+                      {type.name}
+                    </span>
+                    <button type="button" aria-label={fill(p.fewer, { type: type.name })} disabled={n === 0} onClick={() => step(-1)} className="flex size-10 shrink-0 items-center justify-center rounded-full bg-mint disabled:opacity-40">{icon("M5 12h14", 18)}</button>
+                    <span aria-live="polite" className="w-7 text-center text-base font-semibold tabular-nums">
+                      <SlideByDate date={String(n).padStart(3, "0")}>{n}</SlideByDate>
+                    </span>
+                    <button type="button" aria-label={fill(p.more, { type: type.name })} disabled={n === 20} onClick={() => step(1)} className="flex size-10 shrink-0 items-center justify-center rounded-full bg-mint disabled:opacity-40">{icon("M12 5v14M5 12h14", 18)}</button>
+                  </div>
+                );
+              })}
+              </div>
+              <p className="text-xs leading-normal text-ink-soft [overflow-wrap:anywhere]">{preview.length ? fill(p.creates, { list: preview.join(", ") }) : p.continues}</p>
+              <Collapse open={total > 0}>
+                <label className="flex flex-col gap-1.5 text-[13px] font-semibold">
+                  {p.noteLabel}
+                  <textarea
+                    aria-label={p.noteLabel}
+                    value={idNote}
+                    maxLength={CONTENT_NOTE_MAX}
+                    rows={2}
+                    onChange={(e) => setIdNote(e.target.value)}
+                    className="min-h-[64px] w-full resize-none rounded-[14px] border-[1.5px] border-line-strong bg-surface px-3 py-2 text-sm font-normal leading-normal [field-sizing:content]"
+                  />
+                  <span className="text-xs font-normal text-muted">{p.noteHelp}</span>
+                </label>
+              </Collapse>
+              <button
+                type="button"
+                disabled={!total || pending}
+                onClick={generate}
+                className={`min-h-11 self-end rounded-full px-5 text-sm font-semibold transition-colors duration-200 ${total ? "bg-teal text-white" : "bg-line text-icon"}`}
+              >
+                {total === 0 ? p.createIds : total === 1 ? p.create1 : fill(p.createN, { n: total })}
+              </button>
+            </section>
+          )}
         </div>
       </div>
 
