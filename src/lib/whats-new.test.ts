@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import pkg from "../../package.json";
-import { compareVersions, localRelease, RELEASES, unseenReleases, type Release } from "./whats-new";
+import { compareVersions, localRelease, RELEASES, releasesFor, unseenReleases, type Release } from "./whats-new";
 
 const item = { kind: "new" as const, icon: "list" as const, az: { title: "a", text: "a" }, en: { title: "A", text: "A" } };
 const list: Release[] = [
@@ -25,6 +25,22 @@ describe("unseenReleases", () => {
   });
   it("nothing once the current version was seen", () => {
     expect(unseenReleases("0.15.0", "0.15.0", list)).toEqual([]);
+  });
+});
+
+describe("releasesFor", () => {
+  const mixed: Release[] = [
+    { version: "0.2.0", date: "2026-12-02", items: [{ ...item, for: "staff" }] },
+    { version: "0.1.0", date: "2026-12-01", items: [item, { ...item, for: "employees", en: { title: "E", text: "E" } }, { ...item, for: "staff", en: { title: "S", text: "S" } }] },
+  ];
+  it("admins and managers see items for everyone and for staff", () => {
+    for (const role of ["admin", "manager"] as const) {
+      expect(releasesFor(role, mixed).map((r) => r.items.map((i) => i.en.title))).toEqual([["A"], ["A", "S"]]);
+    }
+  });
+  it("employees see items for everyone and for employees; a version with nothing for them is left out", () => {
+    expect(releasesFor("employee", mixed).map((r) => [r.version, r.items.map((i) => i.en.title)])).toEqual([["0.1.0", ["A", "E"]]]);
+    expect(unseenReleases("0.0.1", "0.2.0", releasesFor("employee", mixed)).map((r) => r.version)).toEqual(["0.1.0"]);
   });
 });
 

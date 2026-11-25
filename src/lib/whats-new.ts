@@ -7,7 +7,9 @@ export type ReleaseKind = "new" | "improved" | "fixed";
 /** The small picture before an item (drawn in whats-new-window.tsx). */
 export type ReleaseIcon = "finished" | "icons" | "motion" | "settings" | "keyboard" | "lock" | "bell" | "brief" | "deadline" | "list" | "search" | "status" | "logout" | "sparkle" | "pin" | "chart";
 type Text = { title: string; text: string };
-export type ReleaseItem = { kind: ReleaseKind; icon: ReleaseIcon; az: Text; en: Text; /** Only about things admins (and managers) use, e.g. Settings. */ admins?: boolean };
+/** Who sees an item: "staff" (admins and managers) or "employees". Without it, everyone. */
+export type Audience = "staff" | "employees";
+export type ReleaseItem = { kind: ReleaseKind; icon: ReleaseIcon; az: Text; en: Text; for?: Audience };
 /** `date`: the day the version went live (merged into main), yyyy-mm-dd. */
 export type Release = { version: string; date: string; items: ReleaseItem[] };
 
@@ -16,8 +18,9 @@ export const RELEASES: Release[] = [
     version: "0.17.0",
     date: "2026-11-25",
     items: [
-      { kind: "new", icon: "bell", az: { title: "Zənglə xatırlatma", text: "Adminlər və menecerlər tapşırıq kartındakı zəngə toxunub tapşırıqdakı insanlara xatırlatma göndərə bilər. Onlara saytda və telefonda bildiriş gedir." }, en: { title: "Remind with the bell", text: "Admins and managers can tap the bell on a task card to remind the people on the task. They get a notification in the site and on their phone." } },
-      { kind: "improved", icon: "list", admins: true, az: { title: "Tapşırıq növü siyahıda", text: "Tapşırıq formasında növlər artıq düymələrdə yox, axtarışı olan açılan siyahıdadır, ona görə forma daha az yer tutur." }, en: { title: "Task type in a dropdown", text: "In the task form, the task types are now in a dropdown with search instead of buttons, so the form takes less space." } },
+      { kind: "new", icon: "bell", for: "staff", az: { title: "Zənglə xatırlatma", text: "Tapşırıq kartındakı zəngə toxunub tapşırıqdakı insanlara xatırlatma göndərin. Onlara saytda və telefonda bildiriş gedir." }, en: { title: "Remind with the bell", text: "Tap the bell on a task card to remind the people on the task. They get a notification in the site and on their phone." } },
+      { kind: "new", icon: "bell", for: "employees", az: { title: "Admin və menecerdən xatırlatma", text: "Admin və ya menecer tapşırığınızın kartındakı zəngə toxunanda saytda və telefonunuzda bildiriş alırsınız. Bildirişə toxunanda tapşırıq açılır." }, en: { title: "Reminders from admins and managers", text: "When an admin or manager rings the bell on your task, you get a notification in the site and on your phone. Tapping it opens the task." } },
+      { kind: "improved", icon: "list", for: "staff", az: { title: "Tapşırıq növü siyahıda", text: "Tapşırıq formasında növlər artıq düymələrdə yox, axtarışı olan açılan siyahıdadır, ona görə forma daha az yer tutur." }, en: { title: "Task type in a dropdown", text: "In the task form, the task types are now in a dropdown with search instead of buttons, so the form takes less space." } },
       { kind: "improved", icon: "settings", az: { title: "Menyu həmişə görünür", text: "Kompüterdə soldakı menyu səhifə sürüşdürüləndə yerində qalır: Ayarlar və Haqqında həmişə ekranın aşağısındadır." }, en: { title: "The menu stays in view", text: "On computers, the menu on the left stays in place while you scroll, so Settings and About are always at the bottom of the screen." } },
     ],
   },
@@ -25,15 +28,17 @@ export const RELEASES: Release[] = [
     version: "0.16.0",
     date: "2026-11-24",
     items: [
-      { kind: "new", icon: "brief", az: { title: "İşçilər də brif yaza bilər", text: "Tapşırığınız olan kontent ID-nin brifi yoxdursa, kartdakı “+ Kontent brifi əlavə et” ilə onu yaza bilərsiniz. Yalnız özünüz əlavə etdiyiniz brifə düzəliş edə və onu silə bilərsiniz. Adminlərə, menecerlərə və digər tapşırıqlardakı insanlara bildiriş gedir." }, en: { title: "Employees can write briefs too", text: "If a content ID you have a task on has no brief, add one with “+ Add content brief” on the card. You can edit or delete only the briefs you added. Admins, managers and the people on the other tasks are notified." } },
-      { kind: "new", icon: "chart", az: { title: "Sizin paneliniz", text: "Daxil olandan sonra öz panelinizi görürsünüz, yalnız sizin tapşırıqlarla: bitənlər (və vaxtında bitənlər), gecikənlər, gün-gün qrafik, qarşıdakı son tarixlər, müştərilər və tapşırıq növləri." }, en: { title: "Your own dashboard", text: "After logging in you land on your own dashboard, with only your tasks: finished (and on time), overdue, a day-by-day chart, your next deadlines, customers and task types." } },
+      { kind: "new", icon: "brief", for: "employees", az: { title: "İşçilər də brif yaza bilər", text: "Tapşırığınız olan kontent ID-nin brifi yoxdursa, kartdakı “+ Kontent brifi əlavə et” ilə onu yaza bilərsiniz. Yalnız özünüz əlavə etdiyiniz brifə düzəliş edə və onu silə bilərsiniz. Adminlərə, menecerlərə və digər tapşırıqlardakı insanlara bildiriş gedir." }, en: { title: "Employees can write briefs too", text: "If a content ID you have a task on has no brief, add one with “+ Add content brief” on the card. You can edit or delete only the briefs you added. Admins, managers and the people on the other tasks are notified." } },
+      { kind: "new", icon: "chart", for: "employees", az: { title: "Sizin paneliniz", text: "Daxil olandan sonra öz panelinizi görürsünüz, yalnız sizin tapşırıqlarla: bitənlər (və vaxtında bitənlər), gecikənlər, gün-gün qrafik, qarşıdakı son tarixlər, müştərilər və tapşırıq növləri." }, en: { title: "Your own dashboard", text: "After logging in you land on your own dashboard, with only your tasks: finished (and on time), overdue, a day-by-day chart, your next deadlines, customers and task types." } },
+      { kind: "new", icon: "brief", for: "staff", az: { title: "İşçilər də brif yaza bilər", text: "İşçilər tapşırığı olduqları kontent ID-yə brif əlavə edə, öz əlavə etdikləri brifə düzəliş edə və onu silə bilər. Onlar bunu edəndə sizə bildiriş gəlir. Siz istənilən brifi dəyişə bilərsiniz." }, en: { title: "Employees can write briefs too", text: "Employees can add a brief to a content ID they have a task on, and edit or delete the briefs they added. You are notified when they do. You can still change any brief." } },
+      { kind: "new", icon: "chart", for: "staff", az: { title: "İşçilər üçün panel", text: "İşçilər daxil olanda öz panellərini görür: yalnız öz tapşırıqları, qarşıdakı son tarixləri, müştəriləri və tapşırıq növləri." }, en: { title: "A dashboard for employees", text: "Employees now land on their own dashboard after logging in, with only their tasks, their next deadlines, customers and task types." } },
     ],
   },
   {
     version: "0.15.1",
     date: "2026-11-24",
     items: [
-      { kind: "improved", icon: "list", az: { title: "Kontent ID pəncərəsi hamı üçün", text: "İşçilər də “Tapşırıqlarım”da kartdakı kontent ID-yə toxunub onun bütün tapşırıqlarını görə bilər. Öz tapşırıqlarına toxunanda onların günü açılır; başqalarının tapşırıqları yalnız görünür." }, en: { title: "Content ID window for everyone", text: "Employees can also tap the content ID on their cards in My tasks to see all its tasks. Tapping one of their own tasks opens its day; other people’s tasks are only shown." } },
+      { kind: "improved", icon: "list", for: "employees", az: { title: "Kontent ID pəncərəsi hamı üçün", text: "İşçilər də “Tapşırıqlarım”da kartdakı kontent ID-yə toxunub onun bütün tapşırıqlarını görə bilər. Öz tapşırıqlarına toxunanda onların günü açılır; başqalarının tapşırıqları yalnız görünür." }, en: { title: "Content ID window for everyone", text: "Employees can also tap the content ID on their cards in My tasks to see all its tasks. Tapping one of their own tasks opens its day; other people’s tasks are only shown." } },
     ],
   },
   {
@@ -41,11 +46,11 @@ export const RELEASES: Release[] = [
     date: "2026-11-24",
     items: [
       { kind: "new", icon: "pin", az: { title: "Kontent ID-yə qeyd", text: "Adminlər və menecerlər müştərinin “Kontentlər” bölməsində kontent ID-yə qeyd yaza bilər. Qeyd həmin kontent ID-nin bütün tapşırıqlarında onun altında görünür və tapşırıqlardakı insanlara bildiriş gedir." }, en: { title: "Notes on content IDs", text: "Admins and managers can write a note on a content ID in the customer’s Contents tab. It shows under the content ID on every task of it, and the people on those tasks are notified." } },
-      { kind: "new", icon: "list", admins: true, az: { title: "Kontent ID pəncərəsi", text: "İdarəetmə lövhəsində və müştəri səhifəsində kartdakı kontent ID-yə toxunun: onun bütün tapşırıqları, zaman xətti, qeydi və irəliləyişi bir pəncərədə görünür. Tapşırığa toxunanda onun günü açılır." }, en: { title: "Content ID window", text: "On the managing board and the customer page, tap the content ID on a card to see all its tasks, a timeline, its note and progress in one window. Tapping a task opens its day." } },
+      { kind: "new", icon: "list", for: "staff", az: { title: "Kontent ID pəncərəsi", text: "İdarəetmə lövhəsində və müştəri səhifəsində kartdakı kontent ID-yə toxunun: onun bütün tapşırıqları, zaman xətti, qeydi və irəliləyişi bir pəncərədə görünür. Tapşırığa toxunanda onun günü açılır." }, en: { title: "Content ID window", text: "On the managing board and the customer page, tap the content ID on a card to see all its tasks, a timeline, its note and progress in one window. Tapping a task opens its day." } },
       { kind: "new", icon: "bell", az: { title: "Telefon bildirişləri bir toxunuşla", text: "Daxil olandan sonra sayt bu cihazda bildirişləri açmağı özü təklif edir: “Aç” düyməsinə və telefonun “İcazə ver” sualına toxunmaq kifayətdir." }, en: { title: "Phone notifications in one tap", text: "After logging in, the site offers to turn on notifications on this device: tap “Turn on”, then “Allow” in your phone’s box." } },
       { kind: "fixed", icon: "bell", az: { title: "Bildirişlər daha tez gəlir", text: "Xatırlatmalar və bildirişlər artıq bir-iki dəqiqə gecikmir, bir neçə saniyəyə gəlir. Telefon bildirişləri də dərhal çatdırılır." }, en: { title: "Notifications arrive faster", text: "Reminders and notifications no longer come a minute or two late; they arrive within seconds, and phone notifications are delivered straight away." } },
-      { kind: "fixed", icon: "brief", admins: true, az: { title: "Brifdə sahə silinməsi", text: "Brif pəncərəsində sahə silinəndə artıq titrəmə olmur." }, en: { title: "Removing a brief field", text: "Removing a field in the brief window no longer flickers." } },
-      { kind: "fixed", icon: "icons", admins: true, az: { title: "Telefonda ikon seçimi", text: "Ayarlarda tapşırıq növünün ikon cədvəli artıq telefon ekranına tam sığır." }, en: { title: "Icon picker on phones", text: "The task type icon grid in Settings now fits on phone screens." } },
+      { kind: "fixed", icon: "brief", for: "staff", az: { title: "Brifdə sahə silinməsi", text: "Brif pəncərəsində sahə silinəndə artıq titrəmə olmur." }, en: { title: "Removing a brief field", text: "Removing a field in the brief window no longer flickers." } },
+      { kind: "fixed", icon: "icons", for: "staff", az: { title: "Telefonda ikon seçimi", text: "Ayarlarda tapşırıq növünün ikon cədvəli artıq telefon ekranına tam sığır." }, en: { title: "Icon picker on phones", text: "The task type icon grid in Settings now fits on phone screens." } },
     ],
   },
   {
@@ -55,7 +60,7 @@ export const RELEASES: Release[] = [
       { kind: "new", icon: "finished", az: { title: "Kontent ID-də tamamlanmış iş", text: "Tapşırıq bitəndə yekun video və ya dizaynın linklərini əlavə edin. Əlavə olunmuş material bu kontent ID-nin bütün tapşırıqlarında yaşıl “Tamamlanmış iş” etiketi kimi görünür." }, en: { title: "Finished work on content IDs", text: "When a task is done, add links to the final video or design. It shows as a green “Finished work” tag on every task of that content ID." } },
       { kind: "new", icon: "icons", az: { title: "Tapşırıq növləri üçün ikonlar", text: "Hər tapşırıq növü üçün uyğun ikonlar əlavə edildi. Bu ikonlara sonradan düzəliş edilə bilir." }, en: { title: "Icons for task types", text: "Each task type has an icon before its name on cards and in the task form." } },
       { kind: "new", icon: "sparkle", az: { title: "Yeniliklər pəncərəsi", text: "Yeni versiyadan sonra nələrin dəyişdiyini burada görürsünüz. Bütün versiyalar “Haqqında” səhifəsindədir." }, en: { title: "This “What’s new” window", text: "After an update you see what changed, right here. Every version is listed on the About page." } },
-      { kind: "improved", icon: "settings", admins: true, az: { title: "Yenilənmiş Ayarlar", text: "Bölmələr ikonlu menyuda; sətirlər açılıb-bağlanır, silinən sətri geri qaytarmaq olar, tapşırıq növünə ikon seçilir." }, en: { title: "Redesigned Settings", text: "Sections in a menu with icons; rows open and close, a deleted row can be brought back with Undo, and task types get an icon picker." } },
+      { kind: "improved", icon: "settings", for: "staff", az: { title: "Yenilənmiş Ayarlar", text: "Bölmələr ikonlu menyuda; sətirlər açılıb-bağlanır, silinən sətri geri qaytarmaq olar, tapşırıq növünə ikon seçilir." }, en: { title: "Redesigned Settings", text: "Sections in a menu with icons; rows open and close, a deleted row can be brought back with Undo, and task types get an icon picker." } },
       { kind: "improved", icon: "lock", az: { title: "Ləğv edilmiş və təxirə salınmış tapşırıqlar kilidlənir", text: "Bu statusları yalnız admin və menecerlər dəyişə bilər." }, en: { title: "Cancelled and postponed tasks are locked", text: "Only admins and managers can change their status." } },
       { kind: "improved", icon: "motion", az: { title: "Daha gözəl animasiyalar", text: "Əlavə edilən, silinən və açılan hər şey sıçramadan hərəkət edir." }, en: { title: "Smoother animations", text: "Everything that is added, removed or opened moves without jumping." } },
     ],
@@ -74,7 +79,7 @@ export const RELEASES: Release[] = [
     date: "2026-11-23",
     items: [
       { kind: "new", icon: "status", az: { title: "Ləğv edilmiş və təxirə salınmış statuslar", text: "Gün xülasəsində, idarə lövhəsinin filtrində və paneldə ayrıca görünür." }, en: { title: "Cancelled and postponed statuses", text: "Shown separately in the day summary, the board filter and the dashboard." } },
-      { kind: "improved", icon: "search", az: { title: "Daha geniş axtarış", text: "İdarə lövhəsində axtarış qutusu bütün eni tutur." }, en: { title: "Wider search", text: "The board’s search box takes the full width." } },
+      { kind: "improved", icon: "search", for: "staff", az: { title: "Daha geniş axtarış", text: "İdarə lövhəsində axtarış qutusu bütün eni tutur." }, en: { title: "Wider search", text: "The board’s search box takes the full width." } },
     ],
   },
   {
@@ -82,7 +87,7 @@ export const RELEASES: Release[] = [
     date: "2026-11-23",
     items: [
       { kind: "new", icon: "brief", az: { title: "Kontent brifləri", text: "Kontent ID-yə brif: mətnlər, linklər, yoxlama siyahısı. Bütün tapşırıqlarında tünd “Brif” etiketi kimi görünür." }, en: { title: "Content briefs", text: "A brief on a content ID: texts, links, a checklist. It shows as a dark “Brief” tag on all its tasks." } },
-      { kind: "new", icon: "settings", admins: true, az: { title: "Brifin başlanğıc sahələri", text: "Ayarlar → Kontent brifi: hər yeni brifin hansı sahələrlə başladığını seçin." }, en: { title: "Starting fields for briefs", text: "Settings → Content brief: choose the fields every new brief starts with." } },
+      { kind: "new", icon: "settings", for: "staff", az: { title: "Brifin başlanğıc sahələri", text: "Ayarlar → Kontent brifi: hər yeni brifin hansı sahələrlə başladığını seçin." }, en: { title: "Starting fields for briefs", text: "Settings → Content brief: choose the fields every new brief starts with." } },
     ],
   },
   {
@@ -117,15 +122,25 @@ export function compareVersions(a: string, b: string) {
  * running now, with something to show. Nothing for someone who has seen the current one.
  */
 export function unseenReleases(seen: string, current: string, releases: Release[] = RELEASES) {
+  // (Give it releasesFor(role) so that only what is meant for the person counts.)
   return releases.filter((r) => r.items.length && compareVersions(r.version, seen) > 0 && compareVersions(r.version, current) <= 0);
 }
 
-export type ShownItem = { kind: ReleaseKind; icon: ReleaseIcon; title: string; text: string; admins: boolean };
+/**
+ * The releases as one person sees them: admins and managers get the items for everyone and for
+ * "staff", employees those for everyone and for "employees". A version left with nothing is dropped.
+ */
+export function releasesFor(role: "admin" | "manager" | "employee", releases: Release[] = RELEASES): Release[] {
+  const audience: Audience = role === "employee" ? "employees" : "staff";
+  return releases.map((r) => ({ ...r, items: r.items.filter((i) => !i.for || i.for === audience) })).filter((r) => r.items.length);
+}
+
+export type ShownItem = { kind: ReleaseKind; icon: ReleaseIcon; title: string; text: string };
 export type ShownRelease = { version: string; date: string; items: ShownItem[] };
 
 /** A release in one language, items grouped New → Improved → Fixed. */
 export function localRelease(r: Release, locale: Locale): ShownRelease {
   const order: ReleaseKind[] = ["new", "improved", "fixed"];
-  const items = [...r.items].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind)).map((i) => ({ kind: i.kind, icon: i.icon, ...(locale === "en" ? i.en : i.az), admins: !!i.admins }));
+  const items = [...r.items].sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind)).map((i) => ({ kind: i.kind, icon: i.icon, ...(locale === "en" ? i.en : i.az) }));
   return { version: r.version, date: r.date, items };
 }

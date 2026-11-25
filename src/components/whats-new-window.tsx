@@ -70,7 +70,6 @@ function Groups({ items, t }: { items: ShownItem[]; t: T }) {
                   <div className="flex min-w-0 flex-col gap-0.5">
                     <b className="text-sm font-semibold">
                       {i.title}
-                      {i.admins && <em className="ml-1.5 inline-block rounded-md bg-mint-soft px-1.5 py-px align-[2px] text-[10.5px] font-extrabold not-italic text-muted">{t.admins}</em>}
                     </b>
                     <span className="text-[13px] leading-snug text-ink-soft">{i.text}</span>
                   </div>
