@@ -8,7 +8,7 @@ import { assignedTo, assigneesColumn, hasAssignees, noAssignees, parseAssignees,
 import { addDays, dateInZone, type SpecialDay } from "./dates";
 import { localName } from "./names";
 import { taskEndColumn } from "./task-end";
-import { countPerDay, onDay, sectionFor, type Section } from "./task-rules";
+import { countPerDay, onDay, sectionFor, spanOf, type Section } from "./task-rules";
 
 /** Everything a task card needs. Sent to the browser, so no secrets. */
 export type TaskView = {
@@ -51,6 +51,8 @@ export type TaskView = {
   notesCount: number;
   /** The task's content ID has a content brief. */
   hasBrief: boolean;
+  /** The day it was postponed (when it is), in Baku time. */
+  postponedOn: string | null;
   /** Its content ID has finished work (links to the final video, design or post). */
   hasFinishedWork: boolean;
   /** The note on its content ID, shown under the content ID on the card (null: none). */
@@ -99,6 +101,7 @@ function select(where: SQL | undefined) {
       hasFinishedWork: sql<boolean>`exists (select 1 from ${finishedWorks} where ${finishedWorks.contentId} = ${tasks.contentId})`.mapWith(Boolean),
       createdAt: tasks.createdAt,
       nudgedAt: tasks.nudgedAt,
+      postponedAt: tasks.postponedAt,
       nudgedBy: sql<string | null>`(select ${users.name} from ${users} where ${users.id} = ${tasks.nudgedBy})`,
     })
     .from(tasks)
@@ -142,6 +145,7 @@ function toView(row: Row, locale: Locale): TaskView {
     note: row.note,
     archived: row.archived,
     finishedOn: row.finishedAt ? dateInZone(row.finishedAt) : null,
+    postponedOn: row.postponedAt ? dateInZone(row.postponedAt) : null,
     remindDays: row.remindDays ? String(row.remindDays).split(",").map(Number) : [],
     remindTime: row.remindTime,
     notesCount: row.notesCount,
@@ -170,6 +174,7 @@ export async function dayTasks(date: string, today: string, filter: { customerId
     and(lte(tasks.dueDate, date), gte(taskEndColumn, date)),
     date === today ? lt(taskEndColumn, today) : undefined,
     and(gte(tasks.finishedAt, new Date(`${addDays(date, -1)}T00:00:00Z`)), lt(tasks.finishedAt, new Date(`${addDays(date, 2)}T00:00:00Z`))),
+    and(gte(tasks.postponedAt, new Date(`${addDays(date, -1)}T00:00:00Z`)), lt(tasks.postponedAt, new Date(`${addDays(date, 2)}T00:00:00Z`))),
   );
   const rows = (await select(and(...conditions, around))).map((row) => toView(row, locale));
   const out: DayTasks = { overdue: [], due: [], postponed: [], finished: [], cancelled: [] };
@@ -208,18 +213,25 @@ export async function countsByDay(from: string, to: string, filter: { customerId
   // Spanning the range, or closed around it (a finished or cancelled task counts on the day it was closed).
   const conditions: (SQL | undefined)[] = [
     eq(tasks.archived, false),
-    or(and(lte(tasks.dueDate, to), gte(taskEndColumn, from)), and(gte(tasks.finishedAt, new Date(`${addDays(from, -1)}T00:00:00Z`)), lt(tasks.finishedAt, new Date(`${addDays(to, 2)}T00:00:00Z`)))),
+    or(
+      and(lte(tasks.dueDate, to), gte(taskEndColumn, from)),
+      and(gte(tasks.finishedAt, new Date(`${addDays(from, -1)}T00:00:00Z`)), lt(tasks.finishedAt, new Date(`${addDays(to, 2)}T00:00:00Z`))),
+      and(gte(tasks.postponedAt, new Date(`${addDays(from, -1)}T00:00:00Z`)), lt(tasks.postponedAt, new Date(`${addDays(to, 2)}T00:00:00Z`))),
+    ),
   ];
   if (filter.customerId) conditions.push(eq(tasks.customerId, filter.customerId));
   if (filter.assigneeId) conditions.push(assignedTo(filter.assigneeId));
   if (filter.excludeDrafts) conditions.push(hasAssignees);
   const rows = await db
-    .select({ dueDate: tasks.dueDate, deadline: tasks.deadline, finishedAt: tasks.finishedAt, finished: statuses.isFinished, cancelled: statuses.isCancelled })
+    .select({ dueDate: tasks.dueDate, deadline: tasks.deadline, finishedAt: tasks.finishedAt, postponedAt: tasks.postponedAt, finished: statuses.isFinished, cancelled: statuses.isCancelled, postponed: statuses.isPostponed })
     .from(tasks)
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
     .where(and(...conditions));
   return countPerDay(
-    rows.map((r) => ({ dueDate: r.dueDate, deadline: r.deadline, closed: r.finished || r.cancelled, closedOn: r.finishedAt ? dateInZone(r.finishedAt) : null })),
+    rows.map((r) => {
+      const at = r.finished || r.cancelled ? r.finishedAt : r.postponed ? r.postponedAt : null;
+      return { dueDate: r.dueDate, deadline: r.deadline, closed: r.finished || r.cancelled || r.postponed, closedOn: at ? dateInZone(at) : null };
+    }),
     from,
     to,
     addDays,
@@ -232,11 +244,12 @@ export async function wholeDay(date: string): Promise<TaskView[]> {
   const around = or(
     and(lte(tasks.dueDate, date), gte(taskEndColumn, date)),
     and(gte(tasks.finishedAt, new Date(`${addDays(date, -1)}T00:00:00Z`)), lt(tasks.finishedAt, new Date(`${addDays(date, 2)}T00:00:00Z`))),
+    and(gte(tasks.postponedAt, new Date(`${addDays(date, -1)}T00:00:00Z`)), lt(tasks.postponedAt, new Date(`${addDays(date, 2)}T00:00:00Z`))),
   );
   // As on the day views: a finished or cancelled task belongs only to the day it was closed.
   return (await select(and(eq(tasks.archived, false), around)))
     .map((row) => toView(row, locale))
-    .filter((task) => onDay({ ...task, closed: task.finished || task.cancelled, closedOn: task.finishedOn }, date));
+    .filter((task) => onDay(spanOf(task), date));
 }
 
 /** Statuses to choose from, named in the reader's language. */

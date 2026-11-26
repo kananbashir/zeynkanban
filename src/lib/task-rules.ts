@@ -1,6 +1,6 @@
 // Which group a task belongs to on a day view, and how statuses are shown. Pure, tested in task-rules.test.ts.
 
-export type DayTask = { dueDate: string; deadline?: string | null; finished: boolean; finishedOn: string | null; cancelled?: boolean; postponed?: boolean };
+export type DayTask = { dueDate: string; deadline?: string | null; finished: boolean; finishedOn: string | null; cancelled?: boolean; postponed?: boolean; postponedOn?: string | null };
 export type Section = "overdue" | "due" | "postponed" | "finished" | "cancelled";
 
 /** The day a task must be finished by: its deadline, or its own day when it has none. */
@@ -19,29 +19,37 @@ export function personalShownOn(task: { dueDate: string; done: boolean }, viewDa
  * - unfinished tasks show on every day from their day to their deadline (just their day without one);
  * - when viewing today, unfinished tasks whose deadline has passed also show, as overdue;
  * - cancelled tasks are closed like finished ones: they show only on the day they were cancelled;
- * - postponed tasks show where they would otherwise be, but as postponed, never overdue.
+ * - postponed tasks are set aside like cancelled ones: they show only on the day they were postponed
+ *   (their last day if that is unknown), under "Postponed", never overdue. Moved back to another
+ *   status, they show as usual again.
  */
 export function sectionFor(task: DayTask, viewDate: string, today: string): Section | null {
   const end = taskEnd(task);
   if (task.cancelled) return (task.finishedOn ?? end) === viewDate ? "cancelled" : null;
   if (task.finished) return (task.finishedOn ?? end) === viewDate ? "finished" : null;
+  if (task.postponed) return (task.postponedOn ?? end) === viewDate ? "postponed" : null;
   const shown = (task.dueDate <= viewDate && viewDate <= end) || (viewDate === today && end < today);
   if (!shown) return null;
-  if (task.postponed) return "postponed";
   return end < viewDate ? "overdue" : "due";
 }
 
-/** A task as far as which days it belongs to: `closed` when finished or cancelled, `closedOn` the day it was. */
+/** A task as far as which days it belongs to: `closed` when finished, cancelled or postponed, `closedOn` the day it was. */
 export type SpanTask = { dueDate: string; deadline?: string | null; closed?: boolean; closedOn?: string | null };
 
 /**
  * Whether a task belongs to a day, as on the day views: an open task on every day from its day to
- * its deadline; a finished or cancelled one only on the day it was closed (its last day if unknown).
+ * its deadline; a finished, cancelled or postponed one only on the day that happened (its last day if unknown).
  */
 export function onDay(task: SpanTask, day: string): boolean {
   const end = taskEnd(task);
   if (task.closed) return (task.closedOn ?? end) === day;
   return task.dueDate <= day && day <= end;
+}
+
+/** A task's days, as on the day views: finished, cancelled and postponed ones only on the day that happened. */
+export function spanOf(task: { dueDate: string; deadline?: string | null; finished: boolean; cancelled?: boolean; postponed?: boolean; finishedOn: string | null; postponedOn?: string | null }): SpanTask {
+  const closed = task.finished || !!task.cancelled || !!task.postponed;
+  return { dueDate: task.dueDate, deadline: task.deadline, closed, closedOn: task.finished || task.cancelled ? task.finishedOn : task.postponed ? (task.postponedOn ?? null) : null };
 }
 
 /** How many tasks fall on each day from `from` to `to` (see onDay: open ones on every day they span, closed ones on the day they were closed). */

@@ -16,6 +16,13 @@ export type Release = { version: string; date: string; items: ReleaseItem[] };
 
 export const RELEASES: Release[] = [
   {
+    version: "0.19.2",
+    date: "2026-11-26",
+    items: [
+      { kind: "fixed", icon: "status", az: { title: "Təxirə salınmış tapşırıqlar sonrakı günlərdə görünmür", text: "Təxirə salınmış tapşırıq artıq yalnız təxirə salındığı gündə göstərilir, ləğv olunmuş tapşırıq kimi." }, en: { title: "Postponed tasks no longer show on later days", text: "A postponed task now shows only on the day it was postponed, like a cancelled one." } },
+    ],
+  },
+  {
     version: "0.19.1",
     date: "2026-11-26",
     items: [

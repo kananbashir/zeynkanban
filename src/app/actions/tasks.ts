@@ -229,7 +229,7 @@ async function notifyChanges(id: string, before: { assigneeIds: string[]; dueDat
 export async function setTaskStatus(id: string, statusId: string): Promise<Result> {
   const me = await requireUser();
   const [task] = await db
-    .select({ wasFinished: statuses.isFinished, wasCancelled: statuses.isCancelled, wasPostponed: statuses.isPostponed, finishedAt: tasks.finishedAt, statusId: tasks.statusId, statusName: statuses.name, statusNameEn: statuses.nameEn })
+    .select({ wasFinished: statuses.isFinished, wasCancelled: statuses.isCancelled, wasPostponed: statuses.isPostponed, finishedAt: tasks.finishedAt, postponedAt: tasks.postponedAt, statusId: tasks.statusId, statusName: statuses.name, statusNameEn: statuses.nameEn })
     .from(tasks)
     .innerJoin(statuses, eq(statuses.id, tasks.statusId))
     .where(eq(tasks.id, id));
@@ -246,7 +246,9 @@ export async function setTaskStatus(id: string, statusId: string): Promise<Resul
   // Finished and cancelled tasks are closed: remember the day (kept when moving between closed statuses).
   const closed = status.isFinished || status.isCancelled;
   const finishedAt = closed ? ((task.wasFinished || task.wasCancelled) && task.finishedAt ? task.finishedAt : new Date()) : null;
-  await db.update(tasks).set({ statusId, finishedAt, updatedAt: new Date() }).where(eq(tasks.id, id));
+  // Postponing remembers the day too (it shows on that day only); kept when moving between postponed statuses.
+  const postponedAt = status.isPostponed ? (task.wasPostponed && task.postponedAt ? task.postponedAt : new Date()) : null;
+  await db.update(tasks).set({ statusId, finishedAt, postponedAt, updatedAt: new Date() }).where(eq(tasks.id, id));
   if (task.statusId !== statusId) {
     const ref = await taskRef(id);
     if (ref) {

@@ -209,6 +209,8 @@ export const tasks = mysqlTable(
     /** Time of day ("09:00", Baku) for the task's reminders (see taskReminders). */
     remindTime: varchar("remind_time", { length: 5 }),
     createdBy: varchar("created_by", { length: 36 }).references(() => users.id),
+    /** When the task was put in a status that counts as postponed (cleared when it leaves it). */
+    postponedAt: datetime("postponed_at", { mode: "date", fsp: 3 }),
     /** The last reminder an admin or manager sent to the people on the task with the bell (when, and who). */
     nudgedAt: datetime("nudged_at", { mode: "date", fsp: 3 }),
     nudgedBy: varchar("nudged_by", { length: 36 }).references(() => users.id),

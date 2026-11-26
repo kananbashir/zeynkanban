@@ -18,7 +18,7 @@ import { fill } from "@/i18n/format";
 import { addDays, daysBetween, isIsoDateString, monthGrid, monthOf, shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
 import { dayLabel, shortDate } from "@/lib/format-date";
 import { DEFAULT_REMIND_TIME, REMIND_DAYS, reminderDate } from "@/lib/reminder-rules";
-import { groupByPerson, onDay, taskEnd } from "@/lib/task-rules";
+import { groupByPerson, onDay, spanOf, taskEnd } from "@/lib/task-rules";
 import type { TaskView } from "@/lib/tasks";
 
 /** `note`: the note on the content ID, shown under it when it is picked. */
@@ -124,7 +124,7 @@ export function TaskForm({
   const shownCounts = useMemo(() => {
     if (!task) return counts;
     const copy = { ...counts };
-    const self = { ...task, closed: task.finished || task.cancelled, closedOn: task.finishedOn };
+    const self = spanOf(task);
     for (const day of Object.keys(copy)) if (copy[day] && onDay(self, day)) copy[day] -= 1;
     return copy;
   }, [counts, task]);
