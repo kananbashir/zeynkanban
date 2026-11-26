@@ -374,12 +374,15 @@ function BriefCard({ card, staff, t, tasksT, onOpen, onEdit, onCopy, onDelete }:
     <article
       ref={ref}
       data-flip={card.id}
-      className={`relative flex min-w-0 flex-col gap-2.5 rounded-[20px] border-[1.5px] border-line px-4 py-3.5 transition-[border-color,box-shadow] duration-200 hover:border-teal ${card.usedFor ? "bg-[color-mix(in_oklab,var(--color-mint-soft)_70%,var(--color-teal-tint))]" : "bg-mint-soft"}`}
+      // Anywhere on the card opens it, except its buttons (the title is also a button, for the keyboard).
+      onClick={(e) => {
+        if (!(e.target as HTMLElement).closest("button, a")) onOpen();
+      }}
+      className={`relative flex min-w-0 cursor-pointer flex-col gap-2.5 rounded-[20px] border-[1.5px] border-line px-4 py-3.5 transition-[border-color,box-shadow] duration-200 hover:border-teal ${card.usedFor ? "bg-[color-mix(in_oklab,var(--color-mint-soft)_70%,var(--color-teal-tint))]" : "bg-mint-soft"}`}
     >
       <div className="flex flex-wrap items-start gap-2.5">
         <h3 className="min-w-0 flex-[1_1_160px] break-words text-base font-semibold leading-snug">
-          {/* The whole card opens it (the buttons below sit above this). */}
-          <button type="button" onClick={onOpen} className="text-left after:absolute after:inset-0 after:rounded-[20px] after:content-['']">
+          <button type="button" onClick={onOpen} className="text-left">
             {card.title}
           </button>
         </h3>
@@ -395,7 +398,7 @@ function BriefCard({ card, staff, t, tasksT, onOpen, onEdit, onCopy, onDelete }:
           {staff ? `${card.by.split(" ")[0]} · ` : ""}
           {card.on}
         </span>
-        <span className="relative z-[1] ml-auto flex shrink-0 items-center gap-0.5">
+        <span className="ml-auto flex shrink-0 items-center gap-0.5">
           <button type="button" onClick={onEdit} className="flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold text-ink transition-colors hover:bg-mint">
             <Icon name="edit" size={15} />
             {t.edit}
