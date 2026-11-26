@@ -36,7 +36,7 @@ export type BriefView = {
   template: { id: string; label: string; hint: string; type: BriefType; visible: boolean }[];
   /** The Content bank brief it was picked from (they stay linked), if any. */
   bank: { id: string; title: string } | null;
-  /** With no brief yet: may pick one from the Content bank, and how many unused ones there are to pick from. */
+  /** Not linked to the bank yet: may pick one from the Content bank (it replaces what is there), and how many unused ones there are to pick from. */
   bankUnused: number | null;
 };
 
@@ -100,7 +100,8 @@ export async function loadBrief(contentId: string): Promise<{ ok: true; brief: B
     : [];
   const edited = row && row.updatedBy && row.updatedAt.getTime() - row.createdAt.getTime() > 1000;
   const bank = row?.bankBriefId ? ((await db.select({ id: bankBriefs.id, title: bankBriefs.title }).from(bankBriefs).where(eq(bankBriefs.id, row.bankBriefId)))[0] ?? null) : null;
-  const choices = !row && canEdit ? await bankChoices(me, customerId) : null;
+  // A brief not linked to the bank (none yet, written by hand, or its bank brief was deleted) can be replaced by one from the bank.
+  const choices = !row?.bankBriefId && canEdit ? await bankChoices(me, customerId) : null;
   return {
     ok: true,
     brief: {
@@ -125,7 +126,8 @@ export async function loadBankPicks(contentId: string): Promise<{ ok: true; pick
   const me = await requireUser();
   const [content] = await db.select({ customerId: contents.customerId }).from(contents).where(eq(contents.id, contentId));
   if (!content) return { ok: false, error: "notFound" };
-  if (!(await mayWrite(me, contentId, null, false))) return { ok: false, error: "notAllowed" };
+  const [current] = await db.select({ createdBy: contentBriefs.createdBy, bankBriefId: contentBriefs.bankBriefId }).from(contentBriefs).where(eq(contentBriefs.contentId, contentId));
+  if (current?.bankBriefId || !(await mayWrite(me, contentId, current?.createdBy ?? null, !!current))) return { ok: false, error: "notAllowed" };
   const choices = await bankChoices(me, content.customerId);
   if (!choices) return { ok: false, error: "notAllowed" };
   const { t } = await getDictionary();
@@ -136,7 +138,7 @@ export async function loadBankPicks(contentId: string): Promise<{ ok: true; pick
  * Adds or replaces the brief of a content ID and tells the people on its tasks (and, when an
  * employee wrote it, admins and managers too). Admins and managers may write any brief; employees
  * may add one to a content ID they have a task on, and change only one they added; graphic designers none.
- * A new brief picked from the Content bank (`bankBriefId`) stays linked to it: saving one saves both.
+ * A brief picked from the Content bank (`bankBriefId`, for a brief not linked yet) stays linked to it: saving one saves both.
  */
 export async function saveBrief(contentId: string, fields: unknown, bankBriefId?: string | null): Promise<{ ok: true } | Fail> {
   const me = await requireUser();
@@ -150,7 +152,7 @@ export async function saveBrief(contentId: string, fields: unknown, bankBriefId?
 
   // Picked from the bank: it must be one this person may pick, of the same customer, and not used yet.
   let link: string | null = null;
-  if (!current && bankBriefId) {
+  if (!current?.bankBriefId && bankBriefId) {
     const [picked] = await db.select({ id: bankBriefs.id, customerId: bankBriefs.customerId, createdBy: bankBriefs.createdBy }).from(bankBriefs).where(eq(bankBriefs.id, String(bankBriefId)));
     if (!picked || picked.customerId !== content.customerId || !ownsBankBrief(me, picked.createdBy) || !(await mayUseBank(me, content.customerId))) return { ok: false, error: "notAllowed" };
     const [taken] = await db.select({ id: contentBriefs.contentId }).from(contentBriefs).where(eq(contentBriefs.bankBriefId, picked.id));
@@ -160,7 +162,7 @@ export async function saveBrief(contentId: string, fields: unknown, bankBriefId?
 
   try {
     await db.transaction(async (tx) => {
-      if (current) await tx.update(contentBriefs).set({ fields: json, updatedBy: me.id, updatedAt: new Date() }).where(eq(contentBriefs.contentId, contentId));
+      if (current) await tx.update(contentBriefs).set({ fields: json, updatedBy: me.id, updatedAt: new Date(), ...(link ? { bankBriefId: link } : {}) }).where(eq(contentBriefs.contentId, contentId));
       else await tx.insert(contentBriefs).values({ contentId, fields: json, bankBriefId: link, createdBy: me.id, updatedBy: me.id });
       const linked = current?.bankBriefId ?? link;
       if (linked) await tx.update(bankBriefs).set({ fields: json, updatedBy: me.id, updatedAt: new Date() }).where(eq(bankBriefs.id, linked));

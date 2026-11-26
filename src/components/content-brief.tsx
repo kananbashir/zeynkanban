@@ -78,9 +78,9 @@ function BankMarker({ t, title, onRemove }: { t: T; title: string; onRemove?: ()
 }
 
 /** The dashed "+ Add content brief" button admins and managers see on cards without a brief. */
-export function AddBriefButton({ label, onOpen }: { label: string; onOpen: () => void }) {
+export function AddBriefButton({ label, onOpen, className = "" }: { label: string; onOpen: () => void; className?: string }) {
   return (
-    <button type="button" onClick={onOpen} className="flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-dashed border-ink/35 bg-surface/50 px-3 text-[13px] font-semibold text-ink hover:bg-surface">
+    <button type="button" onClick={onOpen} className={`flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-dashed border-ink/35 bg-surface/50 px-3 text-[13px] font-semibold text-ink hover:bg-surface ${className}`}>
       <span aria-hidden="true" className="text-base leading-none">+</span>
       {label}
     </button>
@@ -131,7 +131,8 @@ export function BriefWindow({ contentId, startEditing, onClose, t }: { contentId
     });
 
   const isNew = !!brief && !brief.fields.length;
-  const offer = isNew && !picked && !!brief.bankUnused;
+  // The bank is offered for a brief not linked to it: a new one, or (while editing) one written by hand.
+  const offer = !picked && !brief?.bank && !!brief?.bankUnused;
   const window = (
     <Dialog label={brief ? `${b.title} · ${brief.code}` : b.title} onClose={onClose}>
       <div className="flex items-start gap-3">
@@ -164,7 +165,7 @@ export function BriefWindow({ contentId, startEditing, onClose, t }: { contentId
                   <span className="text-[12.5px] text-ink-soft">{b.linkedRead}</span>
                 </div>
               ) : offer ? (
-                <BankOffer t={t} customer={brief.customer} n={brief.bankUnused ?? 0} onPick={() => setPicking(true)} />
+                <BankOffer t={t} customer={brief.customer} n={brief.bankUnused ?? 0} replaces={!isNew} onPick={() => setPicking(true)} />
               ) : !isNew && brief.bank ? (
                 <p className="flex items-center gap-2.5 rounded-[16px] bg-teal-tint px-3.5 py-2.5 text-[13.5px] font-semibold text-teal-deep">
                   <Icon name="link" size={16} />
@@ -172,7 +173,11 @@ export function BriefWindow({ contentId, startEditing, onClose, t }: { contentId
                 </p>
               ) : null
             }
-            onCancel={() => (isNew ? onClose() : setEditing(false))}
+            onCancel={() => {
+              setPicked(null);
+              if (isNew) onClose();
+              else setEditing(false);
+            }}
             onSave={async (fields) => {
               const result = await saveBrief(contentId, fields, picked?.id ?? null);
               if (!result.ok) return { error: message(result.error), fieldId: result.fieldId };
@@ -249,7 +254,7 @@ export function BriefWindow({ contentId, startEditing, onClose, t }: { contentId
 }
 
 /** A brief as read by everyone: each field under its name; links open in a new tab and show their site. */
-function BriefReader({ fields, t }: { fields: BriefField[]; t: T }) {
+export function BriefReader({ fields, t }: { fields: BriefField[]; t: T }) {
   const b = t.brief;
   return (
     <div className="flex flex-col gap-2.5">
@@ -596,7 +601,7 @@ function FieldCard({ field: f, handle, t, problem, update, onRemove }: { field: 
 }
 
 /** In a new brief: "Have a brief ready?" with the button that opens the Content bank picker. */
-function BankOffer({ t, customer, n, onPick }: { t: T; customer: string; n: number; onPick: () => void }) {
+function BankOffer({ t, customer, n, replaces, onPick }: { t: T; customer: string; n: number; replaces: boolean; onPick: () => void }) {
   const b = t.brief;
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-[18px] border-[1.5px] border-dashed border-teal bg-teal-tint/55 px-3.5 py-3">
@@ -605,7 +610,10 @@ function BankOffer({ t, customer, n, onPick }: { t: T; customer: string; n: numb
       </span>
       <span className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.5">
         <span className="text-[14.5px] font-bold">{b.bankOfferTitle}</span>
-        <span className="text-[13px] text-ink-soft">{n === 1 ? fill(b.bankOffer1, { customer }) : fill(b.bankOfferN, { customer, n })}</span>
+        <span className="text-[13px] text-ink-soft">
+          {n === 1 ? fill(b.bankOffer1, { customer }) : fill(b.bankOfferN, { customer, n })}
+          {replaces ? ` ${b.bankReplaces}` : ""}
+        </span>
       </span>
       <button type="button" onClick={onPick} className="flex min-h-11 items-center gap-2 rounded-full bg-teal px-4 text-[14px] font-semibold text-white hover:bg-teal-deep">
         <Icon name="bank" size={16} />

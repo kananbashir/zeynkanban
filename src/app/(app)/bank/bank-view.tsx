@@ -6,7 +6,7 @@ import { createPortal } from "react-dom";
 import { deleteBankBrief, duplicateBankBrief, saveBankBrief } from "@/app/actions/bank";
 import type { BriefView } from "@/app/actions/briefs";
 import { personColor } from "@/components/avatar-group";
-import { BriefEditor, WithCode } from "@/components/content-brief";
+import { BriefEditor, BriefReader, WithCode } from "@/components/content-brief";
 import { TaskSearch, useFitHeight, useScrolledEdge } from "@/components/day-filters";
 import { CloseButton, ConfirmDialog, Dialog } from "@/components/dialog";
 import { FILTER_ICONS } from "@/components/filter-bar";
@@ -18,7 +18,7 @@ import { Toast, useToast } from "@/components/toast";
 import { initials } from "@/components/top-bar";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
-import { BANK_TITLE_LIMIT, briefText, copyTitle, findBriefs, type BankStatus } from "@/lib/bank-rules";
+import { BANK_TITLE_LIMIT, copyTitle, findBriefs, type BankStatus } from "@/lib/bank-rules";
 import type { BriefField } from "@/lib/brief-rules";
 import { prefersReducedMotion, springOrFallback } from "@/lib/spring";
 
@@ -61,6 +61,10 @@ export function BankView({
   const [status, setStatus] = useState<BankStatus>("all");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<"customer" | "status" | null>(null);
+  // The list shown under the phone dropdowns: the open one, or the one folding away (kept until it has closed, so nothing jumps).
+  const [lastOpen, setLastOpen] = useState<"customer" | "status" | null>(null);
+  if (open && open !== lastOpen) setLastOpen(open);
+  const [reading, setReading] = useState<BankCard | null>(null);
   const [editing, setEditing] = useState<BankCard | "new" | null>(null);
   const [copying, setCopying] = useState<BankCard | null>(null);
   const [deleting, setDeleting] = useState<{ card: BankCard; el: HTMLElement | null } | null>(null);
@@ -80,6 +84,7 @@ export function BankView({
   const counts = { all: mine.length, unused: mine.filter((b) => !b.usedFor).length, used: mine.filter((b) => b.usedFor).length };
   const message = (key: string) => (errors as Record<string, string>)[key] ?? errors.generic;
   const closeEditor = useCallback(() => setEditing(null), []);
+  const closeReader = useCallback(() => setReading(null), []);
   const closeCopy = useCallback(() => setCopying(null), []);
   const stopDeleting = useCallback(() => setDeleting(null), []);
 
@@ -175,14 +180,14 @@ export function BankView({
             </div>
             <Collapse open={open !== null}>
               <div className="flex flex-col gap-0.5 rounded-[18px] border border-line bg-surface p-2">
-                {open === "customer" &&
+                {lastOpen === "customer" &&
                   customers.map((c) => (
                     <Choice key={c.id} on={c.id === customerId} onClick={() => pickCustomer(c.id)} count={live.filter((b) => b.customerId === c.id).length}>
                       <span aria-hidden="true" className="size-3 shrink-0 rounded-full border-[1.5px] border-black/25" style={{ background: c.color }} />
                       {c.name}
                     </Choice>
                   ))}
-                {open === "status" &&
+                {lastOpen === "status" &&
                   statusItems.map((s) => (
                     <Choice
                       key={s.key}
@@ -216,6 +221,7 @@ export function BankView({
                   staff={staff}
                   t={t}
                   tasksT={tasksT}
+                  onOpen={() => setReading(card)}
                   onEdit={() => setEditing(card)}
                   onCopy={() => setCopying(card)}
                   onDelete={(el) => setDeleting({ card, el })}
@@ -245,6 +251,29 @@ export function BankView({
             if (isNew) setStatus((s) => (s === "used" ? "all" : s));
             toast.show(fill(isNew ? t.addedToast : t.savedToast, { title }));
             router.refresh();
+          }}
+        />
+      )}
+      {reading && (
+        <BankReader
+          card={reading}
+          customer={customers.find((c) => c.id === reading.customerId) ?? customer}
+          staff={staff}
+          t={t}
+          tasksT={tasksT}
+          onClose={closeReader}
+          onEdit={() => {
+            setReading(null);
+            setEditing(reading);
+          }}
+          onCopy={() => {
+            setReading(null);
+            setCopying(reading);
+          }}
+          onDelete={() => {
+            const card = reading;
+            setReading(null);
+            setDeleting({ card, el: document.querySelector<HTMLElement>(`article[data-flip="${CSS.escape(card.id)}"]`) });
           }}
         />
       )}
@@ -337,37 +366,24 @@ function Choice({ on, count, onClick, children }: { on: boolean; count: number; 
   );
 }
 
-/** One brief: title and status, the start of its text, its fields, who wrote it and when, and the actions. */
-function BriefCard({ card, staff, t, tasksT, onEdit, onCopy, onDelete }: { card: BankCard; staff: boolean; t: T; tasksT: TasksT; onEdit: () => void; onCopy: () => void; onDelete: (el: HTMLElement | null) => void }) {
+/** One brief: its title and status, who wrote it and when, and the actions. Tapping it opens it to read. */
+function BriefCard({ card, staff, t, tasksT, onOpen, onEdit, onCopy, onDelete }: { card: BankCard; staff: boolean; t: T; tasksT: TasksT; onOpen: () => void; onEdit: () => void; onCopy: () => void; onDelete: (el: HTMLElement | null) => void }) {
   const ref = useRef<HTMLElement>(null);
-  const text = briefText(card.fields);
   const iconButton = "flex size-9 items-center justify-center rounded-full text-icon transition-colors hover:bg-mint hover:text-ink";
   return (
     <article
       ref={ref}
       data-flip={card.id}
-      className={`flex min-w-0 flex-col gap-2.5 rounded-[20px] border-[1.5px] border-line px-4 py-3.5 ${card.usedFor ? "bg-[color-mix(in_oklab,var(--color-mint-soft)_70%,var(--color-teal-tint))]" : "bg-mint-soft"}`}
+      className={`relative flex min-w-0 flex-col gap-2.5 rounded-[20px] border-[1.5px] border-line px-4 py-3.5 transition-[border-color,box-shadow] duration-200 hover:border-teal ${card.usedFor ? "bg-[color-mix(in_oklab,var(--color-mint-soft)_70%,var(--color-teal-tint))]" : "bg-mint-soft"}`}
     >
       <div className="flex flex-wrap items-start gap-2.5">
-        <h3 className="min-w-0 flex-[1_1_160px] break-words text-base font-semibold leading-snug">{card.title}</h3>
-        {card.usedFor ? (
-          <span className="flex max-w-full items-center gap-1.5 rounded-full bg-teal-tint px-2.5 py-1 text-xs font-bold text-teal-deep">
-            <Icon name="link" size={12} strokeWidth={2.2} />
-            <span className="min-w-0 break-all">
-              <WithCode text={tasksT.brief.usedFor} code={card.usedFor} />
-            </span>
-          </span>
-        ) : (
-          <span className="whitespace-nowrap rounded-full bg-mint px-2.5 py-1 text-xs font-bold text-ink-soft">{t.unused}</span>
-        )}
-      </div>
-      {text && <p className="line-clamp-2 text-[13.5px] leading-normal text-ink-body">{text}</p>}
-      <div className="flex flex-wrap gap-1.5">
-        {card.fields.map((f) => (
-          <span key={f.id} className="rounded-full border border-line-strong px-2 py-0.5 text-[11.5px] font-semibold text-muted">
-            {f.label}
-          </span>
-        ))}
+        <h3 className="min-w-0 flex-[1_1_160px] break-words text-base font-semibold leading-snug">
+          {/* The whole card opens it (the buttons below sit above this). */}
+          <button type="button" onClick={onOpen} className="text-left after:absolute after:inset-0 after:rounded-[20px] after:content-['']">
+            {card.title}
+          </button>
+        </h3>
+        <StatusChip card={card} t={t} tasksT={tasksT} />
       </div>
       <div className="flex items-center gap-2 border-t border-line pt-2.5 text-[12.5px] text-muted">
         {staff && (
@@ -379,7 +395,7 @@ function BriefCard({ card, staff, t, tasksT, onEdit, onCopy, onDelete }: { card:
           {staff ? `${card.by.split(" ")[0]} · ` : ""}
           {card.on}
         </span>
-        <span className="ml-auto flex shrink-0 items-center gap-0.5">
+        <span className="relative z-[1] ml-auto flex shrink-0 items-center gap-0.5">
           <button type="button" onClick={onEdit} className="flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold text-ink transition-colors hover:bg-mint">
             <Icon name="edit" size={15} />
             {t.edit}
@@ -394,6 +410,70 @@ function BriefCard({ card, staff, t, tasksT, onEdit, onCopy, onDelete }: { card:
       </div>
     </article>
   );
+}
+
+/** "Not used", or "used for <content ID>". */
+function StatusChip({ card, t, tasksT }: { card: BankCard; t: T; tasksT: TasksT }) {
+  return card.usedFor ? (
+    <span className="flex max-w-full items-center gap-1.5 rounded-full bg-teal-tint px-2.5 py-1 text-xs font-bold text-teal-deep">
+      <Icon name="link" size={12} strokeWidth={2.2} />
+      <span className="min-w-0 [overflow-wrap:anywhere]">
+        <WithCode text={tasksT.brief.usedFor} code={card.usedFor} />
+      </span>
+    </span>
+  ) : (
+    <span className="whitespace-nowrap rounded-full bg-mint px-2.5 py-1 text-xs font-bold text-ink-soft">{t.unused}</span>
+  );
+}
+
+/** A bank brief to read: its customer, title, who wrote it, status and fields; Delete, Duplicate, Close and Edit. */
+function BankReader({ card, customer, staff, t, tasksT, onClose, onEdit, onCopy, onDelete }: { card: BankCard; customer: Customer | null; staff: boolean; t: T; tasksT: TasksT; onClose: () => void; onEdit: () => void; onCopy: () => void; onDelete: () => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => pop(box.current), []);
+  const window = (
+    <Dialog label={card.title} onClose={onClose}>
+      <div ref={box} className="flex flex-col gap-4">
+        <div className="flex items-start gap-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            {customer && (
+              <span className="flex items-center gap-1.5 text-[13px] font-semibold text-teal-deep">
+                <span aria-hidden="true" className="size-2.5 rounded-full border-[1.5px] border-black/25" style={{ background: customer.color }} />
+                {fill(t.editorEyebrow, { customer: customer.name })}
+              </span>
+            )}
+            <h2 className="break-words text-xl font-semibold sm:text-2xl">{card.title}</h2>
+            <span className="text-[13px] text-ink-soft">
+              {staff ? `${card.by} · ` : ""}
+              {card.on}
+            </span>
+          </div>
+          <CloseButton label={t.close} onClick={onClose} />
+        </div>
+        <div className="flex">
+          <StatusChip card={card} t={t} tasksT={tasksT} />
+        </div>
+        <BriefReader fields={card.fields} t={tasksT} />
+        {/* Two even rows on a phone: Delete | Duplicate, Close | Edit. */}
+        <div className="flex flex-wrap items-center gap-2.5 max-sm:grid max-sm:grid-cols-2">
+          <button type="button" onClick={onDelete} className="min-h-12 rounded-full bg-surface px-5 text-[15px] font-semibold text-danger">
+            {t.delete}
+          </button>
+          <span className="flex-1 max-sm:hidden" />
+          <button type="button" onClick={onCopy} className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-surface px-5 text-[15px] font-semibold">
+            <DuplicateIcon size={16} />
+            {t.duplicate}
+          </button>
+          <button type="button" onClick={onClose} className="min-h-12 rounded-full bg-surface px-5 text-[15px] font-semibold">
+            {t.close}
+          </button>
+          <button type="button" onClick={onEdit} className="min-h-12 rounded-full bg-sun px-6 text-[15px] font-semibold text-ink">
+            {t.edit}
+          </button>
+        </div>
+      </div>
+    </Dialog>
+  );
+  return typeof document === "undefined" ? null : createPortal(window, document.body);
 }
 
 /** Writing a bank brief: its title, then the same fields as the brief window (starting fields for a new one). */

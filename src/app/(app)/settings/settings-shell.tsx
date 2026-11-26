@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Fragment, useLayoutEffect, useRef, useState, useTransition, type ReactNode } from "react";
+import { Collapse } from "@/components/motion";
 import { prefersReducedMotion, springOrFallback } from "@/lib/spring";
 
 export type NavSection = { key: string; label: string; count?: number };
@@ -20,7 +21,7 @@ const ICONS: Record<string, string> = {
  * Settings with its section menu: icons and counts, a teal pill that slides to the chosen section
  * (along the top as chips on phones), and the section fading across when switching.
  */
-export function SettingsShell({ sections, current, label, children }: { sections: NavSection[]; current: string; label: string; children: ReactNode }) {
+export function SettingsShell({ sections, current, label, sectionLabel, children }: { sections: NavSection[]; current: string; label: string; sectionLabel: string; children: ReactNode }) {
   const router = useRouter();
   const [chosen, setChosen] = useState(current);
   const [seen, setSeen] = useState(current);
@@ -60,7 +61,10 @@ export function SettingsShell({ sections, current, label, children }: { sections
     return () => observer.disconnect();
   }, [chosen]);
 
+  // Phones: the sections are a dropdown.
+  const [menu, setMenu] = useState(false);
   const go = (key: string) => {
+    setMenu(false);
     if (key === chosen) return;
     setChosen(key);
     startTransition(() => router.push(`/settings?section=${key}`, { scroll: false }));
@@ -68,10 +72,11 @@ export function SettingsShell({ sections, current, label, children }: { sections
 
   return (
     <div className="flex flex-col items-stretch gap-4 lg:flex-row lg:items-start lg:gap-[22px]">
+      <SectionDropdown sections={sections} chosen={chosen} open={menu} label={label} sectionLabel={sectionLabel} onToggle={() => setMenu((v) => !v)} onGo={go} />
       <nav
         ref={nav}
         aria-label={label}
-        className="relative flex shrink-0 gap-0.5 overflow-x-auto rounded-[22px] bg-surface p-1.5 [scrollbar-width:none] lg:w-[260px] lg:flex-col lg:overflow-visible lg:rounded-[28px] lg:p-2.5"
+        className="relative flex shrink-0 gap-0.5 overflow-x-auto rounded-[22px] bg-surface p-1.5 [scrollbar-width:none] max-lg:hidden lg:w-[260px] lg:flex-col lg:overflow-visible lg:rounded-[28px] lg:p-2.5"
       >
         <span ref={pill} aria-hidden="true" className="pointer-events-none absolute left-0 top-0 rounded-[16px] bg-teal opacity-0 lg:rounded-[18px]" />
         {sections.map((s) => {
@@ -110,5 +115,78 @@ export function SettingsShell({ sections, current, label, children }: { sections
         {children}
       </div>
     </div>
+  );
+}
+
+function SectionIcon({ name, size = 18 }: { name: string; size?: number }) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={ICONS[name]} />
+    </svg>
+  );
+}
+
+/**
+ * On phones: the chosen section as a button (icon, name, count); tapping it unfolds the list of
+ * sections underneath, the chosen one ticked. Picking one folds the list away again.
+ */
+function SectionDropdown({ sections, chosen, open, label, sectionLabel, onToggle, onGo }: { sections: NavSection[]; chosen: string; open: boolean; label: string; sectionLabel: string; onToggle: () => void; onGo: (key: string) => void }) {
+  const current = sections.find((s) => s.key === chosen) ?? sections[0];
+  if (!current || sections.length < 2) return null;
+  return (
+    <nav aria-label={label} className="flex flex-col gap-2 lg:hidden">
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="true"
+        onClick={onToggle}
+        className={`flex min-h-14 items-center gap-2.5 rounded-[18px] border-[1.5px] bg-surface px-3.5 text-left transition-[border-color,box-shadow] duration-200 ${open ? "border-teal shadow-[0_0_0_2px_color-mix(in_oklab,var(--color-teal)_30%,transparent)]" : "border-line-strong"}`}
+      >
+        <span key={current.key} className="zk-pop flex size-[34px] shrink-0 items-center justify-center rounded-[11px] bg-teal text-white">
+          <SectionIcon name={current.key} />
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col leading-tight">
+          <span className="text-[11px] font-semibold text-muted">{sectionLabel}</span>
+          <span key={current.key} className="zk-fade-up truncate text-[15px] font-semibold">{current.label}</span>
+        </span>
+        {current.count !== undefined && <span className="text-xs font-bold tabular-nums text-muted">{current.count}</span>}
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`shrink-0 text-icon transition-transform duration-300 ${open ? "rotate-180" : ""}`}>
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      <Collapse open={open}>
+        <div className="flex flex-col gap-0.5 rounded-[18px] border border-line bg-surface p-1.5">
+          {sections.map((s) => {
+            const on = s.key === chosen;
+            return (
+              <a
+                key={s.key}
+                href={`/settings?section=${s.key}`}
+                aria-current={on ? "page" : undefined}
+                onClick={(e) => {
+                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+                  e.preventDefault();
+                  onGo(s.key);
+                }}
+                className={`flex min-h-[46px] items-center gap-2.5 rounded-xl px-2.5 text-sm font-semibold transition-colors ${on ? "bg-teal-tint" : "hover:bg-mint-soft"}`}
+              >
+                <span aria-hidden="true" className={`flex size-[30px] shrink-0 items-center justify-center rounded-[10px] ${on ? "bg-teal text-white" : "bg-mint text-teal-deep"}`}>
+                  <SectionIcon name={s.key} size={16} />
+                </span>
+                <span className="min-w-0 flex-1">{s.label}</span>
+                {s.count !== undefined && <span className="text-xs font-bold tabular-nums text-muted">{s.count}</span>}
+                <span className="flex w-4 justify-center text-teal-deep">
+                  {on && (
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="zk-pop">
+                      <path d="m5 12 5 5L20 7" />
+                    </svg>
+                  )}
+                </span>
+              </a>
+            );
+          })}
+        </div>
+      </Collapse>
+    </nav>
   );
 }

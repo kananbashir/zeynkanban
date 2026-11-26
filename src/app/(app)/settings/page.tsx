@@ -113,7 +113,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   return (
     <main className="flex flex-col gap-5">
       {heading}
-      <SettingsShell sections={allowed.map((key, i) => ({ key, label: t.settings.sections[key], count: counts[i] }))} current={section} label={t.settings.sectionsLabel}>
+      <SettingsShell sections={allowed.map((key, i) => ({ key, label: t.settings.sections[key], count: counts[i] }))} current={section} label={t.settings.sectionsLabel} sectionLabel={t.settings.sectionLabel}>
         {content}
       </SettingsShell>
     </main>
