@@ -31,10 +31,28 @@ export function sectionFor(task: DayTask, viewDate: string, today: string): Sect
   return end < viewDate ? "overdue" : "due";
 }
 
-/** How many tasks fall on each day from `from` to `to`; a task with a deadline counts on every day it spans. */
-export function countPerDay(tasks: { dueDate: string; deadline?: string | null }[], from: string, to: string, addDays: (iso: string, n: number) => string): Record<string, number> {
+/** A task as far as which days it belongs to: `closed` when finished or cancelled, `closedOn` the day it was. */
+export type SpanTask = { dueDate: string; deadline?: string | null; closed?: boolean; closedOn?: string | null };
+
+/**
+ * Whether a task belongs to a day, as on the day views: an open task on every day from its day to
+ * its deadline; a finished or cancelled one only on the day it was closed (its last day if unknown).
+ */
+export function onDay(task: SpanTask, day: string): boolean {
+  const end = taskEnd(task);
+  if (task.closed) return (task.closedOn ?? end) === day;
+  return task.dueDate <= day && day <= end;
+}
+
+/** How many tasks fall on each day from `from` to `to` (see onDay: open ones on every day they span, closed ones on the day they were closed). */
+export function countPerDay(tasks: SpanTask[], from: string, to: string, addDays: (iso: string, n: number) => string): Record<string, number> {
   const out: Record<string, number> = {};
   for (const task of tasks) {
+    if (task.closed) {
+      const day = task.closedOn ?? taskEnd(task);
+      if (day >= from && day <= to) out[day] = (out[day] ?? 0) + 1;
+      continue;
+    }
     const end = taskEnd(task);
     for (let d = task.dueDate < from ? from : task.dueDate; d <= end && d <= to; d = addDays(d, 1)) out[d] = (out[d] ?? 0) + 1;
   }

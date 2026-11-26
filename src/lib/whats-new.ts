@@ -16,6 +16,14 @@ export type Release = { version: string; date: string; items: ReleaseItem[] };
 
 export const RELEASES: Release[] = [
   {
+    version: "0.19.1",
+    date: "2026-11-26",
+    items: [
+      { kind: "fixed", icon: "status", az: { title: "Ləğv olunmuş tapşırıqlar sonrakı günlərdə görünmür", text: "Ləğv olunmuş və ya tamamlanmış tapşırıq artıq yalnız bağlandığı gündə sayılır: təqvimdəki rəqəmlərdə və günün bütün tapşırıqları siyahısında son tarixə qədər qalmır." }, en: { title: "Cancelled tasks no longer show on later days", text: "A cancelled or finished task now counts only on the day it was closed: it no longer stays in the calendar numbers and the whole-day list until its deadline." } },
+      { kind: "fixed", icon: "pin", for: "staff", az: { title: "Kontent ID qeydi öz yerində", text: "Tapşırıq əlavə edəndə və ayı planlayanda kontent ID-nin sarı qeydi artıq sətirdən kənara çıxmır." }, en: { title: "Content ID note stays in place", text: "When adding a task or planning a month, the content ID’s yellow note no longer spills out of its row." } },
+    ],
+  },
+  {
     version: "0.19.0",
     date: "2026-11-26",
     items: [

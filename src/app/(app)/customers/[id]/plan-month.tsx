@@ -346,7 +346,7 @@ export function PlanMonth({
               {items.length > 0 && <span className="text-[13px] text-ink-soft">{fill(p.placed, { placed: placedCount, total: items.length })}</span>}
             </div>
             {items.length > 0 ? (
-              <div role="group" aria-labelledby="plan-ids" className="flex max-h-[300px] flex-col gap-1.5 overflow-y-auto p-0.5">
+              <div role="group" aria-labelledby="plan-ids" className="flex max-h-[300px] flex-col gap-1.5 overflow-y-auto p-0.5 [&>*]:shrink-0">
                 {items.map((c) => {
                   const on = selected === c.id;
                   const when = staged[c.id];

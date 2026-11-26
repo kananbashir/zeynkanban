@@ -231,7 +231,7 @@ export function TypePicker({ types, value, other, onChange, labelledBy, labels }
               className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-muted focus-visible:outline-none"
             />
           </label>
-          <div ref={list} id="type-picker-list" role="listbox" aria-labelledby={labelledBy} className="relative flex flex-col gap-0.5 overflow-y-auto overscroll-contain" style={{ maxHeight: place.max }}>
+          <div ref={list} id="type-picker-list" role="listbox" aria-labelledby={labelledBy} className="relative flex flex-col gap-0.5 overflow-y-auto overscroll-contain [&>*]:shrink-0" style={{ maxHeight: place.max }}>
             <div ref={glide} aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 rounded-[13px] bg-mint-soft opacity-0 transition-[transform,height,opacity] duration-200 ease-out" />
             {shown.map((x, i) =>
               row(

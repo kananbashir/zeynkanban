@@ -262,6 +262,7 @@ A version's date is the day it is merged into `main`.
 
 | Version | What changed |
 |---|---|
+| 0.19.1 | Cancelled and finished tasks count only on the day they were closed in the calendar numbers and the whole-day list (they stayed until their deadline); the content ID note in the task form and the planner fits in its row |
 | 0.19.0 | The filter bar on the managing board and My tasks (status, customers, assignees, task type; search next to the filters); only the task list scrolls on computers, with a slim day bar and filter sheet on phones; a compact day summary with icons; on Android the page runs behind the gesture bar instead of a white strip, and the system bars follow the chosen theme |
 | 0.18.1 | The month planner: "Spread evenly" places IDs in a rhythm of types (posts first, each type in order), keeps IDs placed by hand (pinned) and counts publications already planned; the publishing rhythm as a column with every publication across months; colours for content types; "Generate IDs" under the calendar; employees see only "Improvements were made" in What's new |
 | 0.17.0 | The reminder bell on task cards for admins and managers; the task type as a dropdown with search in the task form; the side menu stays in view on computers, with Settings and About at the bottom of the screen; the phone's bottom bar shows icons only; "What's new" and the About page's version list show each person only the items for their role |
