@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, daysBetween, monthGrid, specialDaysOn, weekdayIndex, dateInZone, isIsoDateString } from "./dates";
-import { cardBackground, countPerDay, deadlineState, FINISHED_BACKGROUND, groupByPerson, onDay, personalShownOn, sectionFor, taskEnd } from "./task-rules";
+import { cardBackground, countPerDay, deadlineState, FINISHED_BACKGROUND, groupByPerson, onDay, personalShownOn, sectionFor, spanOf, taskEnd } from "./task-rules";
 
 const today = "2026-11-20";
 
@@ -40,11 +40,14 @@ describe("day sections", () => {
     expect(sectionFor(task, "2026-11-18", today)).toBeNull();
     expect(sectionFor(task, today, today)).toBeNull();
   });
-  it("shows a postponed task on its day and on today's view, as postponed rather than overdue", () => {
-    const task = { dueDate: "2026-11-18", finished: false, finishedOn: null, postponed: true };
-    expect(sectionFor(task, "2026-11-18", today)).toBe("postponed");
-    expect(sectionFor(task, today, today)).toBe("postponed");
-    expect(sectionFor(task, "2026-11-19", today)).toBeNull();
+  it("shows a postponed task only on the day it was postponed, never as overdue", () => {
+    const task = { dueDate: "2026-11-18", deadline: "2026-11-25", finished: false, finishedOn: null, postponed: true, postponedOn: "2026-11-19" };
+    expect(sectionFor(task, "2026-11-19", today)).toBe("postponed");
+    expect(sectionFor(task, "2026-11-18", today)).toBe(null);
+    expect(sectionFor(task, "2026-11-20", today)).toBe(null);
+    expect(sectionFor(task, today, today)).toBe(null);
+    // Without the day it was postponed (older data): its last day.
+    expect(sectionFor({ ...task, postponedOn: null }, "2026-11-25", today)).toBe("postponed");
   });
   it("ignores a deadline that isn't after the task's day", () => {
     expect(taskEnd({ dueDate: "2026-11-23", deadline: null })).toBe("2026-11-23");
@@ -158,5 +161,13 @@ describe("closed tasks on the calendar and day lists", () => {
     expect(["2026-11-24", "2026-11-25", "2026-11-26"].map((d) => onDay(cancelled, d))).toEqual([false, true, false]);
     expect(onDay({ dueDate: "2026-11-24", deadline: "2026-11-26" }, "2026-11-26")).toBe(true);
     expect(onDay({ dueDate: "2026-11-24", closed: true, closedOn: null }, "2026-11-24")).toBe(true);
+  });
+});
+
+describe("postponed tasks on the calendar", () => {
+  it("count only on the day they were postponed", () => {
+    const add = (iso: string, n: number) => { const d = new Date(iso + "T12:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+    const span = spanOf({ dueDate: "2026-11-24", deadline: "2026-11-27", finished: false, finishedOn: null, postponed: true, postponedOn: "2026-11-25" });
+    expect(countPerDay([span], "2026-11-20", "2026-11-30", add)).toEqual({ "2026-11-25": 1 });
   });
 });
