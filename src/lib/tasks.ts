@@ -8,7 +8,7 @@ import { assignedTo, assigneesColumn, hasAssignees, noAssignees, parseAssignees,
 import { addDays, dateInZone, type SpecialDay } from "./dates";
 import { localName } from "./names";
 import { taskEndColumn } from "./task-end";
-import { countPerDay, sectionFor, type Section } from "./task-rules";
+import { countPerDay, onDay, sectionFor, type Section } from "./task-rules";
 
 /** Everything a task card needs. Sent to the browser, so no secrets. */
 export type TaskView = {
@@ -205,18 +205,38 @@ export async function taskById(id: string): Promise<TaskView | null> {
 
 /** Number of (unarchived) tasks on each day of a range, optionally for one customer or person. A task with a deadline counts on every day it spans. */
 export async function countsByDay(from: string, to: string, filter: { customerId?: string; assigneeId?: string; excludeDrafts?: boolean } = {}) {
-  const conditions: SQL[] = [eq(tasks.archived, false), lte(tasks.dueDate, to), gte(taskEndColumn, from)];
+  // Spanning the range, or closed around it (a finished or cancelled task counts on the day it was closed).
+  const conditions: (SQL | undefined)[] = [
+    eq(tasks.archived, false),
+    or(and(lte(tasks.dueDate, to), gte(taskEndColumn, from)), and(gte(tasks.finishedAt, new Date(`${addDays(from, -1)}T00:00:00Z`)), lt(tasks.finishedAt, new Date(`${addDays(to, 2)}T00:00:00Z`)))),
+  ];
   if (filter.customerId) conditions.push(eq(tasks.customerId, filter.customerId));
   if (filter.assigneeId) conditions.push(assignedTo(filter.assigneeId));
   if (filter.excludeDrafts) conditions.push(hasAssignees);
-  const rows = await db.select({ dueDate: tasks.dueDate, deadline: tasks.deadline }).from(tasks).where(and(...conditions));
-  return countPerDay(rows, from, to, addDays);
+  const rows = await db
+    .select({ dueDate: tasks.dueDate, deadline: tasks.deadline, finishedAt: tasks.finishedAt, finished: statuses.isFinished, cancelled: statuses.isCancelled })
+    .from(tasks)
+    .innerJoin(statuses, eq(statuses.id, tasks.statusId))
+    .where(and(...conditions));
+  return countPerDay(
+    rows.map((r) => ({ dueDate: r.dueDate, deadline: r.deadline, closed: r.finished || r.cancelled, closedOn: r.finishedAt ? dateInZone(r.finishedAt) : null })),
+    from,
+    to,
+    addDays,
+  );
 }
 
-/** All tasks on a day (including those whose day-to-deadline span covers it), across every customer, drafts included: the "whole day" view. */
+/** All tasks on a day (open ones whose day-to-deadline span covers it, closed ones on the day they were closed), across every customer, drafts included: the "whole day" view. */
 export async function wholeDay(date: string): Promise<TaskView[]> {
   const locale = await getLocale();
-  return (await select(and(eq(tasks.archived, false), lte(tasks.dueDate, date), gte(taskEndColumn, date)))).map((row) => toView(row, locale));
+  const around = or(
+    and(lte(tasks.dueDate, date), gte(taskEndColumn, date)),
+    and(gte(tasks.finishedAt, new Date(`${addDays(date, -1)}T00:00:00Z`)), lt(tasks.finishedAt, new Date(`${addDays(date, 2)}T00:00:00Z`))),
+  );
+  // As on the day views: a finished or cancelled task belongs only to the day it was closed.
+  return (await select(and(eq(tasks.archived, false), around)))
+    .map((row) => toView(row, locale))
+    .filter((task) => onDay({ ...task, closed: task.finished || task.cancelled, closedOn: task.finishedOn }, date));
 }
 
 /** Statuses to choose from, named in the reader's language. */

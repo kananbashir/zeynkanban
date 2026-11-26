@@ -18,7 +18,7 @@ import { fill } from "@/i18n/format";
 import { addDays, daysBetween, isIsoDateString, monthGrid, monthOf, shiftMonth, specialDaysOn, type SpecialDay } from "@/lib/dates";
 import { dayLabel, shortDate } from "@/lib/format-date";
 import { DEFAULT_REMIND_TIME, REMIND_DAYS, reminderDate } from "@/lib/reminder-rules";
-import { countPerDay, groupByPerson, taskEnd } from "@/lib/task-rules";
+import { groupByPerson, onDay, taskEnd } from "@/lib/task-rules";
 import type { TaskView } from "@/lib/tasks";
 
 /** `note`: the note on the content ID, shown under it when it is picked. */
@@ -124,7 +124,8 @@ export function TaskForm({
   const shownCounts = useMemo(() => {
     if (!task) return counts;
     const copy = { ...counts };
-    for (const day of Object.keys(countPerDay([task], task.dueDate, taskEnd(task), addDays))) if (copy[day]) copy[day] -= 1;
+    const self = { ...task, closed: task.finished || task.cancelled, closedOn: task.finishedOn };
+    for (const day of Object.keys(copy)) if (copy[day] && onDay(self, day)) copy[day] -= 1;
     return copy;
   }, [counts, task]);
 
@@ -209,7 +210,7 @@ export function TaskForm({
               {contentOptions.length === 0 ? (
                 <p className="text-sm text-ink-soft">{f.noContents}</p>
               ) : (
-                <div role="group" aria-labelledby="f-content" className="flex max-h-[236px] flex-col gap-1.5 overflow-y-auto p-0.5">
+                <div role="group" aria-labelledby="f-content" className="flex max-h-[236px] flex-col gap-1.5 overflow-y-auto p-0.5 [&>*]:shrink-0">
                   {contentOptions.map((c) => (
                     <button key={c.id} type="button" aria-pressed={contentId === c.id} onClick={() => setContentId(c.id)} className={`flex min-h-11 flex-wrap items-center gap-x-2.5 gap-y-1 rounded-[14px] border-2 px-3 py-1.5 text-left ${pick(contentId === c.id)}`}>
                       <span className="font-mono text-[13px] font-medium">{c.code}</span>

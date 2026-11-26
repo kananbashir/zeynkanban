@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, daysBetween, monthGrid, specialDaysOn, weekdayIndex, dateInZone, isIsoDateString } from "./dates";
-import { cardBackground, countPerDay, deadlineState, FINISHED_BACKGROUND, groupByPerson, personalShownOn, sectionFor, taskEnd } from "./task-rules";
+import { cardBackground, countPerDay, deadlineState, FINISHED_BACKGROUND, groupByPerson, onDay, personalShownOn, sectionFor, taskEnd } from "./task-rules";
 
 const today = "2026-11-20";
 
@@ -131,5 +131,32 @@ describe("groupByPerson", () => {
       ["a", [1]],
       ["", [3]],
     ]);
+  });
+});
+
+describe("closed tasks on the calendar and day lists", () => {
+  const add = (iso: string, n: number) => {
+    const d = new Date(iso + "T12:00:00Z");
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  it("a cancelled or finished task counts only on the day it was closed, not every day to its deadline", () => {
+    const counts = countPerDay(
+      [
+        { dueDate: "2026-11-24", deadline: "2026-11-26", closed: true, closedOn: "2026-11-25" },
+        { dueDate: "2026-11-24", deadline: "2026-11-26" },
+        { dueDate: "2026-11-10", closed: true, closedOn: "2026-11-25" },
+      ],
+      "2026-11-20",
+      "2026-11-30",
+      add,
+    );
+    expect(counts).toEqual({ "2026-11-24": 1, "2026-11-25": 3, "2026-11-26": 1 });
+  });
+  it("onDay matches the day views", () => {
+    const cancelled = { dueDate: "2026-11-24", deadline: "2026-11-26", closed: true, closedOn: "2026-11-25" };
+    expect(["2026-11-24", "2026-11-25", "2026-11-26"].map((d) => onDay(cancelled, d))).toEqual([false, true, false]);
+    expect(onDay({ dueDate: "2026-11-24", deadline: "2026-11-26" }, "2026-11-26")).toBe(true);
+    expect(onDay({ dueDate: "2026-11-24", closed: true, closedOn: null }, "2026-11-24")).toBe(true);
   });
 });

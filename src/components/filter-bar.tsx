@@ -83,7 +83,7 @@ function ChoiceList({ group, t, autoFocus }: { group: FilterGroup; t: T; autoFoc
           />
         </label>
       )}
-      <div role="group" aria-label={group.label} className="flex max-h-[min(340px,50vh)] flex-col gap-0.5 overflow-y-auto overscroll-contain [scrollbar-width:thin]">
+      <div role="group" aria-label={group.label} className="flex max-h-[min(340px,50vh)] flex-col gap-0.5 overflow-y-auto overscroll-contain [scrollbar-width:thin] [&>*]:shrink-0">
         {shown.map((c) => {
           const on = group.selected.includes(c.id);
           return (
