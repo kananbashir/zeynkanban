@@ -2,16 +2,16 @@
 
 import { and, asc, eq, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { after } from "next/server";
 import { db } from "@/db";
-import { briefFields, contentBriefs, contents, customers, contentTypes, taskAssignees, tasks, users } from "@/db/schema";
+import { bankBriefs, briefFields, contentBriefs, contents, customers, contentTypes, tasks, users } from "@/db/schema";
 import type { ErrorKey } from "@/i18n/dictionaries";
 import { getDictionary, getLocale } from "@/i18n/server";
 import { requireUser } from "@/lib/auth";
 import { cleanBrief, parseBrief, type BriefField, type BriefType } from "@/lib/brief-rules";
+import { mayUseBank, ownsBankBrief, peopleOn, tellAboutBrief } from "@/lib/briefs";
 import { dateInZone } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
-import { deliverPush, notify, refOnly, staffIds, taskRef } from "@/lib/notify";
+import { isStaff, writesBriefs } from "@/lib/roles";
 
 type Fail = { ok: false; error: ErrorKey; fieldId?: string };
 
@@ -34,28 +34,39 @@ export type BriefView = {
   canEdit: boolean;
   /** For writing: the starting fields from Settings, named in the reader's language. */
   template: { id: string; label: string; hint: string; type: BriefType; visible: boolean }[];
+  /** The Content bank brief it was picked from (they stay linked), if any. */
+  bank: { id: string; title: string } | null;
+  /** With no brief yet: may pick one from the Content bank, and how many unused ones there are to pick from. */
+  bankUnused: number | null;
 };
 
-/** The people on the (unarchived) tasks of a content ID, each with one of their tasks, earliest first. */
-async function peopleOn(contentId: string) {
-  return db
-    .select({ userId: taskAssignees.userId, taskId: tasks.id })
-    .from(taskAssignees)
-    .innerJoin(tasks, eq(tasks.id, taskAssignees.taskId))
-    .where(and(eq(tasks.contentId, contentId), eq(tasks.archived, false)))
-    .orderBy(asc(tasks.dueDate));
-}
+/** One brief in the "Pick from the Content bank" list. */
+export type BankPick = { id: string; title: string; by: string; on: string; fields: BriefField[]; usedFor: string | null };
 
-/** Who may add (no brief yet) or change and delete (a brief there): see BriefView.canEdit. */
+/** Who may add (no brief yet) or change and delete (a brief there): see BriefView.canEdit. Graphic designers only read. */
 async function mayWrite(me: { id: string; role: string }, contentId: string, createdBy: string | null, exists: boolean) {
-  if (me.role !== "employee") return true;
+  if (!writesBriefs(me.role)) return false;
+  if (isStaff(me.role)) return true;
   return exists ? createdBy === me.id : (await peopleOn(contentId)).some((p) => p.userId === me.id);
 }
 
 /** Admins and managers may read every brief; others only those of content IDs they have a task on. */
 async function mayRead(me: { id: string; role: string }, contentId: string) {
-  if (me.role !== "employee") return true;
+  if (isStaff(me.role)) return true;
   return (await peopleOn(contentId)).some((p) => p.userId === me.id);
+}
+
+/** The bank briefs someone could pick for a content ID of this customer (their own, or all for admins and managers). */
+async function bankChoices(me: { id: string; role: string }, customerId: string) {
+  if (!(await mayUseBank(me, customerId))) return null;
+  return db
+    .select({ id: bankBriefs.id, title: bankBriefs.title, fields: bankBriefs.fields, createdBy: bankBriefs.createdBy, createdAt: bankBriefs.createdAt, by: users.name, usedFor: contents.code })
+    .from(bankBriefs)
+    .innerJoin(users, eq(users.id, bankBriefs.createdBy))
+    .leftJoin(contentBriefs, eq(contentBriefs.bankBriefId, bankBriefs.id))
+    .leftJoin(contents, eq(contents.id, contentBriefs.contentId))
+    .where(isStaff(me.role) ? eq(bankBriefs.customerId, customerId) : and(eq(bankBriefs.customerId, customerId), eq(bankBriefs.createdBy, me.id)))
+    .orderBy(sql`${contentBriefs.contentId} is not null`, sql`${bankBriefs.createdAt} desc`);
 }
 
 const clock = (at: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: process.env.APP_TIME_ZONE || "Asia/Baku", hour: "2-digit", minute: "2-digit", hour12: false }).format(at);
@@ -63,13 +74,14 @@ const clock = (at: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: process
 export async function loadBrief(contentId: string): Promise<{ ok: true; brief: BriefView } | Fail> {
   const me = await requireUser();
   if (!(await mayRead(me, contentId))) return { ok: false, error: "notAllowed" };
-  const [content] = await db
-    .select({ code: contents.code, customer: customers.name, typeName: contentTypes.name })
+  const [found] = await db
+    .select({ code: contents.code, customer: customers.name, customerId: contents.customerId, typeName: contentTypes.name })
     .from(contents)
     .innerJoin(customers, eq(customers.id, contents.customerId))
     .innerJoin(contentTypes, eq(contentTypes.id, contents.contentTypeId))
     .where(eq(contents.id, contentId));
-  if (!content) return { ok: false, error: "notFound" };
+  if (!found) return { ok: false, error: "notFound" };
+  const { customerId, ...content } = found;
   const [row] = await db.select().from(contentBriefs).where(eq(contentBriefs.contentId, contentId));
   const nameOf = async (id: string | null) => (id ? ((await db.select({ name: users.name }).from(users).where(eq(users.id, id)))[0]?.name ?? null) : null);
   const { t } = await getDictionary();
@@ -87,6 +99,8 @@ export async function loadBrief(contentId: string): Promise<{ ok: true; brief: B
       }))
     : [];
   const edited = row && row.updatedBy && row.updatedAt.getTime() - row.createdAt.getTime() > 1000;
+  const bank = row?.bankBriefId ? ((await db.select({ id: bankBriefs.id, title: bankBriefs.title }).from(bankBriefs).where(eq(bankBriefs.id, row.bankBriefId)))[0] ?? null) : null;
+  const choices = !row && canEdit ? await bankChoices(me, customerId) : null;
   return {
     ok: true,
     brief: {
@@ -100,56 +114,68 @@ export async function loadBrief(contentId: string): Promise<{ ok: true; brief: B
       updatedOn: edited ? when(row.updatedAt) : null,
       canEdit,
       template,
+      bank,
+      bankUnused: choices ? choices.filter((c) => !c.usedFor).length : null,
     },
   };
+}
+
+/** The bank briefs of a content ID's customer to pick from (used ones come last, and can't be picked). */
+export async function loadBankPicks(contentId: string): Promise<{ ok: true; picks: BankPick[] } | Fail> {
+  const me = await requireUser();
+  const [content] = await db.select({ customerId: contents.customerId }).from(contents).where(eq(contents.id, contentId));
+  if (!content) return { ok: false, error: "notFound" };
+  if (!(await mayWrite(me, contentId, null, false))) return { ok: false, error: "notAllowed" };
+  const choices = await bankChoices(me, content.customerId);
+  if (!choices) return { ok: false, error: "notAllowed" };
+  const { t } = await getDictionary();
+  return { ok: true, picks: choices.map((c) => ({ id: c.id, title: c.title, by: c.by, on: shortDate(dateInZone(c.createdAt), t.tasks), fields: parseBrief(c.fields), usedFor: c.usedFor })) };
 }
 
 /**
  * Adds or replaces the brief of a content ID and tells the people on its tasks (and, when an
  * employee wrote it, admins and managers too). Admins and managers may write any brief; employees
- * may add one to a content ID they have a task on, and change only one they added.
+ * may add one to a content ID they have a task on, and change only one they added; graphic designers none.
+ * A new brief picked from the Content bank (`bankBriefId`) stays linked to it: saving one saves both.
  */
-export async function saveBrief(contentId: string, fields: unknown): Promise<{ ok: true } | Fail> {
+export async function saveBrief(contentId: string, fields: unknown, bankBriefId?: string | null): Promise<{ ok: true } | Fail> {
   const me = await requireUser();
-  const [content] = await db.select({ id: contents.id }).from(contents).where(eq(contents.id, contentId));
+  const [content] = await db.select({ id: contents.id, customerId: contents.customerId }).from(contents).where(eq(contents.id, contentId));
   if (!content) return { ok: false, error: "notFound" };
-  const [current] = await db.select({ createdBy: contentBriefs.createdBy }).from(contentBriefs).where(eq(contentBriefs.contentId, contentId));
+  const [current] = await db.select({ createdBy: contentBriefs.createdBy, bankBriefId: contentBriefs.bankBriefId }).from(contentBriefs).where(eq(contentBriefs.contentId, contentId));
   if (!(await mayWrite(me, contentId, current?.createdBy ?? null, !!current))) return { ok: false, error: "notAllowed" };
   const clean = cleanBrief(fields);
   if (!clean.ok) return { ok: false, error: clean.error, fieldId: clean.fieldId };
-  const [existing] = await db.select({ id: contentBriefs.contentId }).from(contentBriefs).where(eq(contentBriefs.contentId, contentId));
   const json = JSON.stringify(clean.fields);
-  if (existing) await db.update(contentBriefs).set({ fields: json, updatedBy: me.id, updatedAt: new Date() }).where(eq(contentBriefs.contentId, contentId));
-  else await db.insert(contentBriefs).values({ contentId, fields: json, createdBy: me.id, updatedBy: me.id });
 
-  // One notification per person, pointing at one of their tasks with this content ID. When an
-  // employee wrote it, admins and managers who aren't on a task are told too (pointing at its first task).
-  const byTask = new Map<string, string[]>();
-  const seen = new Set<string>();
-  const people = await peopleOn(contentId);
-  for (const p of people) {
-    if (p.userId === me.id || seen.has(p.userId)) continue;
-    seen.add(p.userId);
-    byTask.set(p.taskId, [...(byTask.get(p.taskId) ?? []), p.userId]);
+  // Picked from the bank: it must be one this person may pick, of the same customer, and not used yet.
+  let link: string | null = null;
+  if (!current && bankBriefId) {
+    const [picked] = await db.select({ id: bankBriefs.id, customerId: bankBriefs.customerId, createdBy: bankBriefs.createdBy }).from(bankBriefs).where(eq(bankBriefs.id, String(bankBriefId)));
+    if (!picked || picked.customerId !== content.customerId || !ownsBankBrief(me, picked.createdBy) || !(await mayUseBank(me, content.customerId))) return { ok: false, error: "notAllowed" };
+    const [taken] = await db.select({ id: contentBriefs.contentId }).from(contentBriefs).where(eq(contentBriefs.bankBriefId, picked.id));
+    if (taken) return { ok: false, error: "bankUsed" };
+    link = picked.id;
   }
-  const first = people.find((p) => p.userId === me.id)?.taskId ?? people[0]?.taskId;
-  if (me.role === "employee" && first)
-    for (const id of await staffIds(me.id)) {
-      if (seen.has(id)) continue;
-      seen.add(id);
-      byTask.set(first, [...(byTask.get(first) ?? []), id]);
-    }
-  const rows: Awaited<ReturnType<typeof notify>> = [];
-  for (const [taskId, people] of byTask) {
-    const ref = await taskRef(taskId);
-    if (ref) rows.push(...(await notify(people, "brief", { kind: "brief", action: existing ? "updated" : "added", by: me.name, ...refOnly(ref) }, taskId)));
+
+  try {
+    await db.transaction(async (tx) => {
+      if (current) await tx.update(contentBriefs).set({ fields: json, updatedBy: me.id, updatedAt: new Date() }).where(eq(contentBriefs.contentId, contentId));
+      else await tx.insert(contentBriefs).values({ contentId, fields: json, bankBriefId: link, createdBy: me.id, updatedBy: me.id });
+      const linked = current?.bankBriefId ?? link;
+      if (linked) await tx.update(bankBriefs).set({ fields: json, updatedBy: me.id, updatedAt: new Date() }).where(eq(bankBriefs.id, linked));
+    });
+  } catch (error) {
+    // Two people picked the same bank brief at once: the second one loses.
+    if (link && String(error).includes("Duplicate")) return { ok: false, error: "bankUsed" };
+    throw error;
   }
-  if (rows.length) after(() => deliverPush(rows));
+  await tellAboutBrief(contentId, me, current ? "updated" : "added");
   revalidatePath("/", "layout");
   return { ok: true };
 }
 
-/** Removes the brief of a content ID (admins and managers, or the employee who added it). */
+/** Removes the brief of a content ID (admins and managers, or the employee who added it). A bank brief it came from is unused again. */
 export async function deleteBrief(contentId: string): Promise<{ ok: true } | Fail> {
   const me = await requireUser();
   const [current] = await db.select({ createdBy: contentBriefs.createdBy }).from(contentBriefs).where(eq(contentBriefs.contentId, contentId));

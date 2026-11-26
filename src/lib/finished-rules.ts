@@ -1,6 +1,7 @@
 // Finished work on a content ID: named links to the final video, design or post.
 // Pure, tested in finished-rules.test.ts.
 import { BRIEF_LIMITS, cleanUrl, linkSite, type BriefLink } from "./brief-rules";
+import { isStaff } from "./roles";
 
 export const FINISHED_LIMITS = { links: 10, name: BRIEF_LIMITS.linkName, url: BRIEF_LIMITS.url };
 
@@ -41,7 +42,7 @@ export function parseFinished(json: string): BriefLink[] {
  * someone on one of its tasks may add it when there is none; whoever added it may change or remove it.
  */
 export function finishedRights(me: { id: string; role: string }, onTask: boolean, createdBy: string | null, exists: boolean) {
-  const staff = me.role !== "employee";
+  const staff = isStaff(me.role);
   const owner = exists && !!createdBy && createdBy === me.id;
   return { read: staff || onTask, add: !exists && (staff || onTask), edit: exists && (staff || owner) };
 }

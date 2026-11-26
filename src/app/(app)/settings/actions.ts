@@ -21,6 +21,7 @@ import {
 import { decryptCode } from "@/lib/codes";
 import { DEFAULT_TASK_ICON, isTaskIcon } from "@/lib/task-icons";
 import { found, insertUserWithCode, isUniqueViolation, replaceCode } from "@/lib/users";
+import { setBankAccess } from "@/lib/briefs";
 
 export type Result = { ok: true } | { ok: false; error: ErrorKey };
 const OK: Result = { ok: true };
@@ -36,14 +37,25 @@ const isDayKind = (value: unknown): value is DayKind => (DAY_KINDS as readonly s
 
 /* ---------- Users ---------- */
 
-export async function createUser(name: string, role: string): Promise<Result & { id?: string; code?: string }> {
+export async function createUser(name: string, role: string, bankCustomers: string[] = []): Promise<Result & { id?: string; code?: string }> {
   await requireRole("admin");
   const clean = cleanName(name);
   if (!clean.ok) return fail(clean.error);
   if (!isRole(role)) return fail("generic");
   const created = await insertUserWithCode(clean.value, role);
+  if (role === "employee") await setBankAccess(created.id, Array.isArray(bankCustomers) ? bankCustomers.map(String) : []);
   revalidatePath("/settings");
   return { ok: true, ...created };
+}
+
+/** Which customers an employee may write Content bank briefs for (Settings → Users). */
+export async function setUserBankCustomers(id: string, customerIds: string[]): Promise<Result> {
+  await requireRole("admin");
+  const [user] = await db.select({ id: users.id }).from(users).where(eq(users.id, id));
+  if (!user) return fail("notFound");
+  await setBankAccess(id, Array.isArray(customerIds) ? customerIds.map(String) : []);
+  revalidatePath("/bank");
+  return OK;
 }
 
 export async function renameUser(id: string, name: string): Promise<Result> {

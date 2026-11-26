@@ -9,6 +9,7 @@ import { assigneesColumn, parseAssignees, type Person } from "./assignees";
 import { todayIso } from "./dates";
 import { taskEndColumn } from "./task-end";
 import { notificationText, PREF_OF, type NotificationData, type TaskRef } from "./notification-text";
+import { isStaff } from "./roles";
 
 type Row = { id: string; userId: string; data: NotificationData };
 
@@ -110,7 +111,7 @@ export async function deliverPush(rows: Row[]) {
         .filter((s) => s.userId === row.userId)
         .map(async (s) => {
           const t = dictionaries[(s.locale as Locale) in dictionaries ? (s.locale as Locale) : "az"];
-          const text = notificationText(row.data, roles.get(s.userId) !== "employee", today, t.notifications, t.tasks, s.locale as Locale);
+          const text = notificationText(row.data, isStaff(roles.get(s.userId) ?? ""), today, t.notifications, t.tasks, s.locale as Locale);
           const payload = JSON.stringify({ title: text.title, body: [text.a, text.b].filter(Boolean).join("\n"), url: text.href, tag: row.id, badge: unread.get(s.userId) ?? 0 });
           try {
             await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, {

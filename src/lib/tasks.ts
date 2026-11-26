@@ -51,6 +51,8 @@ export type TaskView = {
   notesCount: number;
   /** The task's content ID has a content brief. */
   hasBrief: boolean;
+  /** That brief was picked from the Content bank (and stays linked to it). */
+  briefFromBank: boolean;
   /** The day it was postponed (when it is), in Baku time. */
   postponedOn: string | null;
   /** Its content ID has finished work (links to the final video, design or post). */
@@ -97,6 +99,7 @@ function select(where: SQL | undefined) {
       remindTime: tasks.remindTime,
       notesCount: sql<number>`(select count(*) from ${taskNotes} where ${taskNotes.taskId} = ${tasks.id})`.mapWith(Number),
       hasBrief: sql<boolean>`exists (select 1 from ${contentBriefs} where ${contentBriefs.contentId} = ${tasks.contentId})`.mapWith(Boolean),
+      briefFromBank: sql<boolean>`exists (select 1 from ${contentBriefs} where ${contentBriefs.contentId} = ${tasks.contentId} and ${contentBriefs.bankBriefId} is not null)`.mapWith(Boolean),
       contentNote: contents.note,
       hasFinishedWork: sql<boolean>`exists (select 1 from ${finishedWorks} where ${finishedWorks.contentId} = ${tasks.contentId})`.mapWith(Boolean),
       createdAt: tasks.createdAt,
@@ -150,6 +153,7 @@ function toView(row: Row, locale: Locale): TaskView {
     remindTime: row.remindTime,
     notesCount: row.notesCount,
     hasBrief: row.hasBrief,
+    briefFromBank: row.briefFromBank,
     hasFinishedWork: row.hasFinishedWork,
     contentNote: row.contentNote ?? null,
     nudged: row.nudgedAt ? { at: new Date(row.nudgedAt).toISOString(), by: row.nudgedBy ?? "" } : null,

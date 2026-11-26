@@ -7,6 +7,7 @@ import { assigneesColumn, hasAssignees, noAssignees, parseAssignees } from "./as
 import { addDays, APP_TIME_ZONE, todayIso } from "./dates";
 import { deliverPush, notify, pruneNotifications, refOnly, staffIds, taskRef } from "./notify";
 import { isUniqueViolation } from "./users";
+import { isStaff } from "./roles";
 
 /** Tasks that can still become late: not finished, cancelled or postponed. */
 const stillOpen = and(eq(statuses.isFinished, false), eq(statuses.isCancelled, false), eq(statuses.isPostponed, false));
@@ -106,10 +107,10 @@ async function summaries(today: string) {
     db.select({ n: count }).from(tasks).where(and(eq(tasks.archived, false), noAssignees)),
     db.select({ id: users.id, role: users.role }).from(users).where(eq(users.active, true)),
   ]);
-  const staff = people.filter((p) => p.role !== "employee").map((p) => p.id);
+  const staff = people.filter((p) => isStaff(p.role)).map((p) => p.id);
   const out = await notify(staff, "summary", { kind: "summary", scope: "staff", date: today, tasks: dueToday.n, customers: dueToday.customers, overdue: late.n, drafts: drafts.n });
 
-  const employees = people.filter((p) => p.role === "employee").map((p) => p.id);
+  const employees = people.filter((p) => !isStaff(p.role)).map((p) => p.id);
   if (employees.length) {
     const own = await db
       .select({

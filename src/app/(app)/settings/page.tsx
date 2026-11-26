@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { briefFields, contents, contentTypes, specialDays, statuses, taskTypes, users } from "@/db/schema";
+import { bankAccess, briefFields, contents, contentTypes, customers, specialDays, statuses, taskTypes, users } from "@/db/schema";
 import { getDictionary } from "@/i18n/server";
 import { cookies } from "next/headers";
 import { requireUser } from "@/lib/auth";
@@ -47,7 +47,12 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       .select({ id: users.id, name: users.name, role: users.role, active: users.active })
       .from(users)
       .orderBy(desc(users.active), asc(users.createdAt));
-    content = <UsersSection users={list} meId={me.id} t={t.settings} errors={t.errors} roles={t.roles} />;
+    const [customerList, access] = await Promise.all([
+      db.select({ id: customers.id, name: customers.name, color: customers.color }).from(customers).where(eq(customers.archived, false)).orderBy(asc(customers.name)),
+      db.select({ userId: bankAccess.userId, customerId: bankAccess.customerId }).from(bankAccess),
+    ]);
+    const bank = (id: string) => access.filter((a) => a.userId === id).map((a) => a.customerId);
+    content = <UsersSection users={list.map((u) => ({ ...u, bank: bank(u.id) }))} customers={customerList} meId={me.id} t={t.settings} errors={t.errors} roles={t.roles} />;
   } else if (section === "statuses") {
     const list = await db
       .select({ id: statuses.id, name: statuses.name, nameEn: statuses.nameEn, color: statuses.color, isFinished: statuses.isFinished, isCancelled: statuses.isCancelled, isPostponed: statuses.isPostponed, notifyReview: statuses.notifyReview })

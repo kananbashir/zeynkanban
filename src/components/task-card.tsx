@@ -23,6 +23,7 @@ import { AddFinishedButton, FinishedAsk, FinishedTag, FinishedWindow } from "./f
 import { askForFinished } from "./held-day";
 import { TaskTypeIcon } from "./task-type-icon";
 import { initials } from "./top-bar";
+import { writesBriefs } from "@/lib/roles";
 
 export type StatusOption = { id: string; name: string; color: string; isFinished: boolean; isCancelled?: boolean; isPostponed?: boolean };
 
@@ -175,8 +176,8 @@ export function TaskCard({
   const lateDays = !closed && !status.postponed && end < today ? daysBetween(end, today) : 0;
   const statusLabel = status.deleted ? fill(t.deletedStatus, { name: status.name }) : status.name;
   const typeLabel = task.typeDeleted ? fill(t.deletedType, { name: task.typeName }) : task.typeName;
-  // Anyone who sees the card (on the task, or an admin or manager) may add a brief when there is none.
-  const addBrief = !task.hasBrief;
+  // Anyone who sees the card (on the task, or an admin or manager) may add a brief when there is none; graphic designers only read them.
+  const addBrief = !task.hasBrief && writesBriefs(me?.role ?? "");
   // Not while the question is open or folding away: the button shows once the card has moved on.
   const addFinished = status.finished && !task.hasFinishedWork && !asking && !askForFinished.has(task.id);
   const background = task.contentArchived ? ARCHIVED_BACKGROUND : cardBackground(status.color, closed);
@@ -232,7 +233,7 @@ export function TaskCard({
         ) : (
           <span className="rounded-lg bg-surface px-2 py-1 font-mono text-xs font-medium">{task.contentCode}</span>
         )}
-        {task.hasBrief && <BriefTag label={t.brief.tag} onOpen={() => setBriefOpen(true)} />}
+        {task.hasBrief && <BriefTag label={t.brief.tag} fromBank={task.briefFromBank ? t.brief.fromBank : undefined} onOpen={() => setBriefOpen(true)} />}
         {task.hasFinishedWork && <FinishedTag f={t.finished} onOpen={() => setFinishedOpen(true)} />}
         {showCustomer && (
           <span className="flex items-center gap-1.5 text-sm font-semibold">

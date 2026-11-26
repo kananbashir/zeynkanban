@@ -10,11 +10,23 @@ export type ReleaseIcon = "finished" | "icons" | "motion" | "settings" | "keyboa
 type Text = { title: string; text: string };
 /** Who sees an item: "staff" (admins and managers) or "employees". Without it, everyone. */
 export type Audience = "staff" | "employees";
-export type ReleaseItem = { kind: ReleaseKind; icon: ReleaseIcon; az: Text; en: Text; for?: Audience };
+/** `writers`: only for those who write briefs (not graphic designers, who otherwise see what employees see). */
+export type ReleaseItem = { kind: ReleaseKind; icon: ReleaseIcon; az: Text; en: Text; for?: Audience; writers?: boolean };
 /** `date`: the day the version went live (merged into main), yyyy-mm-dd. */
 export type Release = { version: string; date: string; items: ReleaseItem[] };
 
 export const RELEASES: Release[] = [
+  {
+    version: "0.20.0",
+    date: "2026-11-27",
+    items: [
+      { kind: "new", icon: "brief", for: "staff", az: { title: "Kontent bankı", text: "Müştərilər üçün brifləri əvvəlcədən yazın: menyudakı yeni “Kontent bankı” səhifəsində müştərini seçib brif əlavə edin, düzəldin, çoxaldın və ya silin. Siz hamının briflərini görürsünüz. Telefonda aşağı menyuda Tənzimləmələrin yerində indi Kontent bankı var." }, en: { title: "Content bank", text: "Write briefs for customers ahead of time: on the new “Content bank” page, pick a customer and add, edit, duplicate or delete briefs. You see everyone’s briefs. On phones, the Content bank now takes Settings’ place in the bottom bar." } },
+      { kind: "new", icon: "brief", for: "employees", writers: true, az: { title: "Kontent bankı", text: "Brifləri əvvəlcədən yazın: menyudakı yeni “Kontent bankı” səhifəsində sizə açılan müştərilər üçün brif əlavə edin, düzəldin, çoxaldın və ya silin. Yalnız öz yazdığınız briflər görünür. Telefonda aşağı menyuda Tənzimləmələrin yerində indi Kontent bankı var." }, en: { title: "Content bank", text: "Write briefs ahead of time: on the new “Content bank” page, add, edit, duplicate or delete briefs for the customers open to you. Only the briefs you wrote are shown. On phones, the Content bank now takes Settings’ place in the bottom bar." } },
+      { kind: "new", icon: "list", writers: true, az: { title: "Kontent bankından seç", text: "Yeni brif yazanda “Kontent bankından seç” ilə hazır brifi kontent ID-yə əlavə edin. Bank brifi ilə kontent ID-nin brifi bağlı qalır: birində edilən dəyişiklik digərində də görünür. Belə brifin kartdakı “Brif” işarəsində kiçik kitab var." }, en: { title: "Pick from the content bank", text: "When writing a new brief, add a ready one to the content ID with “Pick from the content bank”. The bank brief and the content ID’s brief stay linked: a change in one shows in the other. The card’s “Brief” tag shows a small book for such briefs." } },
+      { kind: "new", icon: "settings", for: "staff", az: { title: "Qrafik dizayner rolu", text: "Tənzimləmələr → İstifadəçilər bölməsində yeni rol var: qrafik dizayner əməkdaş kimi işləyir, amma brif yaza və Kontent bankını aça bilməz. Orada hər əməkdaş üçün bankda hansı müştərilərə brif yaza biləcəyini də seçə bilərsiniz." }, en: { title: "Graphic designer role", text: "Settings → Users has a new role: a graphic designer works like an employee but can’t write briefs or open the Content bank. There you can also choose which customers each employee can write bank briefs for." } },
+      { kind: "improved", icon: "logout", az: { title: "Profil paneli", text: "Sağ yuxarıda adınıza toxunanda panel açılır: Tənzimləmələr və Çıxış artıq oradadır." }, en: { title: "Profile panel", text: "Tap your name at the top right to open a panel: Settings and Log out are there now." } },
+    ],
+  },
   {
     version: "0.19.2",
     date: "2026-11-26",
@@ -65,7 +77,7 @@ export const RELEASES: Release[] = [
     version: "0.16.0",
     date: "2026-11-25",
     items: [
-      { kind: "new", icon: "brief", for: "employees", az: { title: "İşçilər də brif yaza bilər", text: "Tapşırığınız olan kontent ID-nin brifi yoxdursa, kartdakı “+ Kontent brifi əlavə et” ilə onu yaza bilərsiniz. Yalnız özünüz əlavə etdiyiniz brifə düzəliş edə və onu silə bilərsiniz. Adminlərə, menecerlərə və digər tapşırıqlardakı insanlara bildiriş gedir." }, en: { title: "Employees can write briefs too", text: "If a content ID you have a task on has no brief, add one with “+ Add content brief” on the card. You can edit or delete only the briefs you added. Admins, managers and the people on the other tasks are notified." } },
+      { kind: "new", icon: "brief", for: "employees", writers: true, az: { title: "İşçilər də brif yaza bilər", text: "Tapşırığınız olan kontent ID-nin brifi yoxdursa, kartdakı “+ Kontent brifi əlavə et” ilə onu yaza bilərsiniz. Yalnız özünüz əlavə etdiyiniz brifə düzəliş edə və onu silə bilərsiniz. Adminlərə, menecerlərə və digər tapşırıqlardakı insanlara bildiriş gedir." }, en: { title: "Employees can write briefs too", text: "If a content ID you have a task on has no brief, add one with “+ Add content brief” on the card. You can edit or delete only the briefs you added. Admins, managers and the people on the other tasks are notified." } },
       { kind: "new", icon: "chart", for: "employees", az: { title: "Sizin paneliniz", text: "Daxil olandan sonra öz panelinizi görürsünüz, yalnız sizin tapşırıqlarla: bitənlər (və vaxtında bitənlər), gecikənlər, gün-gün qrafik, qarşıdakı son tarixlər, müştərilər və tapşırıq növləri." }, en: { title: "Your own dashboard", text: "After logging in you land on your own dashboard, with only your tasks: finished (and on time), overdue, a day-by-day chart, your next deadlines, customers and task types." } },
       { kind: "new", icon: "brief", for: "staff", az: { title: "İşçilər də brif yaza bilər", text: "İşçilər tapşırığı olduqları kontent ID-yə brif əlavə edə, öz əlavə etdikləri brifə düzəliş edə və onu silə bilər. Onlar bunu edəndə sizə bildiriş gəlir. Siz istənilən brifi dəyişə bilərsiniz." }, en: { title: "Employees can write briefs too", text: "Employees can add a brief to a content ID they have a task on, and edit or delete the briefs they added. You are notified when they do. You can still change any brief." } },
       { kind: "new", icon: "chart", for: "staff", az: { title: "İşçilər üçün panel", text: "İşçilər daxil olanda öz panellərini görür: yalnız öz tapşırıqları, qarşıdakı son tarixləri, müştəriləri və tapşırıq növləri." }, en: { title: "A dashboard for employees", text: "Employees now land on their own dashboard after logging in, with only their tasks, their next deadlines, customers and task types." } },
@@ -165,11 +177,14 @@ export function unseenReleases(seen: string, current: string, releases: Release[
 
 /**
  * The releases as one person sees them: admins and managers get the items for everyone and for
- * "staff", employees those for everyone and for "employees". A version left with nothing is dropped.
+ * "staff", employees those for everyone and for "employees". Graphic designers see what employees
+ * see, except items about writing briefs (`writers`). A version left with nothing is dropped.
  */
-export function releasesFor(role: "admin" | "manager" | "employee", releases: Release[] = RELEASES): Release[] {
-  const audience: Audience = role === "employee" ? "employees" : "staff";
-  return releases.map((r) => ({ ...r, items: r.items.filter((i) => !i.for || i.for === audience) })).filter((r) => r.items.length);
+export function releasesFor(role: "admin" | "manager" | "employee" | "designer", releases: Release[] = RELEASES): Release[] {
+  const audience: Audience = role === "admin" || role === "manager" ? "staff" : "employees";
+  return releases
+    .map((r) => ({ ...r, items: r.items.filter((i) => (!i.for || i.for === audience) && !(role === "designer" && i.writers)) }))
+    .filter((r) => r.items.length);
 }
 
 export type ShownItem = { kind: ReleaseKind; icon: ReleaseIcon; title: string; text: string };

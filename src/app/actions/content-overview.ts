@@ -9,6 +9,7 @@ import { requireUser } from "@/lib/auth";
 import { formatPeriod, parseMonth } from "@/lib/content-rules";
 import { todayIso } from "@/lib/dates";
 import { tasksOfContent, type TaskView } from "@/lib/tasks";
+import { isStaff } from "@/lib/roles";
 
 export type ContentOverview = {
   contentId: string;
@@ -46,7 +47,7 @@ export async function loadContentOverview(contentId: string): Promise<{ ok: true
     .where(eq(contents.id, contentId));
   if (!row) return { ok: false, error: "notFound" };
   const all = await tasksOfContent(contentId);
-  const staff = me.role !== "employee";
+  const staff = isStaff(me.role);
   if (!staff && !all.some((x) => !x.archived && x.assignees.some((p) => p.id === me.id))) return { ok: false, error: "notAllowed" };
   const { t } = await getDictionary();
   const start = row.start ? parseMonth(row.start) : null;
