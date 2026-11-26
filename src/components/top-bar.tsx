@@ -1,6 +1,7 @@
 import Image from "next/image";
 import type { Dictionary, Locale } from "@/i18n/dictionaries";
 import { NotificationBell } from "./notification-bell";
+import { ProfileMenu } from "./profile-menu";
 
 export function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -9,31 +10,27 @@ export function initials(name: string): string {
   return (first + last).toLocaleUpperCase("az");
 }
 
-/** Notifications and the logged-in person (the language is chosen in Settings). On phones, also the logo. */
+/** Notifications and the logged-in person, who opens the profile panel (Settings, Log out). On phones, also the logo. */
 export function TopBar({
   name,
   roleLabel,
   locale,
   unread,
   notificationsT,
+  profileT,
 }: {
   name: string;
   roleLabel: string;
   locale: Locale;
   unread: number;
   notificationsT: Dictionary["notifications"];
+  profileT: Parameters<typeof ProfileMenu>[0]["t"];
 }) {
   return (
     <div className="flex items-center justify-end gap-2.5">
       <Image src="/logo-mark.png" alt="Zeyn Media" width={256} height={256} className="mr-auto size-[44px] rounded-[15px] lg:hidden" />
       <NotificationBell initialUnread={unread} locale={locale} t={notificationsT} />
-      <div className="flex h-[52px] items-center gap-2.5 rounded-full bg-surface py-1.5 pl-1.5 pr-4">
-        <span className="flex size-10 items-center justify-center rounded-full bg-teal text-[13px] font-semibold text-white">{initials(name)}</span>
-        <span className="flex flex-col leading-tight">
-          <span className="text-sm font-semibold">{name}</span>
-          <span className="text-xs text-muted">{roleLabel}</span>
-        </span>
-      </div>
+      <ProfileMenu name={name} initials={initials(name)} roleLabel={roleLabel} t={profileT} />
     </div>
   );
 }

@@ -30,8 +30,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const [seen] = await db.select({ version: users.seenVersion }).from(users).where(eq(users.id, user.id));
   if (seen && seen.version === null) after(() => db.update(users).set({ seenVersion: current }).where(eq(users.id, user.id)));
   const whatsNew = seen?.version ? unseenReleases(seen.version, current, releasesFor(user.role)).map((r) => localRelease(r, locale)) : [];
-  const items = navFor(user.role).map((item) => ({ key: item.key, href: item.href, label: t.nav[item.key] }));
-  const about = { ...ABOUT, label: t.nav.about };
+  const items = navFor(user.role).map((item) => ({ key: item.key, href: item.href, label: t.nav[item.key], bar: item.bar }));
+  const about = { ...ABOUT, label: t.nav.about, bar: false };
 
   return (
     <div className="p-2 pb-[calc(92px+env(safe-area-inset-bottom))] lg:p-5">
@@ -44,8 +44,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             locale={locale}
             unread={unread}
             notificationsT={t.notifications}
+            profileT={{ ...t.profile, settings: t.nav.settings, logout: t.nav.logout, logoutTitle: t.settings.prefs.logoutTitle, logoutText: t.settings.prefs.logoutText, cancel: t.settings.cancel }}
           />
-          <MeProvider me={{ id: user.id, name: user.name }}>
+          <MeProvider me={{ id: user.id, name: user.name, role: user.role }}>
             {children}
             <Suspense fallback={null}>
               <TaskPeek t={t.tasks} errors={t.errors} />

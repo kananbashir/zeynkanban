@@ -42,9 +42,9 @@ export function FinishedTag({ f, onOpen }: { f: F; onOpen: () => void }) {
 }
 
 /** The dashed "+ Add finished work" button on finished cards whose content ID has none yet. */
-export function AddFinishedButton({ label, onOpen }: { label: string; onOpen: () => void }) {
+export function AddFinishedButton({ label, onOpen, className = "" }: { label: string; onOpen: () => void; className?: string }) {
   return (
-    <button type="button" onClick={onOpen} className="flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-dashed border-ink/35 bg-surface/50 px-3 text-[13px] font-semibold text-ink hover:bg-surface">
+    <button type="button" onClick={onOpen} className={`flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-dashed border-ink/35 bg-surface/50 px-3 text-[13px] font-semibold text-ink hover:bg-surface ${className}`}>
       <span aria-hidden="true" className="text-base leading-none">
         +
       </span>

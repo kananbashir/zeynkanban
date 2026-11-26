@@ -5,6 +5,7 @@ import type { ErrorKey } from "@/i18n/dictionaries";
 import { requireUser } from "@/lib/auth";
 import { todayIso } from "@/lib/dates";
 import { liveStatuses, taskById, type TaskView } from "@/lib/tasks";
+import { isStaff } from "@/lib/roles";
 
 /**
  * One task for the "view task" window (opened from a notification). Admins and managers can see any
@@ -15,7 +16,7 @@ export async function peekTask(
 ): Promise<{ ok: true; task: TaskView; statuses: StatusOption[]; today: string; editHref: string | null; canChangeStatus: boolean } | { ok: false; error: ErrorKey }> {
   const me = await requireUser();
   const task = await taskById(String(id));
-  const staff = me.role !== "employee";
+  const staff = isStaff(me.role);
   const mine = !!task?.assignees.some((p) => p.id === me.id);
   if (!task || (!staff && !mine)) return { ok: false, error: "taskGone" };
   return {

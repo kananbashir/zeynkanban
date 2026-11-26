@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { contents, statuses, taskAssignees, taskReminders, taskTypes, tasks, users } from "@/db/schema";
 import type { ErrorKey } from "@/i18n/dictionaries";
 import { requireRole, requireUser } from "@/lib/auth";
+import { isStaff } from "@/lib/roles";
 import { isIsoDateString } from "@/lib/dates";
 import { cleanName } from "@/lib/settings-rules";
 import { countsByDay, wholeDay, type TaskView } from "@/lib/tasks";
@@ -235,14 +236,14 @@ export async function setTaskStatus(id: string, statusId: string): Promise<Resul
     .where(eq(tasks.id, id));
   if (!task) return fail("notFound");
   const people = await assigneesOf(id);
-  if (me.role === "employee" && !people.includes(me.id)) return fail("notAllowed");
+  if (!isStaff(me.role) && !people.includes(me.id)) return fail("notAllowed");
   const [status] = await db
     .select({ name: statuses.name, nameEn: statuses.nameEn, isFinished: statuses.isFinished, isCancelled: statuses.isCancelled, isPostponed: statuses.isPostponed, notifyReview: statuses.notifyReview })
     .from(statuses)
     .where(and(eq(statuses.id, statusId), isNull(statuses.deletedAt)));
   if (!status) return fail("notFound");
   // Cancelling and postponing are for admins and managers, and so is taking a task out of those statuses.
-  if (me.role === "employee" && (status.isCancelled || status.isPostponed || task.wasCancelled || task.wasPostponed)) return fail("notAllowed");
+  if (!isStaff(me.role) && (status.isCancelled || status.isPostponed || task.wasCancelled || task.wasPostponed)) return fail("notAllowed");
   // Finished and cancelled tasks are closed: remember the day (kept when moving between closed statuses).
   const closed = status.isFinished || status.isCancelled;
   const finishedAt = closed ? ((task.wasFinished || task.wasCancelled) && task.finishedAt ? task.finishedAt : new Date()) : null;

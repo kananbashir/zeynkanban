@@ -1,13 +1,23 @@
 import Image from "next/image";
 import { Icon } from "@/components/icons";
 import { VersionList } from "@/components/version-list";
+import type { Role } from "@/db/schema";
+import type { Dictionary } from "@/i18n/dictionaries";
 import { getDictionary } from "@/i18n/server";
 import { fill } from "@/i18n/format";
 import { requireUser } from "@/lib/auth";
 import { appVersion } from "@/lib/version";
 import { localRelease, releasesFor } from "@/lib/whats-new";
 
-/** About the site: version, purpose, what it does, roles. Every role can open it. */
+/** What the site does, for each role: only the parts that person has. */
+const FEATURES: Record<Role, (keyof Dictionary["about"]["features"])[]> = {
+  admin: ["dashboardStaff", "board", "customers", "myTasks", "bankStaff", "notifications", "settings"],
+  manager: ["dashboardStaff", "board", "customers", "myTasks", "bankStaff", "notifications"],
+  employee: ["dashboardOwn", "myTasks", "briefs", "bankOwn", "notifications"],
+  designer: ["dashboardOwn", "myTasks", "briefsRead", "notifications"],
+};
+
+/** About the site: version, what it does for this person's role, privacy, help and What's new. Every role can open it. */
 export default async function AboutPage() {
   const me = await requireUser();
   const { t, locale } = await getDictionary();
@@ -30,36 +40,21 @@ export default async function AboutPage() {
       </section>
 
       <section className={card}>
-        <h2 className="text-lg font-semibold">{a.purposeTitle}</h2>
-        <p className="max-w-[72ch] text-[15px] leading-relaxed text-ink-body">{a.purpose}</p>
-      </section>
-
-      <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
-        <section className={card}>
-          <h2 className="text-lg font-semibold">{a.featuresTitle}</h2>
-          <ul className="flex flex-col gap-3.5">
-            {a.features.map(([name, text]) => (
-              <li key={name} className="flex gap-3">
+        <h2 className="text-lg font-semibold">{a.featuresTitle}</h2>
+        <ul className="grid gap-x-7 gap-y-3.5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
+          {FEATURES[me.role].map((key) => {
+            const [name, text] = a.features[key];
+            return (
+              <li key={key} className="flex gap-3">
                 <span className="mt-1.5 size-2 shrink-0 rounded-full bg-teal" />
                 <span className="text-sm leading-normal">
                   <span className="font-semibold">{name}</span> <span className="text-ink-soft">— {text}</span>
                 </span>
               </li>
-            ))}
-          </ul>
-        </section>
-        <section className={card}>
-          <h2 className="text-lg font-semibold">{a.rolesTitle}</h2>
-          <ul className="flex flex-col gap-3">
-            {a.roles.map(([role, text]) => (
-              <li key={role} className="flex flex-col gap-0.5 rounded-2xl bg-mint-soft px-4 py-3">
-                <span className="text-sm font-semibold">{role}</span>
-                <span className="text-[13px] leading-normal text-ink-soft">{text}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
+            );
+          })}
+        </ul>
+      </section>
 
       <div className="grid gap-5 [grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr))]">
         <section className={card}>

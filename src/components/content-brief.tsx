@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { deleteBrief, loadBrief, saveBrief, type BriefView } from "@/app/actions/briefs";
+import { deleteBrief, loadBankPicks, loadBrief, saveBrief, type BankPick, type BriefView } from "@/app/actions/briefs";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
 import { BRIEF_LIMITS, BRIEF_TYPES, emptyValue, linkSite, type BriefField, type BriefLink, type BriefType } from "@/lib/brief-rules";
@@ -11,6 +11,8 @@ import { weekdayIndex } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
 import { prefersReducedMotion, springOrFallback } from "@/lib/spring";
 import { CloseButton, ConfirmDialog, Dialog } from "./dialog";
+import { Icon } from "./icons";
+import { Sheet, useSheetClose } from "./sheet";
 import { shrinkOut, UndoToast, useGrowIn, useUndoToast } from "./list-motion";
 import { SortableList, type Handle } from "./sortable-list";
 
@@ -25,22 +27,60 @@ function popIn(el: HTMLElement | null, from = "translateY(6px) scale(0.98)") {
   if (el && !prefersReducedMotion()) el.animate([{ opacity: 0, transform: from }, { opacity: 1, transform: "none" }], { duration: 380, easing: springOrFallback(420, 30, 0.38) });
 }
 
-/** The small dark "Brief" tag after a card's content ID; opens the brief. */
-export function BriefTag({ label, onOpen }: { label: string; onOpen: () => void }) {
+/** The small dark "Brief" tag after a card's content ID; opens the brief. `fromBank`: picked from the Content bank (a small book shows it). */
+export function BriefTag({ label, fromBank, onOpen }: { label: string; fromBank?: string; onOpen: () => void }) {
   return (
-    <button type="button" onClick={onOpen} className="flex items-center gap-1.5 rounded-lg bg-ink px-2 py-1 text-xs font-bold text-surface">
+    <button type="button" onClick={onOpen} aria-label={fromBank ? `${label} · ${fromBank}` : undefined} className="flex items-center gap-1.5 rounded-lg bg-ink px-2 py-1 text-xs font-bold text-surface">
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5" />
       </svg>
       {label}
+      {fromBank && (
+        <span title={fromBank} className="-mr-0.5 flex size-[17px] items-center justify-center rounded-full bg-teal text-white">
+          <Icon name="bank" size={11} strokeWidth={2.2} />
+        </span>
+      )}
     </button>
   );
 }
 
-/** The dashed "+ Add content brief" button admins and managers see on cards without a brief. */
-export function AddBriefButton({ label, onOpen }: { label: string; onOpen: () => void }) {
+/** A text with "{code}" in it, the code shown in the content ID font. */
+export function WithCode({ text, code }: { text: string; code: string }) {
+  const [before, after = ""] = text.split("{code}");
   return (
-    <button type="button" onClick={onOpen} className="flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-dashed border-ink/35 bg-surface/50 px-3 text-[13px] font-semibold text-ink hover:bg-surface">
+    <>
+      {before}
+      <code className="font-mono font-semibold">{code}</code>
+      {after}
+    </>
+  );
+}
+
+/** "From the content bank · title": on a brief that came from the bank. */
+function BankMarker({ t, title, onRemove }: { t: T; title: string; onRemove?: () => void }) {
+  const ref = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => popIn(ref.current, "scale(0.92)"), []);
+  return (
+    <span ref={ref} className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-teal-tint py-1 pl-3 pr-1 text-[12.5px] font-bold text-teal-deep">
+      <Icon name="bank" size={14} strokeWidth={2} />
+      <span className="truncate">
+        {t.brief.fromBank} · {title}
+      </span>
+      {onRemove ? (
+        <button type="button" aria-label={t.brief.unpick} title={t.brief.unpick} onClick={onRemove} className="flex size-7 shrink-0 items-center justify-center rounded-full hover:bg-surface/60">
+          <Icon name="close" size={14} />
+        </button>
+      ) : (
+        <span className="w-2" />
+      )}
+    </span>
+  );
+}
+
+/** The dashed "+ Add content brief" button admins and managers see on cards without a brief. */
+export function AddBriefButton({ label, onOpen, className = "" }: { label: string; onOpen: () => void; className?: string }) {
+  return (
+    <button type="button" onClick={onOpen} className={`flex min-h-9 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-[1.5px] border-dashed border-ink/35 bg-surface/50 px-3 text-[13px] font-semibold text-ink hover:bg-surface ${className}`}>
       <span aria-hidden="true" className="text-base leading-none">+</span>
       {label}
     </button>
@@ -58,6 +98,10 @@ export function BriefWindow({ contentId, startEditing, onClose, t }: { contentId
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // Picked from the Content bank, not saved yet: the editor starts again with its fields.
+  const [picked, setPicked] = useState<BankPick | null>(null);
+  const [picking, setPicking] = useState(false);
+  const closePicker = useCallback(() => setPicking(false), []);
   const [pending, startTransition] = useTransition();
   const body = useRef<HTMLDivElement>(null);
   const message = useCallback((key: string) => (b.errors as Record<string, string>)[key] ?? b.errors.generic, [b.errors]);
@@ -87,6 +131,8 @@ export function BriefWindow({ contentId, startEditing, onClose, t }: { contentId
     });
 
   const isNew = !!brief && !brief.fields.length;
+  // The bank is offered for a brief not linked to it: a new one, or (while editing) one written by hand.
+  const offer = !picked && !brief?.bank && !!brief?.bankUnused;
   const window = (
     <Dialog label={brief ? `${b.title} · ${brief.code}` : b.title} onClose={onClose}>
       <div className="flex items-start gap-3">
@@ -107,16 +153,38 @@ export function BriefWindow({ contentId, startEditing, onClose, t }: { contentId
         {!brief && error && <p role="alert" className="text-sm font-medium text-danger">{error}</p>}
         {brief && editing && (
           <BriefEditor
-            brief={brief}
+            key={picked?.id ?? "own"}
+            brief={picked ? { template: brief.template, fields: picked.fields } : brief}
             isNew={isNew}
+            showStart={isNew && !picked}
             t={t}
-            onCancel={() => (isNew ? onClose() : setEditing(false))}
+            top={
+              picked ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <BankMarker t={t} title={picked.title} onRemove={() => setPicked(null)} />
+                  <span className="text-[12.5px] text-ink-soft">{b.linkedRead}</span>
+                </div>
+              ) : offer ? (
+                <BankOffer t={t} customer={brief.customer} n={brief.bankUnused ?? 0} replaces={!isNew} onPick={() => setPicking(true)} />
+              ) : !isNew && brief.bank ? (
+                <p className="flex items-center gap-2.5 rounded-[16px] bg-teal-tint px-3.5 py-2.5 text-[13.5px] font-semibold text-teal-deep">
+                  <Icon name="link" size={16} />
+                  {fill(b.linkedEdit, { title: brief.bank.title })}
+                </p>
+              ) : null
+            }
+            onCancel={() => {
+              setPicked(null);
+              if (isNew) onClose();
+              else setEditing(false);
+            }}
             onSave={async (fields) => {
-              const result = await saveBrief(contentId, fields);
+              const result = await saveBrief(contentId, fields, picked?.id ?? null);
               if (!result.ok) return { error: message(result.error), fieldId: result.fieldId };
               router.refresh();
               const fresh = await loadBrief(contentId);
               if (fresh.ok) setBrief(fresh.brief);
+              setPicked(null);
               setEditing(false);
               return null;
             }}
@@ -124,6 +192,12 @@ export function BriefWindow({ contentId, startEditing, onClose, t }: { contentId
         )}
         {brief && !editing && (
           <>
+            {brief.bank && (
+              <div className="flex flex-wrap items-center gap-2">
+                <BankMarker t={t} title={brief.bank.title} />
+                <span className="text-[12.5px] text-ink-soft">{b.linkedRead}</span>
+              </div>
+            )}
             <BriefReader fields={brief.fields} t={t} />
             {(brief.createdBy || brief.updatedBy) && (
               <p className="text-[12.5px] text-muted">
@@ -151,7 +225,28 @@ export function BriefWindow({ contentId, startEditing, onClose, t }: { contentId
         )}
       </div>
       {confirming && brief && (
-        <ConfirmDialog title={b.deleteTitle} text={fill(b.deleteText, { code: brief.code })} confirmLabel={b.delete} cancelLabel={b.cancel} pending={pending} onCancel={stopConfirming} onConfirm={remove} />
+        <ConfirmDialog
+          title={b.deleteTitle}
+          text={brief.bank ? fill(b.deleteLinked, { code: brief.code, title: brief.bank.title }) : fill(b.deleteText, { code: brief.code })}
+          confirmLabel={b.delete}
+          cancelLabel={b.cancel}
+          pending={pending}
+          onCancel={stopConfirming}
+          onConfirm={remove}
+        />
+      )}
+      {picking && brief && (
+        <BankPicker
+          contentId={contentId}
+          code={brief.code}
+          customer={brief.customer}
+          t={t}
+          onClose={closePicker}
+          onPick={(pick) => {
+            setPicked(pick);
+            setPicking(false);
+          }}
+        />
       )}
     </Dialog>
   );
@@ -159,7 +254,7 @@ export function BriefWindow({ contentId, startEditing, onClose, t }: { contentId
 }
 
 /** A brief as read by everyone: each field under its name; links open in a new tab and show their site. */
-function BriefReader({ fields, t }: { fields: BriefField[]; t: T }) {
+export function BriefReader({ fields, t }: { fields: BriefField[]; t: T }) {
   const b = t.brief;
   return (
     <div className="flex flex-col gap-2.5">
@@ -227,8 +322,8 @@ export function SiteBadge({ kind }: { kind: keyof typeof SITES }) {
 }
 
 /** A field being written; `fresh` ones grow into place (just added, reset, or brought back by Undo). */
-type Draft = BriefField & { fresh?: boolean };
-type Problem = { error: string; fieldId?: string } | null;
+export type Draft = BriefField & { fresh?: boolean };
+export type Problem = { error: string; fieldId?: string } | null;
 
 const fromTemplate = (f: BriefView["template"][number]): Draft => ({ id: newId(), label: f.label, hint: f.hint || undefined, type: f.type, value: emptyValue(f.type), fresh: true }) as Draft;
 const typed = (f: BriefField) => (Array.isArray(f.value) ? f.value.some((x) => (typeof x === "string" ? x.trim() : x.url.trim() || x.name.trim())) : !!f.value.trim());
@@ -237,7 +332,30 @@ const typed = (f: BriefField) => (Array.isArray(f.value) ? f.value.some((x) => (
  * Writing a brief. A new one starts from the starting fields in Settings; fields can be renamed,
  * moved, removed (with Undo) and added (by type, or a hidden starting field). Empty ones are left out.
  */
-function BriefEditor({ brief, isNew, t, onCancel, onSave }: { brief: BriefView; isNew: boolean; t: T; onCancel: () => void; onSave: (fields: Draft[]) => Promise<Problem> }) {
+export function BriefEditor({
+  brief,
+  isNew,
+  showStart = isNew,
+  t,
+  top,
+  saveLabel,
+  hint,
+  onCancel,
+  onSave,
+}: {
+  brief: Pick<BriefView, "fields" | "template">;
+  isNew: boolean;
+  /** The "Started from the starting fields" line with Reset. */
+  showStart?: boolean;
+  t: T;
+  /** Shown above the fields (the Content bank offer or marker, or a title box). */
+  top?: ReactNode;
+  saveLabel?: string;
+  /** The grey line beside the buttons. */
+  hint?: string;
+  onCancel: () => void;
+  onSave: (fields: Draft[]) => Promise<Problem>;
+}) {
   const b = t.brief;
   const starting = brief.template.filter((f) => f.visible);
   const [fields, setFields] = useState<Draft[]>(() =>
@@ -316,7 +434,8 @@ function BriefEditor({ brief, isNew, t, onCancel, onSave }: { brief: BriefView; 
 
   return (
     <div className="flex flex-col gap-3">
-      {isNew && starting.length > 0 && (
+      {top}
+      {showStart && starting.length > 0 && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[16px] bg-surface px-3.5 py-2.5 text-[13px] text-ink-soft">
           <span className="flex-[1_1_220px]">{fill(b.startedFrom, { n: starting.length })}</span>
           <button type="button" onClick={() => (fields.some(typed) ? setAskReset(true) : reset())} className="min-h-9 rounded-full bg-mint px-3.5 text-[13px] font-semibold text-ink hover:bg-teal-tint">
@@ -388,13 +507,13 @@ function BriefEditor({ brief, isNew, t, onCancel, onSave }: { brief: BriefView; 
 
       <div className="flex flex-wrap items-center gap-2.5 pt-1">
         <p role={problem ? "alert" : undefined} className={`flex-[1_1_240px] text-[13px] font-medium leading-snug ${problem ? "text-danger" : "text-ink-soft"}`}>
-          {problem?.error ?? `${b.emptyHint} ${b.notifyHint}`}
+          {problem?.error ?? hint ?? `${b.emptyHint} ${b.notifyHint}`}
         </p>
         <button type="button" onClick={onCancel} className="min-h-12 rounded-full bg-surface px-5 text-[15px] font-semibold">
           {b.cancel}
         </button>
         <button type="button" onClick={save} disabled={pending} className="min-h-12 rounded-full bg-sun px-6 text-[15px] font-semibold text-ink disabled:opacity-60">
-          {isNew ? b.save : b.saveChanges}
+          {saveLabel ?? (isNew ? b.save : b.saveChanges)}
         </button>
       </div>
       <UndoToast offer={undo.offer} onClose={undo.close} />
@@ -480,3 +599,116 @@ function FieldCard({ field: f, handle, t, problem, update, onRemove }: { field: 
     </div>
   );
 }
+
+/** In a new brief: "Have a brief ready?" with the button that opens the Content bank picker. */
+function BankOffer({ t, customer, n, replaces, onPick }: { t: T; customer: string; n: number; replaces: boolean; onPick: () => void }) {
+  const b = t.brief;
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-[18px] border-[1.5px] border-dashed border-teal bg-teal-tint/55 px-3.5 py-3">
+      <span aria-hidden="true" className="flex size-[38px] shrink-0 items-center justify-center rounded-xl bg-teal text-white">
+        <Icon name="bank" size={19} />
+      </span>
+      <span className="flex min-w-0 flex-[1_1_200px] flex-col gap-0.5">
+        <span className="text-[14.5px] font-bold">{b.bankOfferTitle}</span>
+        <span className="text-[13px] text-ink-soft">
+          {n === 1 ? fill(b.bankOffer1, { customer }) : fill(b.bankOfferN, { customer, n })}
+          {replaces ? ` ${b.bankReplaces}` : ""}
+        </span>
+      </span>
+      <button type="button" onClick={onPick} className="flex min-h-11 items-center gap-2 rounded-full bg-teal px-4 text-[14px] font-semibold text-white hover:bg-teal-deep">
+        <Icon name="bank" size={16} />
+        {b.pick}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * "Pick from the content bank": the customer's bank briefs (only one's own for employees). Used ones
+ * are shown locked, with the content ID they are used for. Picking fills the brief being written.
+ */
+function BankPicker({ contentId, code, customer, t, onClose, onPick }: { contentId: string; code: string; customer: string; t: T; onClose: () => void; onPick: (pick: BankPick) => void }) {
+  const b = t.brief;
+  const [picks, setPicks] = useState<BankPick[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  useEffect(() => {
+    let alive = true;
+    loadBankPicks(contentId).then((result) => {
+      if (!alive) return;
+      if (!result.ok) setError((b.errors as Record<string, string>)[result.error] ?? b.errors.generic);
+      else setPicks(result.picks);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [contentId, b.errors]);
+  const words = query.toLocaleLowerCase("az").split(/\s+/).filter(Boolean);
+  const shown = (picks ?? []).filter((p) => words.every((w) => p.title.toLocaleLowerCase("az").includes(w)));
+  return (
+    <Sheet
+      label={b.pickTitle}
+      onClose={onClose}
+      width="sm:max-w-[560px]"
+      header={
+        <div className="flex items-start gap-3">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className="text-[13px] font-semibold text-teal-deep">
+              {b.pick} · {customer}
+            </span>
+            <h2 className="text-xl font-semibold">{b.pickTitle}</h2>
+            <p className="text-[13px] leading-snug text-ink-soft">
+              <WithCode text={b.pickText} code={code} />
+            </p>
+          </div>
+          <PickerClose label={b.close} />
+        </div>
+      }
+    >
+      <label className="flex h-12 shrink-0 items-center gap-2.5 rounded-full border-[1.5px] border-line-strong bg-surface px-4 text-muted focus-within:border-teal">
+        <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true" className="shrink-0">
+          <path d="M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3" />
+        </svg>
+        <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={b.pickSearch} aria-label={b.pickSearch} className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-muted focus-visible:outline-none" />
+      </label>
+      {!picks && !error && <p className="py-6 text-center text-sm text-muted">{b.loading}</p>}
+      {error && <p role="alert" className="text-sm font-medium text-danger">{error}</p>}
+      {picks && shown.length === 0 && <p className="py-4 text-center text-sm text-muted">{b.pickNone}</p>}
+      <ul className="flex flex-col gap-2 pb-1">
+        {shown.map((p, i) => (
+          <li
+            key={p.id}
+            className={`zk-fade-up flex items-center gap-3 rounded-[16px] [animation-fill-mode:backwards] border-[1.5px] border-transparent bg-surface px-3.5 py-3 transition-colors ${p.usedFor ? "opacity-55" : "hover:border-teal"}`}
+            style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}
+          >
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="truncate text-[15px] font-semibold">{p.title}</span>
+              <span className="truncate text-[12.5px] text-muted">
+                {p.by.split(" ")[0]} · {p.on} · {p.fields.length === 1 ? b.fields1 : fill(b.fieldsN, { n: p.fields.length })}
+              </span>
+            </span>
+            {p.usedFor ? (
+              <span className="flex min-w-0 max-w-[55%] shrink items-center gap-1.5 rounded-full bg-teal-tint px-2.5 py-1 text-[12px] font-bold text-teal-deep">
+                <Icon name="lock" size={12} strokeWidth={2.2} />
+                <span className="truncate">
+                  <WithCode text={b.usedFor} code={p.usedFor} />
+                </span>
+              </span>
+            ) : (
+              <button type="button" onClick={() => onPick(p)} aria-label={`${b.pickOne}: ${p.title}`} className="min-h-10 shrink-0 rounded-full bg-teal px-4 text-[13.5px] font-semibold text-white hover:bg-teal-deep">
+                {b.pickOne}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </Sheet>
+  );
+}
+
+/** The ✕ in a sheet's header: closes it with its closing movement. */
+function PickerClose({ label }: { label: string }) {
+  const close = useSheetClose();
+  return <CloseButton label={label} onClick={close} />;
+}
+

@@ -23,6 +23,7 @@ import { AddFinishedButton, FinishedAsk, FinishedTag, FinishedWindow } from "./f
 import { askForFinished } from "./held-day";
 import { TaskTypeIcon } from "./task-type-icon";
 import { initials } from "./top-bar";
+import { writesBriefs } from "@/lib/roles";
 
 export type StatusOption = { id: string; name: string; color: string; isFinished: boolean; isCancelled?: boolean; isPostponed?: boolean };
 
@@ -173,10 +174,11 @@ export function TaskCard({
   const canChange = canChangeStatus && !locked;
   const end = taskEnd(task); // the deadline, or the task's day without one
   const lateDays = !closed && !status.postponed && end < today ? daysBetween(end, today) : 0;
+  const lateLabel = lateDays === 1 ? t.dayOverdue : fill(t.daysOverdue, { n: lateDays });
   const statusLabel = status.deleted ? fill(t.deletedStatus, { name: status.name }) : status.name;
   const typeLabel = task.typeDeleted ? fill(t.deletedType, { name: task.typeName }) : task.typeName;
-  // Anyone who sees the card (on the task, or an admin or manager) may add a brief when there is none.
-  const addBrief = !task.hasBrief;
+  // Anyone who sees the card (on the task, or an admin or manager) may add a brief when there is none; graphic designers only read them.
+  const addBrief = !task.hasBrief && writesBriefs(me?.role ?? "");
   // Not while the question is open or folding away: the button shows once the card has moved on.
   const addFinished = status.finished && !task.hasFinishedWork && !asking && !askForFinished.has(task.id);
   const background = task.contentArchived ? ARCHIVED_BACKGROUND : cardBackground(status.color, closed);
@@ -216,6 +218,8 @@ export function TaskCard({
     >
       <div className="flex flex-col gap-2 border-b border-ink/12 pb-3">
       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
+        {/* On a phone the content ID and its tags are a row of their own; customer, bell and status share the next. */}
+        <div className={`contents ${showCustomer ? "max-sm:flex max-sm:basis-full max-sm:flex-wrap max-sm:items-center max-sm:gap-2" : ""}`}>
         {contentWindow ? (
           <button
             type="button"
@@ -232,20 +236,20 @@ export function TaskCard({
         ) : (
           <span className="rounded-lg bg-surface px-2 py-1 font-mono text-xs font-medium">{task.contentCode}</span>
         )}
-        {task.hasBrief && <BriefTag label={t.brief.tag} onOpen={() => setBriefOpen(true)} />}
+        {task.hasBrief && <BriefTag label={t.brief.tag} fromBank={task.briefFromBank ? t.brief.fromBank : undefined} onOpen={() => setBriefOpen(true)} />}
         {task.hasFinishedWork && <FinishedTag f={t.finished} onOpen={() => setFinishedOpen(true)} />}
+        {task.contentArchived && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.archivedContent}</span>}
+        {!task.assignees.length && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.draft}</span>}
+        </div>
         {showCustomer && (
-          <span className="flex items-center gap-1.5 text-sm font-semibold">
-            <span className="size-2.5 rounded-full border-[1.5px] border-black/25" style={{ background: task.customerColor }} />
-            {task.customerName}
+          <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold max-sm:flex-1">
+            <span className="size-2.5 shrink-0 rounded-full border-[1.5px] border-black/25" style={{ background: task.customerColor }} />
+            <span className="truncate">{task.customerName}</span>
           </span>
         )}
-        {task.contentArchived && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.archivedContent}</span>}
-        {lateDays > 0 && (
-          <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-bold text-danger">{lateDays === 1 ? t.dayOverdue : fill(t.daysOverdue, { n: lateDays })}</span>
-        )}
-        {!task.assignees.length && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.draft}</span>}
-        <div className="relative ml-auto flex items-center gap-2">
+        {/* On a phone lateness goes with the date (or the deadline strip, which says it too). */}
+        {lateDays > 0 && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-bold text-danger max-sm:hidden">{lateLabel}</span>}
+        <div className="relative ml-auto flex shrink-0 items-center gap-2">
         {/* Admins and managers can remind the people on the task with the bell. */}
         {canWriteBrief && !task.archived && <NudgeButton task={task} meId={me?.id} t={t} onError={onError} onOpenChange={setNudgeOpen} />}
         <div className="relative">
@@ -301,7 +305,7 @@ export function TaskCard({
       <Collapse open={asking && !task.hasFinishedWork} appear={askAppear}>
         <FinishedAsk contentId={task.contentId} code={task.contentCode} taskId={task.id} t={t} onClose={stopAsking} onError={onError} />
       </Collapse>
-      <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1.5 border-t border-ink/12 pt-2 text-[13px] text-ink-soft">
+      <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1.5 border-t border-ink/12 pt-2 text-[13px] text-ink-soft max-sm:flex-col max-sm:items-stretch max-sm:gap-y-2.5 max-sm:pt-3">
         {(showAssignee || task.assignees.length > 1) && (
           <span className="flex min-w-0 items-center gap-2">
             {task.assignees.length ? (
@@ -317,9 +321,10 @@ export function TaskCard({
           </span>
         )}
         {!task.deadline && (
-          <span className="flex items-center gap-1.5">
+          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
             <Icon d={CAL} />
             {fill(closed ? t.wasDue : t.due, { date: shortDate(end, t) })}
+            {lateDays > 0 && <span className="ml-1 rounded-full bg-surface px-2 py-0.5 text-xs font-bold text-danger sm:hidden">{lateLabel}</span>}
           </span>
         )}
         {task.note && (
@@ -329,21 +334,23 @@ export function TaskCard({
           </span>
         )}
         {addBrief && (
-          <span className="ml-auto">
-            <AddBriefButton label={t.brief.add} onOpen={() => setBriefOpen(true)} />
+          <span className="ml-auto max-sm:ml-0">
+            <AddBriefButton label={t.brief.add} onOpen={() => setBriefOpen(true)} className="max-sm:min-h-11 max-sm:w-full" />
           </span>
         )}
         {addFinished && (
-          <span className={addBrief ? "" : "ml-auto"}>
-            <AddFinishedButton label={t.finished.add} onOpen={() => setFinishedOpen(true)} />
+          <span className={addBrief ? "" : "ml-auto max-sm:ml-0"}>
+            <AddFinishedButton label={t.finished.add} onOpen={() => setFinishedOpen(true)} className="max-sm:min-h-11 max-sm:w-full" />
           </span>
         )}
+        {/* On a phone Notes and Open task are two equal halves along the bottom of the card. */}
+        <div className={`contents max-sm:-mx-3.5 max-sm:mt-0.5 max-sm:grid max-sm:border-t max-sm:border-ink/12 ${editHref || onEdit ? "max-sm:grid-cols-2" : "max-sm:grid-cols-1"} ${addBrief || addFinished ? "" : "sm:[&>*:first-child]:ml-auto"}`}>
         <button
           type="button"
           aria-expanded={notesOpen}
           aria-busy={loadingNotes}
           onClick={toggleNotes}
-          className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold transition-colors sm:min-h-10 ${notesOpen ? "bg-surface text-ink" : "text-ink hover:bg-surface/60"} ${addBrief || addFinished ? "" : "ml-auto"}`}
+          className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold transition-colors max-sm:min-h-12 max-sm:justify-center max-sm:rounded-none sm:min-h-10 ${editHref || onEdit ? "max-sm:border-r max-sm:border-ink/12" : ""} ${notesOpen ? "bg-surface text-ink" : "text-ink hover:bg-surface/60"}`}
         >
           {loadingNotes ? (
             <span className="size-4 shrink-0 animate-spin rounded-full border-2 border-ink/20 border-t-ink" aria-hidden="true" />
@@ -354,14 +361,15 @@ export function TaskCard({
           {notesCount > 0 && <span key={notesCount} className="zk-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-surface px-1.5 text-[11px] font-bold tabular-nums">{notesCount}</span>}
         </button>
         {editHref ? (
-          <Link href={editHref} className="flex min-h-9 items-center gap-1.5 rounded-full py-0 pl-3 pr-1.5 text-[13px] font-semibold text-ink sm:min-h-11">
+          <Link href={editHref} className="flex min-h-9 items-center gap-1.5 rounded-full py-0 pl-3 pr-1.5 text-[13px] font-semibold text-ink max-sm:min-h-12 max-sm:justify-center max-sm:rounded-none max-sm:px-2 sm:min-h-11">
             {editButton}
           </Link>
         ) : onEdit ? (
-          <button type="button" onClick={onEdit} className="flex min-h-9 items-center gap-1.5 rounded-full pl-3 pr-1.5 text-[13px] font-semibold text-ink sm:min-h-11">
+          <button type="button" onClick={onEdit} className="flex min-h-9 items-center gap-1.5 rounded-full pl-3 pr-1.5 text-[13px] font-semibold text-ink max-sm:min-h-12 max-sm:justify-center max-sm:rounded-none max-sm:px-2 sm:min-h-11">
             {editButton}
           </button>
         ) : null}
+        </div>
       </div>
       <Collapse open={notesOpen && !!notes} className="-mt-1 sm:-mt-1.5">
         {notes && (

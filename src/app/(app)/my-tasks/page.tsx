@@ -4,6 +4,7 @@ import { isIsoDateString, monthGrid, monthOf, todayIso } from "@/lib/dates";
 import { personalCounts, personalForDay } from "@/lib/personal";
 import { allSpecialDays, countsByDay, dayTasks, liveStatuses } from "@/lib/tasks";
 import { MyTasksView } from "./my-tasks-view";
+import { isStaff } from "@/lib/roles";
 
 /** Everyone's own page: the tasks assigned to them, and their private personal tasks. */
 export default async function MyTasksPage({ searchParams }: { searchParams: Promise<{ date?: string; m?: string; focus?: string }> }) {
@@ -39,7 +40,7 @@ export default async function MyTasksPage({ searchParams }: { searchParams: Prom
       statuses={statuses}
       specialDays={specialDays}
       personal={personal}
-      canOpenTasks={me.role !== "employee"}
+      canOpenTasks={isStaff(me.role)}
       focusTask={params.focus ?? null}
       t={t.myTasks}
       taskT={t.tasks}

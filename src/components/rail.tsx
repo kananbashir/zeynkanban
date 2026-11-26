@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import type { NavKey } from "@/lib/roles";
 import { Icon } from "./icons";
 
-type Item = { key: NavKey; href: string; label: string };
+type Item = { key: NavKey; href: string; label: string; bar: boolean };
 
 const buttonBase = "flex size-[52px] items-center justify-center rounded-full";
 
@@ -15,12 +15,14 @@ const isActive = (pathname: string, href: string) => pathname === href || pathna
 /**
  * Navigation. On wide screens: the icon rail on the left, main pages on top, settings and about at
  * the bottom of the screen (the rail stays in view while the page scrolls). On phones: a bar of icons
- * (no text) along the bottom of the screen with a sliding marker; About is on the Settings page there. Logging out is only on the Settings page, behind a confirmation.
+ * (no text) along the bottom of the screen with a sliding marker; Settings is in the profile panel
+ * there (top right), and About on the Settings page. Logging out is in the profile panel.
  */
 export function Rail({ items, about, mainLabel }: { items: Item[]; about: Item; mainLabel: string }) {
   const pathname = usePathname();
   const top = items.filter((item) => item.key !== "settings");
   const settings = items.find((item) => item.key === "settings");
+  const bar = items.filter((item) => item.bar);
 
   const link = (item: Item) => {
     const active = isActive(pathname, item.href);
@@ -38,7 +40,7 @@ export function Rail({ items, about, mainLabel }: { items: Item[]; about: Item; 
     );
   };
 
-  const activeIndex = items.findIndex((item) => isActive(pathname, item.href));
+  const activeIndex = bar.findIndex((item) => isActive(pathname, item.href));
 
   return (
     <>
@@ -59,10 +61,10 @@ export function Rail({ items, about, mainLabel }: { items: Item[]; about: Item; 
             <span
               aria-hidden="true"
               className="absolute bottom-1.5 top-1.5 left-1.5 rounded-[22px] bg-sun transition-transform duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]"
-              style={{ width: `calc((100% - 12px) / ${items.length})`, transform: `translateX(${activeIndex * 100}%)` }}
+              style={{ width: `calc((100% - 12px) / ${bar.length})`, transform: `translateX(${activeIndex * 100}%)` }}
             />
           )}
-          {items.map((item) => {
+          {bar.map((item) => {
             const active = isActive(pathname, item.href);
             return (
               <Link

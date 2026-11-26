@@ -42,6 +42,12 @@ describe("releasesFor", () => {
     expect(releasesFor("employee", mixed).map((r) => [r.version, r.items.map((i) => i.en.title)])).toEqual([["0.1.0", ["A", "E"]]]);
     expect(unseenReleases("0.0.1", "0.2.0", releasesFor("employee", mixed)).map((r) => r.version)).toEqual(["0.1.0"]);
   });
+  it("graphic designers see what employees see, except items about writing briefs", () => {
+    const withWriters: Release[] = [{ version: "0.3.0", date: "2026-12-03", items: [item, { ...item, writers: true, en: { title: "W", text: "W" } }, { ...item, for: "employees", writers: true, en: { title: "EW", text: "EW" } }, { ...item, for: "employees", en: { title: "E", text: "E" } }] }];
+    expect(releasesFor("designer", withWriters)[0].items.map((i) => i.en.title)).toEqual(["A", "E"]);
+    expect(releasesFor("employee", withWriters)[0].items.map((i) => i.en.title)).toEqual(["A", "W", "EW", "E"]);
+    expect(releasesFor("admin", withWriters)[0].items.map((i) => i.en.title)).toEqual(["A", "W"]);
+  });
 });
 
 describe("localRelease", () => {

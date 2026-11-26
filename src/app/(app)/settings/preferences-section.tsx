@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useLayoutEffect, useRef, useState, useTransition } from "react";
 import { saveTheme } from "@/app/actions/preferences";
 import { Icon } from "@/components/icons";
-import { LogoutButton } from "@/components/logout-button";
 import { SegmentedControl } from "@/components/motion";
 import { card } from "@/components/ui";
 import { setLocale } from "@/i18n/actions";
@@ -70,10 +69,6 @@ export function PreferencesSection({ theme: initialTheme, locale, t, nav }: { th
             {p.whatsNew}
             <Icon name="arrowRight" size={16} />
           </Link>
-        </div>
-        <div className={row}>
-          {label("logout", p.account, p.logoutHint)}
-          <LogoutButton label={nav.logout} title={p.logoutTitle} text={p.logoutText} cancelLabel={t.cancel} />
         </div>
       </div>
     </section>

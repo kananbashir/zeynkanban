@@ -7,7 +7,8 @@ const id = () => varchar("id", { length: 36 }).primaryKey().$defaultFn(() => ran
 const now = (name: string) => datetime(name, { mode: "date", fsp: 3 }).notNull().default(sql`CURRENT_TIMESTAMP(3)`);
 const createdAt = () => now("created_at");
 
-export const ROLES = ["admin", "manager", "employee"] as const;
+/** "designer": a graphic designer, like an employee but without writing briefs or the Content bank. */
+export const ROLES = ["admin", "manager", "employee", "designer"] as const;
 export type Role = (typeof ROLES)[number];
 
 /** People who can log in. A person is deactivated, never deleted, so their history stays. */
@@ -304,11 +305,51 @@ export const contentBriefs = mysqlTable("content_briefs", {
     .primaryKey()
     .references(() => contents.id),
   fields: mediumtext("fields").notNull(),
+  /** The Content bank brief it was picked from. While set, the two stay the same: saving either saves both. One content ID per bank brief. */
+  bankBriefId: varchar("bank_brief_id", { length: 36 }).unique(),
   createdBy: varchar("created_by", { length: 36 }).references(() => users.id),
   updatedBy: varchar("updated_by", { length: 36 }).references(() => users.id),
   createdAt: createdAt(),
   updatedAt: now("updated_at"),
 });
+
+/**
+ * Content bank: briefs written ahead for a customer, each with a title, to be picked later for a
+ * content ID (see contentBriefs.bankBriefId: a bank brief is "used" while a content brief points at it).
+ * Employees see and change only their own; admins and managers all.
+ */
+export const bankBriefs = mysqlTable(
+  "bank_briefs",
+  {
+    id: id(),
+    customerId: varchar("customer_id", { length: 36 })
+      .notNull()
+      .references(() => customers.id),
+    title: varchar("title", { length: 120 }).notNull(),
+    fields: mediumtext("fields").notNull(),
+    createdBy: varchar("created_by", { length: 36 })
+      .notNull()
+      .references(() => users.id),
+    updatedBy: varchar("updated_by", { length: 36 }).references(() => users.id),
+    createdAt: createdAt(),
+    updatedAt: now("updated_at"),
+  },
+  (t) => [index("bank_briefs_customer_idx").on(t.customerId, t.createdAt)],
+);
+
+/** Which customers an employee may use the Content bank for (Settings → Users). Admins and managers: all. */
+export const bankAccess = mysqlTable(
+  "bank_access",
+  {
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    customerId: varchar("customer_id", { length: 36 })
+      .notNull()
+      .references(() => customers.id),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.customerId] })],
+);
 
 /**
  * The finished work of a content ID: links (each with a name) to the final video, design or post,
