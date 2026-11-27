@@ -140,7 +140,7 @@ export function NudgeButton({ task, meId, t, onError, onOpenChange }: { task: Ta
         aria-expanded={open}
         data-nudge={sent ? "sent" : "ready"}
         onClick={toggle}
-        className={`flex size-8 items-center justify-center rounded-full transition-[background-color,color,box-shadow] duration-300 sm:size-11 ${sent ? "bg-teal text-white" : "bg-surface text-ink"} ${open && !closing ? "shadow-[0_0_0_2px_var(--color-teal)]" : ""}`}
+        className={`flex size-[22px] shrink-0 items-center justify-center rounded-full transition-[background-color,color,box-shadow] duration-300 max-sm:[&_svg]:size-[11px] sm:size-10 ${sent ? "bg-teal text-white" : "bg-surface text-ink"} ${open && !closing ? "shadow-[0_0_0_2px_var(--color-teal)]" : ""}`}
       >
         {sent ? (
           <span key="sent" className="zk-pop flex">

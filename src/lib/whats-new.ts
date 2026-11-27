@@ -17,6 +17,14 @@ export type Release = { version: string; date: string; items: ReleaseItem[] };
 
 export const RELEASES: Release[] = [
   {
+    version: "0.21.0",
+    date: "2026-11-28",
+    items: [
+      { kind: "new", icon: "list", az: { title: "Yeni tapşırıq kartları", text: "Tapşırıq kartları yenidən dizayn olundu: kontent ID və müştəri, tapşırıq növü və icraçılar, düymələr və son tarix ayrı-ayrı hissələrdədir. Uzun təsvir və kontent ID qeydi “daha çox” ilə açılır, qeydlər isə ayrıca pəncərədə açılır. Telefonda kartlar daha yığcamdır." }, en: { title: "New task cards", text: "Task cards were redesigned: the content ID and customer, the task type and the people on it, the buttons and the deadline each have their own section. A long description or content ID note opens with “more”, and notes open in their own window. On phones the cards are more compact." } },
+      { kind: "improved", icon: "list", for: "staff", az: { title: "Karta toxunun, tapşırıq açılsın", text: "Kartın istənilən yerinə toxunanda tapşırıq açılır (əvvəlki “Tapşırığı aç” kimi)." }, en: { title: "Tap a card to open the task", text: "Tapping anywhere on a card opens the task (like “Open task” did before)." } },
+    ],
+  },
+  {
     version: "0.20.1",
     date: "2026-11-27",
     items: [
