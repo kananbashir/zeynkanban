@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
-import { deleteBankBrief, duplicateBankBrief, saveBankBrief } from "@/app/actions/bank";
+import { addBankNote, approveBankBrief, deleteBankBrief, duplicateBankBrief, saveBankBrief } from "@/app/actions/bank";
 import type { BriefView } from "@/app/actions/briefs";
 import { personColor } from "@/components/avatar-group";
 import { BriefEditor, BriefReader, WithCode } from "@/components/content-brief";
@@ -18,14 +18,34 @@ import { Toast, useToast } from "@/components/toast";
 import { initials } from "@/components/top-bar";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
-import { BANK_TITLE_LIMIT, copyTitle, findBriefs, type BankStatus } from "@/lib/bank-rules";
+import { BANK_NOTE_LIMIT, BANK_TITLE_LIMIT, copyTitle, findBriefs, type BankStatus } from "@/lib/bank-rules";
 import type { BriefField } from "@/lib/brief-rules";
 import { prefersReducedMotion, springOrFallback } from "@/lib/spring";
 
 type T = Dictionary["bank"];
 type TasksT = Dictionary["tasks"];
 type Customer = { id: string; name: string; color: string };
-export type BankCard = { id: string; customerId: string; title: string; fields: BriefField[]; byId: string; by: string; on: string; usedFor: string | null };
+type Person = { id: string; name: string };
+export type BankApprover = Person & { approved: boolean; edited: boolean; on: string | null };
+export type BankNote = { id: string; userId: string; name: string; body: string; edited: boolean; on: string };
+/** One bank brief as the page shows it, with what the person looking may do with it. */
+export type BankCard = {
+  id: string;
+  customerId: string;
+  title: string;
+  fields: BriefField[];
+  byId: string;
+  by: string;
+  on: string;
+  usedFor: string | null;
+  approved: boolean;
+  approvers: BankApprover[];
+  notes: BankNote[];
+  canApprove: boolean;
+  canEdit: boolean;
+  canRemove: boolean;
+  isApprover: boolean;
+};
 
 const pop = (el: HTMLElement | null, from = "translateY(10px) scale(0.98)") => {
   if (el && !prefersReducedMotion()) el.animate([{ opacity: 0, transform: from }, { opacity: 1, transform: "none" }], { duration: 420, easing: springOrFallback(420, 30, 0.42) });
@@ -40,7 +60,10 @@ export function BankView({
   customers,
   briefs,
   start,
+  openBrief,
   staff,
+  meId,
+  approverChoices,
   template,
   t,
   tasksT,
@@ -49,7 +72,12 @@ export function BankView({
   customers: Customer[];
   briefs: BankCard[];
   start: string | null;
+  /** Opened from a notification: show this brief straight away. */
+  openBrief: string | null;
   staff: boolean;
+  meId: string;
+  /** Per customer, the employees an admin or manager can ask to approve. */
+  approverChoices: Record<string, Person[]>;
   template: BriefView["template"];
   t: T;
   tasksT: TasksT;
@@ -64,7 +92,17 @@ export function BankView({
   // The list shown under the phone dropdowns: the open one, or the one folding away (kept until it has closed, so nothing jumps).
   const [lastOpen, setLastOpen] = useState<"customer" | "status" | null>(null);
   if (open && open !== lastOpen) setLastOpen(open);
-  const [reading, setReading] = useState<BankCard | null>(null);
+  // The brief open to read (by id, so it shows the latest after a note or an approval).
+  const [readingId, setReadingId] = useState<string | null>(openBrief);
+  // A notification tapped while already on this page opens its brief (and its customer).
+  const [seenOpen, setSeenOpen] = useState(openBrief);
+  if (openBrief !== seenOpen) {
+    setSeenOpen(openBrief);
+    if (openBrief) {
+      setReadingId(openBrief);
+      setCustomerId(start);
+    }
+  }
   const [editing, setEditing] = useState<BankCard | "new" | null>(null);
   const [copying, setCopying] = useState<BankCard | null>(null);
   const [deleting, setDeleting] = useState<{ card: BankCard; el: HTMLElement | null } | null>(null);
@@ -78,13 +116,15 @@ export function BankView({
   const { onScroll, edge } = useScrolledEdge();
 
   const live = briefs.filter((b) => !gone.has(b.id));
+  const reading = live.find((b) => b.id === readingId) ?? null;
+  const setReading = (card: BankCard | null) => setReadingId(card?.id ?? null);
   const customer = customers.find((c) => c.id === customerId) ?? null;
   const mine = live.filter((b) => b.customerId === customerId);
   const shown = findBriefs(mine, query, status);
-  const counts = { all: mine.length, unused: mine.filter((b) => !b.usedFor).length, used: mine.filter((b) => b.usedFor).length };
+  const counts = { all: mine.length, unused: mine.filter((b) => !b.usedFor).length, used: mine.filter((b) => b.usedFor).length, mine: mine.filter((b) => b.canApprove).length };
   const message = (key: string) => (errors as Record<string, string>)[key] ?? errors.generic;
   const closeEditor = useCallback(() => setEditing(null), []);
-  const closeReader = useCallback(() => setReading(null), []);
+  const closeReader = useCallback(() => setReadingId(null), []);
   const closeCopy = useCallback(() => setCopying(null), []);
   const stopDeleting = useCallback(() => setDeleting(null), []);
 
@@ -109,23 +149,32 @@ export function BankView({
     });
   };
 
+  const approve = (card: BankCard) =>
+    startTransition(async () => {
+      const result = await approveBankBrief(card.id);
+      if (!result.ok) return toast.show(message(result.error), "error");
+      toast.show(fill(result.approved ? t.approvedToast : t.approvedMineToast, { title: card.title }));
+      router.refresh();
+    });
+
   const statusItems = [
     { key: "all", label: t.all, count: counts.all },
     { key: "unused", label: t.unused, count: counts.unused },
     { key: "used", label: t.used, count: counts.used },
+    { key: "mine", label: t.mine, count: counts.mine },
   ];
 
   if (!customers.length)
     return (
       <main className="flex flex-col gap-5">
-        <Head t={t} staff={staff} onAdd={null} />
+        <Head t={t} onAdd={null} />
         <p className="zk-fade-up rounded-[28px] bg-surface px-5 py-8 text-center text-[15px] text-ink-soft">{t.noCustomers}</p>
       </main>
     );
 
   return (
     <div ref={page} className="flex flex-col gap-5">
-      <Head t={t} staff={staff} onAdd={() => setEditing("new")} />
+      <Head t={t} onAdd={() => setEditing("new")} />
 
       <div className="flex flex-col gap-3 lg:min-h-0 lg:flex-1 lg:flex-row lg:items-stretch lg:gap-5">
         {/* Customers: a list on a computer, a dropdown (with the status one) on a phone. */}
@@ -218,10 +267,11 @@ export function BankView({
                 <BriefCard
                   key={card.id}
                   card={card}
-                  staff={staff}
+                  showBy={staff || card.byId !== meId}
                   t={t}
                   tasksT={tasksT}
                   onOpen={() => setReading(card)}
+                  onApprove={() => approve(card)}
                   onEdit={() => setEditing(card)}
                   onCopy={() => setCopying(card)}
                   onDelete={(el) => setDeleting({ card, el })}
@@ -242,6 +292,9 @@ export function BankView({
           card={editing === "new" ? null : editing}
           customer={editing === "new" ? customer : (customers.find((c) => c.id === editing.customerId) ?? customer)}
           template={template}
+          staff={staff}
+          meId={meId}
+          choices={approverChoices[editing === "new" ? customer.id : editing.customerId] ?? []}
           t={t}
           tasksT={tasksT}
           message={message}
@@ -259,9 +312,14 @@ export function BankView({
           card={reading}
           customer={customers.find((c) => c.id === reading.customerId) ?? customer}
           staff={staff}
+          meId={meId}
+          pending={pending}
           t={t}
           tasksT={tasksT}
+          message={message}
           onClose={closeReader}
+          onApprove={() => approve(reading)}
+          onNoted={() => router.refresh()}
           onEdit={() => {
             setReading(null);
             setEditing(reading);
@@ -308,17 +366,13 @@ export function BankView({
   );
 }
 
-/** The page's title, its line of explanation, and "New brief". */
-function Head({ t, staff, onAdd }: { t: T; staff: boolean; onAdd: (() => void) | null }) {
+/** The page's title and "New brief". */
+function Head({ t, onAdd }: { t: T; onAdd: (() => void) | null }) {
   return (
     <header className="flex flex-wrap items-end gap-x-5 gap-y-3">
       <div className="flex min-w-[260px] flex-1 flex-col gap-1">
         <span className="text-[13px] font-semibold text-teal-deep">{t.eyebrow}</span>
         <h1 className="text-2xl font-semibold sm:text-[28px]">{t.title}</h1>
-        <p className="max-w-[62ch] text-sm leading-normal text-ink-soft">
-          {t.intro}
-          {staff ? "" : ` ${t.introOwn}`}
-        </p>
       </div>
       {onAdd && (
         <button type="button" onClick={onAdd} className="flex min-h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-sun px-[22px] text-[15px] font-bold text-on-pastel max-sm:w-full">
@@ -366,10 +420,55 @@ function Choice({ on, count, onClick, children }: { on: boolean; count: number; 
   );
 }
 
-/** One brief: its title and status, who wrote it and when, and the actions. Tapping it opens it to read. */
-function BriefCard({ card, staff, t, tasksT, onOpen, onEdit, onCopy, onDelete }: { card: BankCard; staff: boolean; t: T; tasksT: TasksT; onOpen: () => void; onEdit: () => void; onCopy: () => void; onDelete: (el: HTMLElement | null) => void }) {
+/** A person's round initials (for approvers and notes); with a small ✓ or clock for approvers. */
+function Face({ person, state, size = 28 }: { person: Person; state?: "ok" | "wait"; size?: number }) {
+  return (
+    <span aria-hidden="true" className="relative flex shrink-0 items-center justify-center rounded-full border-2 border-surface font-bold text-white" style={{ width: size, height: size, fontSize: size * 0.36, background: personColor(person.id) }}>
+      {initials(person.name)}
+      {state && (
+        <span className={`absolute -bottom-1 -right-1 flex size-3.5 items-center justify-center rounded-full border-2 border-surface ${state === "ok" ? "bg-teal text-white" : "bg-sun text-on-pastel"}`}>
+          <Icon name={state === "ok" ? "check" : "clock"} size={8} strokeWidth={3.2} />
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** "Waiting for approval (· 1/2)", "Waiting for your approval" or "Approved". */
+function ApprovalChip({ card, t }: { card: BankCard; t: T }) {
+  if (card.approved)
+    return (
+      <span className="flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[color-mix(in_oklab,var(--color-teal)_22%,transparent)] px-2.5 py-1 text-xs font-bold text-teal-deep">
+        <Icon name="seal" size={13} strokeWidth={2} />
+        {t.approved}
+      </span>
+    );
+  const mineToo = card.canApprove && card.isApprover;
+  const done = card.approvers.filter((a) => a.approved).length;
+  return (
+    <span className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${mineToo ? "bg-sun text-on-pastel" : "bg-sun-tint text-sun-ink"}`}>
+      <Icon name="clock" size={12} strokeWidth={2.2} />
+      {mineToo ? t.waitingMine : card.approvers.length > 1 ? fill(t.waitingN, { n: done, of: card.approvers.length }) : t.waiting}
+    </span>
+  );
+}
+
+/** The approve button (teal, with a tick). */
+function ApproveButton({ label, big = false, disabled, onClick }: { label: string; big?: boolean; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled} className={`flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-teal font-bold text-white transition-colors hover:bg-teal-deep disabled:opacity-60 ${big ? "min-h-12 px-6 text-[15px]" : "min-h-9 px-3.5 text-[13px]"}`}>
+      <Icon name="check" size={big ? 18 : 15} strokeWidth={2.6} />
+      {label}
+    </button>
+  );
+}
+
+/** One brief: title and status, approval, who wrote it and when, and the actions. Tapping it opens it to read. */
+function BriefCard({ card, showBy, t, tasksT, onOpen, onApprove, onEdit, onCopy, onDelete }: { card: BankCard; showBy: boolean; t: T; tasksT: TasksT; onOpen: () => void; onApprove: () => void; onEdit: () => void; onCopy: () => void; onDelete: (el: HTMLElement | null) => void }) {
   const ref = useRef<HTMLElement>(null);
   const iconButton = "flex size-9 items-center justify-center rounded-full text-icon transition-colors hover:bg-mint hover:text-ink";
+  // With Approve there, Edit becomes an icon so everything fits.
+  const compact = card.canApprove;
   return (
     <article
       ref={ref}
@@ -388,27 +487,49 @@ function BriefCard({ card, staff, t, tasksT, onOpen, onEdit, onCopy, onDelete }:
         </h3>
         <StatusChip card={card} t={t} tasksT={tasksT} />
       </div>
-      <div className="flex items-center gap-2 border-t border-line pt-2.5 text-[12.5px] text-muted">
-        {staff && (
-          <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-full text-[9.5px] font-bold text-white" style={{ background: personColor(card.byId) }}>
-            {initials(card.by)}
+      <div key={`${card.approved}-${card.canApprove}`} className="zk-fade-up flex flex-wrap items-center gap-2">
+        <ApprovalChip card={card} t={t} />
+        {card.approvers.length > 0 && (
+          <span className="flex gap-1.5" aria-label={card.approvers.map((a) => `${a.name}: ${a.approved ? t.approverDone.split(" ·")[0] : t.approverWaiting}`).join(", ")}>
+            {card.approvers.map((a) => (
+              <Face key={a.id} person={a} state={a.approved ? "ok" : "wait"} />
+            ))}
           </span>
         )}
+      </div>
+      <div className="flex items-center gap-2 border-t border-line pt-2.5 text-[12.5px] text-muted">
+        {showBy && <Face person={{ id: card.byId, name: card.by }} size={24} />}
         <span className="min-w-0 truncate whitespace-nowrap">
-          {staff ? `${card.by.split(" ")[0]} · ` : ""}
+          {showBy ? `${card.by.split(" ")[0]} · ` : ""}
           {card.on}
         </span>
         <span className="ml-auto flex shrink-0 items-center gap-0.5">
-          <button type="button" onClick={onEdit} className="flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold text-ink transition-colors hover:bg-mint">
-            <Icon name="edit" size={15} />
-            {t.edit}
-          </button>
-          <button type="button" onClick={onCopy} aria-label={fill(t.duplicateOf, { title: card.title })} title={t.duplicate} className={iconButton}>
-            <DuplicateIcon size={17} />
-          </button>
-          <button type="button" onClick={() => onDelete(ref.current)} aria-label={fill(t.deleteOf, { title: card.title })} title={t.delete} className={`${iconButton} hover:text-danger`}>
-            <Icon name="trash" size={16} />
-          </button>
+          {card.canEdit &&
+            (compact ? (
+              <button type="button" onClick={onEdit} aria-label={`${t.edit}: ${card.title}`} title={t.edit} className={iconButton}>
+                <Icon name="edit" size={16} />
+              </button>
+            ) : (
+              <button type="button" onClick={onEdit} className="flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold text-ink transition-colors hover:bg-mint">
+                <Icon name="edit" size={15} />
+                {t.edit}
+              </button>
+            ))}
+          {card.canRemove && (
+            <>
+              <button type="button" onClick={onCopy} aria-label={fill(t.duplicateOf, { title: card.title })} title={t.duplicate} className={iconButton}>
+                <DuplicateIcon size={17} />
+              </button>
+              <button type="button" onClick={() => onDelete(ref.current)} aria-label={fill(t.deleteOf, { title: card.title })} title={t.delete} className={`${iconButton} hover:text-danger`}>
+                <Icon name="trash" size={16} />
+              </button>
+            </>
+          )}
+          {card.canApprove && (
+            <span className="ml-1.5">
+              <ApproveButton label={t.approve} onClick={onApprove} />
+            </span>
+          )}
         </span>
       </div>
     </article>
@@ -429,10 +550,138 @@ function StatusChip({ card, t, tasksT }: { card: BankCard; t: T; tasksT: TasksT 
   );
 }
 
-/** A bank brief to read: its customer, title, who wrote it, status and fields; Delete, Duplicate, Close and Edit. */
-function BankReader({ card, customer, staff, t, tasksT, onClose, onEdit, onCopy, onDelete }: { card: BankCard; customer: Customer | null; staff: boolean; t: T; tasksT: TasksT; onClose: () => void; onEdit: () => void; onCopy: () => void; onDelete: () => void }) {
+/** Who approves and how far they are. */
+function ApprovalBox({ card, meId, t }: { card: BankCard; meId: string; t: T }) {
+  if (!card.approvers.length) return null;
+  return (
+    <section aria-label={t.approval} className="flex flex-col gap-2 rounded-[18px] bg-surface px-3.5 py-3">
+      <h3 className="text-[11.5px] font-bold uppercase tracking-wider text-muted">{t.approval}</h3>
+      {card.approvers.map((a) => (
+        <div key={a.id} className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm">
+          <Face person={a} state={a.approved ? "ok" : "wait"} size={30} />
+          <span className="font-semibold">
+            {a.name}
+            {a.id === meId ? ` ${t.you}` : ""}
+          </span>
+          <span className={`ml-auto text-[12.5px] font-bold ${a.approved ? "text-teal-deep" : "text-sun-ink"}`}>{a.approved ? fill(a.edited ? t.approverEdited : t.approverDone, { when: a.on ?? "" }) : t.approverWaiting}</span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+/** The notes on a brief, as a short conversation, and a box to write one (without approving). */
+function NotesBox({ card, t, message, onNoted }: { card: BankCard; t: T; message: (key: string) => string; onNoted: () => void }) {
+  const [text, setText] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const list = useRef<HTMLDivElement>(null);
+  useFlip(list);
+  const send = () =>
+    startTransition(async () => {
+      if (!text.trim()) return;
+      const result = await addBankNote(card.id, text);
+      if (!result.ok) return setError(message(result.error));
+      setText("");
+      setError(null);
+      onNoted();
+    });
+  return (
+    <section aria-label={t.notes} className="flex flex-col gap-2.5 rounded-[18px] bg-surface px-3.5 py-3">
+      <h3 className="text-[11.5px] font-bold uppercase tracking-wider text-muted">{card.notes.length ? fill(t.notesN, { n: card.notes.length }) : t.notes}</h3>
+      <div ref={list} className="flex flex-col gap-2">
+        {card.notes.map((n) => (
+          <div key={n.id} data-flip={n.id} className="flex gap-2.5">
+            <Face person={{ id: n.userId, name: n.name }} size={30} />
+            <div className="flex min-w-0 flex-1 flex-col gap-1 rounded-[4px_16px_16px_16px] bg-mint-soft px-3 py-2">
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px]">
+                <span className="font-semibold">{n.name}</span>
+                <span className="text-muted">{n.on}</span>
+                {n.edited && <span className="rounded-full bg-[color-mix(in_oklab,var(--color-teal)_22%,transparent)] px-2 py-px text-[11px] font-bold text-teal-deep">{t.editedTag}</span>}
+                {n.userId === card.byId && <span className="rounded-full bg-mint px-2 py-px text-[11px] font-bold text-ink-soft">{t.author}</span>}
+              </span>
+              <span className="whitespace-pre-line break-words text-[13.5px] leading-normal text-ink-body">{n.body}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          send();
+        }}
+        className="flex items-end gap-2"
+      >
+        <textarea
+          value={text}
+          rows={1}
+          maxLength={BANK_NOTE_LIMIT}
+          onChange={(e) => {
+            setText(e.target.value);
+            setError(null);
+            e.target.style.height = "auto";
+            e.target.style.height = `${Math.min(e.target.scrollHeight, 160)}px`;
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+          placeholder={t.notePlaceholder}
+          aria-label={t.notePlaceholder}
+          className="min-h-[46px] min-w-0 flex-1 resize-none rounded-[14px] border-[1.5px] border-line-strong bg-surface px-3.5 py-2.5 text-sm leading-normal text-ink placeholder:text-muted focus:border-teal"
+        />
+        <button type="submit" disabled={pending || !text.trim()} className="flex min-h-[46px] shrink-0 items-center gap-1.5 rounded-full bg-sun px-4 text-sm font-bold text-on-pastel transition-opacity disabled:opacity-50">
+          <Icon name="send" size={16} strokeWidth={2.2} />
+          {t.send}
+        </button>
+      </form>
+      {error && (
+        <p role="alert" className="text-[13px] font-medium text-danger">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
+/** A bank brief to read: customer, title, who wrote it, status, approval, notes and fields; and what this person may do. */
+function BankReader({
+  card,
+  customer,
+  staff,
+  meId,
+  pending,
+  t,
+  tasksT,
+  message,
+  onClose,
+  onApprove,
+  onNoted,
+  onEdit,
+  onCopy,
+  onDelete,
+}: {
+  card: BankCard;
+  customer: Customer | null;
+  staff: boolean;
+  meId: string;
+  pending: boolean;
+  t: T;
+  tasksT: TasksT;
+  message: (key: string) => string;
+  onClose: () => void;
+  onApprove: () => void;
+  onNoted: () => void;
+  onEdit: () => void;
+  onCopy: () => void;
+  onDelete: () => void;
+}) {
   const box = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => pop(box.current), []);
+  const sentToMe = card.isApprover && card.canApprove;
+  const ghost = "flex min-h-12 items-center justify-center gap-2 rounded-full bg-surface px-5 text-[15px] font-semibold";
   const window = (
     <Dialog label={card.title} onClose={onClose}>
       <div ref={box} className="flex flex-col gap-4">
@@ -446,32 +695,54 @@ function BankReader({ card, customer, staff, t, tasksT, onClose, onEdit, onCopy,
             )}
             <h2 className="break-words text-xl font-semibold sm:text-2xl">{card.title}</h2>
             <span className="text-[13px] text-ink-soft">
-              {staff ? `${card.by} · ` : ""}
+              {staff || card.byId !== meId ? `${card.by} · ` : ""}
               {card.on}
             </span>
           </div>
           <CloseButton label={t.close} onClick={onClose} />
         </div>
-        <div className="flex">
+        <div key={`${card.approved}-${card.canApprove}`} className="zk-fade-up flex flex-wrap gap-2">
           <StatusChip card={card} t={t} tasksT={tasksT} />
+          <ApprovalChip card={card} t={t} />
         </div>
+        {sentToMe && (
+          <p className="flex items-center gap-2.5 rounded-[16px] bg-sun-tint px-3.5 py-2.5 text-[13.5px] font-semibold text-sun-ink">
+            <Icon name="clock" size={17} />
+            {fill(t.sentBy, { name: card.by })}
+          </p>
+        )}
+        <ApprovalBox card={card} meId={meId} t={t} />
+        {card.canEdit && <NotesBox card={card} t={t} message={message} onNoted={onNoted} />}
         <BriefReader fields={card.fields} t={tasksT} />
-        {/* Two even rows on a phone: Delete | Duplicate, Close | Edit. */}
+        {/* On a phone the buttons sit in two even rows. */}
         <div className="flex flex-wrap items-center gap-2.5 max-sm:grid max-sm:grid-cols-2">
-          <button type="button" onClick={onDelete} className="min-h-12 rounded-full bg-surface px-5 text-[15px] font-semibold text-danger">
-            {t.delete}
-          </button>
+          {card.canRemove && (
+            <button type="button" onClick={onDelete} className="min-h-12 rounded-full bg-surface px-5 text-[15px] font-semibold text-danger">
+              {t.delete}
+            </button>
+          )}
           <span className="flex-1 max-sm:hidden" />
-          <button type="button" onClick={onCopy} className="flex min-h-12 items-center justify-center gap-2 rounded-full bg-surface px-5 text-[15px] font-semibold">
-            <DuplicateIcon size={16} />
-            {t.duplicate}
-          </button>
-          <button type="button" onClick={onClose} className="min-h-12 rounded-full bg-surface px-5 text-[15px] font-semibold">
+          {card.canRemove && (
+            <button type="button" onClick={onCopy} className={ghost}>
+              <DuplicateIcon size={16} />
+              {t.duplicate}
+            </button>
+          )}
+          <button type="button" onClick={onClose} className={ghost}>
             {t.close}
           </button>
-          <button type="button" onClick={onEdit} className="min-h-12 rounded-full bg-sun px-6 text-[15px] font-semibold text-ink">
-            {t.edit}
-          </button>
+          {card.canEdit &&
+            (card.canApprove ? (
+              <button type="button" onClick={onEdit} className={ghost}>
+                <Icon name="edit" size={16} />
+                {t.edit}
+              </button>
+            ) : (
+              <button type="button" onClick={onEdit} className="min-h-12 rounded-full bg-sun px-6 text-[15px] font-semibold text-ink">
+                {t.edit}
+              </button>
+            ))}
+          {card.canApprove && <ApproveButton big label={t.approve} disabled={pending} onClick={onApprove} />}
         </div>
       </div>
     </Dialog>
@@ -479,11 +750,17 @@ function BankReader({ card, customer, staff, t, tasksT, onClose, onEdit, onCopy,
   return typeof document === "undefined" ? null : createPortal(window, document.body);
 }
 
-/** Writing a bank brief: its title, then the same fields as the brief window (starting fields for a new one). */
+/**
+ * Writing a bank brief: its title, who approves it (admins and managers), then the same fields as the
+ * brief window (starting fields for a new one). An approver editing it says what changed and approves with it.
+ */
 function BankEditor({
   card,
   customer,
   template,
+  staff,
+  meId,
+  choices,
   t,
   tasksT,
   message,
@@ -493,6 +770,9 @@ function BankEditor({
   card: BankCard | null;
   customer: Customer;
   template: BriefView["template"];
+  staff: boolean;
+  meId: string;
+  choices: Person[];
   t: T;
   tasksT: TasksT;
   message: (key: string) => string;
@@ -501,12 +781,21 @@ function BankEditor({
 }) {
   const [title, setTitle] = useState(card?.title ?? "");
   const [titleProblem, setTitleProblem] = useState(false);
+  const [approvers, setApprovers] = useState<string[]>(() => card?.approvers.map((a) => a.id) ?? []);
+  const [note, setNote] = useState("");
+  const [noteProblem, setNoteProblem] = useState(false);
   const box = useRef<HTMLDivElement>(null);
   const titleBox = useRef<HTMLInputElement>(null);
+  const noteBox = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => pop(box.current), []);
   useEffect(() => {
     if (!card) titleBox.current?.focus();
   }, [card]);
+  // An approver (not the author) edits and approves in one go.
+  const approverEdit = !!card?.isApprover && card.byId !== meId;
+  // Anyone already asked stays choosable even if their bank access changed since.
+  const people = [...choices, ...(card?.approvers ?? []).filter((a) => !choices.some((c) => c.id === a.id))];
+  const toggle = (id: string) => setApprovers((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]));
   const window = (
     <Dialog label={card ? t.editorEdit : t.editorNew} onClose={onClose}>
       <div ref={box} className="flex flex-col gap-4">
@@ -520,6 +809,12 @@ function BankEditor({
           </div>
           <CloseButton label={t.close} onClick={onClose} />
         </div>
+        {approverEdit && (
+          <p className="flex items-center gap-2.5 rounded-[16px] bg-sun-tint px-3.5 py-2.5 text-[13.5px] font-semibold text-sun-ink">
+            <Icon name="clock" size={17} />
+            {fill(t.sentByEdit, { name: card.by })}
+          </p>
+        )}
         {card?.usedFor && (
           <p className="flex items-center gap-2.5 rounded-[16px] bg-teal-tint px-3.5 py-2.5 text-[13.5px] font-semibold text-teal-deep">
             <Icon name="link" size={16} />
@@ -543,12 +838,62 @@ function BankEditor({
             className={`h-[52px] w-full rounded-[16px] border-[1.5px] bg-surface px-4 text-[17px] font-semibold text-ink placeholder:font-normal placeholder:text-muted focus:border-teal ${titleProblem ? "border-danger" : "border-line-strong"}`}
           />
         </label>
+        {staff && (
+          <div role="group" aria-label={t.approvers} className="flex flex-col gap-2 rounded-[18px] bg-surface px-4 py-3.5">
+            <span className="text-sm font-semibold">
+              {t.approvers} <span className="text-[13px] font-medium text-muted">{t.optional}</span>
+            </span>
+            <span className="text-[12.5px] leading-snug text-ink-soft">{t.approversHelp}</span>
+            <span className="flex flex-wrap gap-2">
+              {people.length === 0 && <span className="text-[13px] text-muted">{t.noApproverChoices}</span>}
+              {people.map((p) => {
+                const on = approvers.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={on}
+                    onClick={() => toggle(p.id)}
+                    className={`flex min-h-[42px] items-center gap-2 rounded-full border-[1.5px] pl-1.5 pr-3.5 text-sm font-semibold transition-[border-color,background-color] duration-200 ${on ? "border-teal bg-teal-tint" : "border-line-strong hover:bg-mint-soft"}`}
+                  >
+                    <span aria-hidden="true" className={`ml-1.5 flex size-[18px] items-center justify-center rounded-md transition-colors ${on ? "bg-teal text-white" : "border-[1.5px] border-subtle"}`}>
+                      {on && <Icon name="check" size={12} strokeWidth={3} className="zk-pop" />}
+                    </span>
+                    <Face person={p} size={26} />
+                    {p.name}
+                  </button>
+                );
+              })}
+            </span>
+          </div>
+        )}
         <BriefEditor
           brief={{ fields: card?.fields ?? [], template }}
           isNew={!card}
           t={tasksT}
-          saveLabel={card ? t.save : t.saveNew}
+          saveLabel={approverEdit ? t.saveApprove : card ? t.save : approvers.length ? t.saveSend : t.saveNew}
+          saveClassName={approverEdit ? "bg-teal text-white" : undefined}
           hint={tasksT.brief.emptyHint}
+          beforeFooter={
+            approverEdit ? (
+              <label className="flex flex-col gap-1.5 rounded-[18px] bg-surface px-4 py-3.5">
+                <span className="text-sm font-semibold">{t.whatChanged}</span>
+                <span className="text-[12.5px] text-ink-soft">{t.whatChangedHelp}</span>
+                <textarea
+                  ref={noteBox}
+                  value={note}
+                  maxLength={BANK_NOTE_LIMIT}
+                  onChange={(e) => {
+                    setNote(e.target.value);
+                    setNoteProblem(false);
+                  }}
+                  aria-invalid={noteProblem || undefined}
+                  className={`min-h-[72px] rounded-[14px] border-[1.5px] bg-surface px-3.5 py-2.5 text-sm leading-normal text-ink focus:border-teal ${noteProblem ? "border-danger" : "border-line-strong"}`}
+                />
+              </label>
+            ) : undefined
+          }
           onCancel={onClose}
           onSave={async (fields) => {
             if (!title.trim()) {
@@ -556,9 +901,15 @@ function BankEditor({
               titleBox.current?.focus();
               return { error: message("bankTitleMissing") };
             }
-            const result = await saveBankBrief({ id: card?.id, customerId: customer.id, title, fields });
+            if (approverEdit && !note.trim()) {
+              setNoteProblem(true);
+              noteBox.current?.focus();
+              return { error: message("bankNoteMissing") };
+            }
+            const result = await saveBankBrief({ id: card?.id, customerId: customer.id, title, fields, ...(staff ? { approvers } : {}), ...(approverEdit ? { note } : {}) });
             if (!result.ok) {
               if (result.error === "bankTitleMissing") setTitleProblem(true);
+              if (result.error === "bankNoteMissing") setNoteProblem(true);
               return { error: message(result.error), fieldId: result.fieldId };
             }
             onSaved(title.trim(), !card);

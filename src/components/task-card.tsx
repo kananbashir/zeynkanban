@@ -236,7 +236,7 @@ export function TaskCard({
         ) : (
           <span className="rounded-lg bg-surface px-2 py-1 font-mono text-xs font-medium">{task.contentCode}</span>
         )}
-        {task.hasBrief && <BriefTag label={t.brief.tag} fromBank={task.briefFromBank ? t.brief.fromBank : undefined} onOpen={() => setBriefOpen(true)} />}
+        {task.hasBrief && <BriefTag label={t.brief.tag} fromBank={task.briefFromBank ? t.brief.fromBank : undefined} pending={task.briefBankPending ? t.brief.bankPending : undefined} onOpen={() => setBriefOpen(true)} />}
         {task.hasFinishedWork && <FinishedTag f={t.finished} onOpen={() => setFinishedOpen(true)} />}
         {task.contentArchived && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.archivedContent}</span>}
         {!task.assignees.length && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.draft}</span>}

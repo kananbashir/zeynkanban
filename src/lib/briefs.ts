@@ -2,7 +2,8 @@ import "server-only";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { after } from "next/server";
 import { db } from "@/db";
-import { bankAccess, customers, taskAssignees, tasks } from "@/db/schema";
+import { bankAccess, bankApprovers, bankBriefs, customers, taskAssignees, tasks, users } from "@/db/schema";
+import { allApproved } from "./bank-rules";
 import { deliverPush, notify, refOnly, staffIds, taskRef } from "./notify";
 import { isStaff, writesBriefs } from "./roles";
 
@@ -87,3 +88,73 @@ export async function setBankAccess(userId: string, customerIds: string[]) {
     if (known.length) await tx.insert(bankAccess).values(known.map((customerId) => ({ userId, customerId })));
   });
 }
+
+/* ---------- Content bank approval ---------- */
+
+/** A bank brief with what decides its approval: its author (and their role) and its approvers. */
+export async function bankState(id: string) {
+  const [brief] = await db
+    .select({ id: bankBriefs.id, customerId: bankBriefs.customerId, title: bankBriefs.title, fields: bankBriefs.fields, createdBy: bankBriefs.createdBy, approvedAt: bankBriefs.approvedAt, authorRole: users.role, customer: customers.name })
+    .from(bankBriefs)
+    .innerJoin(users, eq(users.id, bankBriefs.createdBy))
+    .innerJoin(customers, eq(customers.id, bankBriefs.customerId))
+    .where(eq(bankBriefs.id, String(id)));
+  if (!brief) return null;
+  const approvers = await db.select({ userId: bankApprovers.userId, approvedAt: bankApprovers.approvedAt, edited: bankApprovers.edited }).from(bankApprovers).where(eq(bankApprovers.bankBriefId, brief.id));
+  return { ...brief, authorId: brief.createdBy, approvers };
+}
+export type BankState = NonNullable<Awaited<ReturnType<typeof bankState>>>;
+
+/** Tells people about a bank brief (in the site and by push). */
+export async function tellBank(userIds: string[], event: "approve" | "changed" | "approved" | "note" | "edited", brief: { id: string; title: string; customer: string; customerId: string }, me: { id: string; name: string }, note?: string) {
+  const ids = [...new Set(userIds)].filter((id) => id && id !== me.id);
+  if (!ids.length) return;
+  const rows = await notify(ids, "bank", { kind: "bank", event, briefId: brief.id, title: brief.title, customer: brief.customer, customerId: brief.customerId, by: me.name, ...(note ? { note } : {}) });
+  if (rows.length) after(() => deliverPush(rows));
+}
+
+/**
+ * Who is asked when a brief needs approving: its approvers; without any, an admin's or manager's brief
+ * waits for its author alone, and an employee's brief also for the admins and managers.
+ */
+export async function askedFor(state: Pick<BankState, "authorId" | "authorRole" | "approvers">): Promise<string[]> {
+  if (state.approvers.length) return state.approvers.filter((a) => !a.approvedAt).map((a) => a.userId);
+  if (isStaff(state.authorRole)) return [state.authorId];
+  return [state.authorId, ...(await staffIds())];
+}
+
+/**
+ * The brief changed: every approval is taken back (an approver who edited it approves with the edit),
+ * and it waits for approval again. Returns whether it is approved after all (one approver who edited it).
+ */
+export async function resetApproval(briefId: string, editorApprover: string | null): Promise<boolean> {
+  await db.update(bankApprovers).set({ approvedAt: null, edited: false }).where(eq(bankApprovers.bankBriefId, briefId));
+  if (editorApprover) await db.update(bankApprovers).set({ approvedAt: new Date(), edited: true }).where(and(eq(bankApprovers.bankBriefId, briefId), eq(bankApprovers.userId, editorApprover)));
+  const approvers = await db.select({ approvedAt: bankApprovers.approvedAt }).from(bankApprovers).where(eq(bankApprovers.bankBriefId, briefId));
+  const done = allApproved(approvers);
+  await db.update(bankBriefs).set(done ? { approvedAt: new Date(), approvedBy: editorApprover } : { approvedAt: null, approvedBy: null }).where(eq(bankBriefs.id, briefId));
+  return done;
+}
+
+/** Employees (active) who may use the Content bank for a customer: those who can be asked to approve its briefs. */
+export async function approverChoices(customerId: string): Promise<string[]> {
+  const rows = await db
+    .select({ id: users.id })
+    .from(users)
+    .innerJoin(bankAccess, and(eq(bankAccess.userId, users.id), eq(bankAccess.customerId, customerId)))
+    .where(and(eq(users.role, "employee"), eq(users.active, true)));
+  return rows.map((r) => r.id);
+}
+
+/** Bank briefs someone is asked to approve (for employees, who otherwise see only their own). */
+export async function approverBriefIds(userId: string): Promise<string[]> {
+  return (await db.select({ id: bankApprovers.bankBriefId }).from(bankApprovers).where(eq(bankApprovers.userId, userId))).map((r) => r.id);
+}
+
+/** A changed linked brief (edited from a task's brief window) waits for approval in the bank again. */
+export async function bankChangedFromTask(bankBriefId: string, me: { id: string; name: string }) {
+  await resetApproval(bankBriefId, null);
+  const state = await bankState(bankBriefId);
+  if (state) await tellBank(await askedFor(state), "changed", state, me);
+}
+

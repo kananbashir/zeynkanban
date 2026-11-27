@@ -28,6 +28,11 @@ export type NotificationData =
   /** An admin or manager rang the bell on a task of yours. */
   | ({ kind: "nudge"; by: string } & TaskRef)
   | { kind: "personal"; title: string; due: string; time: string | null }
+  /**
+   * A Content bank brief: waits for your approval ("approve"), changed and waits again ("changed"),
+   * was approved ("approved"), got a note ("note"), or was edited and approved by an approver ("edited").
+   */
+  | { kind: "bank"; event: "approve" | "changed" | "approved" | "note" | "edited"; briefId: string; title: string; customer: string; customerId: string; by: string; note?: string }
   | { kind: "overdueMany"; count: number }
   | { kind: "summary"; scope: "staff" | "own"; date: string; tasks: number; customers: number; overdue: number; drafts: number };
 
@@ -46,7 +51,7 @@ export type NotificationText = {
   /** Open the finished work straight away. */
   finished?: boolean;
 };
-export type IconKind = "assigned" | "moved" | "changed" | "review" | "overdue" | "summary" | "status" | "reminder" | "note" | "finished";
+export type IconKind = "assigned" | "moved" | "changed" | "review" | "overdue" | "summary" | "status" | "reminder" | "note" | "finished" | "bank" | "bankDone";
 
 type T = Dictionary["notifications"];
 type TaskT = Pick<Dictionary["tasks"], "monthsShort" | "tasksN" | "task1">;
@@ -66,6 +71,23 @@ export function notificationText(d: NotificationData, viewerIsStaff: boolean, to
     const left = daysBetween(today, d.due);
     const when = left === 0 ? (d.time ? fill(t.personalToday, { time: d.time }) : t.personalTodayNoTime) : left === 1 ? (d.time ? fill(t.personalTomorrow, { time: d.time }) : t.personalTomorrowNoTime) : d.time ? fill(t.personalOn, { date: date(d.due), time: d.time }) : date(d.due);
     return { title: t.kinds.personal, a: d.title, b: when, href: `/my-tasks?date=${d.due}`, icon: "reminder" };
+  }
+  if (d.kind === "bank") {
+    const href = `/bank?customer=${d.customerId}&brief=${d.briefId}`;
+    const line = fill(t.bankLine, { title: d.title, customer: d.customer });
+    const note = d.note ? (d.note.length > 120 ? d.note.slice(0, 117) + "…" : d.note) : "";
+    switch (d.event) {
+      case "approve":
+        return { title: fill(t.bankApprove, { customer: d.customer }), a: fill(t.bankLineBy, { title: d.title, name: d.by }), b: "", href, icon: "bank" };
+      case "changed":
+        return { title: fill(t.bankChanged, { title: d.title }), a: d.customer, b: fill(t.by, { name: d.by }), href, icon: "bank" };
+      case "approved":
+        return { title: fill(t.bankApproved, { title: d.title }), a: d.customer, b: fill(t.by, { name: d.by }), href, icon: "bankDone" };
+      case "note":
+        return { title: fill(t.bankNote, { name: d.by }), a: line, b: note ? `“${note}”` : "", href, icon: "note" };
+      case "edited":
+        return { title: fill(t.bankEdited, { name: d.by }), a: line, b: note ? fill(t.bankNoteLine, { body: note }) : "", href, icon: "bankDone" };
+    }
   }
   if (d.kind === "overdueMany") return { title: fill(t.kinds.overdueMany, { n: d.count }), a: t.overdueManyLine, b: "", href: "/board", icon: "overdue" };
 
@@ -146,6 +168,7 @@ export const PREF_OF = {
   finished: "changed",
   contentNote: "changed",
   nudge: "reminder",
+  bank: "changed",
 } as const;
 export type PrefKey = (typeof PREF_OF)[keyof typeof PREF_OF];
 export const STAFF_PREFS: PrefKey[] = ["assigned", "changed", "notes", "reminder", "summary", "review", "status", "overdue"];

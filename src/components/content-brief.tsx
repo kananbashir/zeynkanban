@@ -28,9 +28,9 @@ function popIn(el: HTMLElement | null, from = "translateY(6px) scale(0.98)") {
 }
 
 /** The small dark "Brief" tag after a card's content ID; opens the brief. `fromBank`: picked from the Content bank (a small book shows it). */
-export function BriefTag({ label, fromBank, onOpen }: { label: string; fromBank?: string; onOpen: () => void }) {
+export function BriefTag({ label, fromBank, pending, onOpen }: { label: string; fromBank?: string; pending?: string; onOpen: () => void }) {
   return (
-    <button type="button" onClick={onOpen} aria-label={fromBank ? `${label} · ${fromBank}` : undefined} className="flex items-center gap-1.5 rounded-lg bg-ink px-2 py-1 text-xs font-bold text-surface">
+    <button type="button" onClick={onOpen} aria-label={fromBank ? [label, fromBank, pending].filter(Boolean).join(" · ") : undefined} className="flex items-center gap-1.5 rounded-lg bg-ink px-2 py-1 text-xs font-bold text-surface">
       <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5" />
       </svg>
@@ -38,6 +38,11 @@ export function BriefTag({ label, fromBank, onOpen }: { label: string; fromBank?
       {fromBank && (
         <span title={fromBank} className="-mr-0.5 flex size-[17px] items-center justify-center rounded-full bg-teal text-white">
           <Icon name="bank" size={11} strokeWidth={2.2} />
+        </span>
+      )}
+      {pending && (
+        <span title={pending} className="zk-pop -mr-0.5 flex size-[17px] items-center justify-center rounded-full bg-sun text-on-pastel">
+          <Icon name="clock" size={11} strokeWidth={2.4} />
         </span>
       )}
     </button>
@@ -198,6 +203,12 @@ export function BriefWindow({ contentId, startEditing, onClose, t }: { contentId
                 <span className="text-[12.5px] text-ink-soft">{b.linkedRead}</span>
               </div>
             )}
+            {brief.bank?.pending && (
+              <p className="zk-fade-up flex items-center gap-2.5 rounded-[16px] bg-sun-tint px-3.5 py-2.5 text-[13.5px] font-semibold text-sun-ink">
+                <Icon name="clock" size={17} />
+                {b.bankPending}
+              </p>
+            )}
             <BriefReader fields={brief.fields} t={t} />
             {(brief.createdBy || brief.updatedBy) && (
               <p className="text-[12.5px] text-muted">
@@ -339,7 +350,9 @@ export function BriefEditor({
   t,
   top,
   saveLabel,
+  saveClassName,
   hint,
+  beforeFooter,
   onCancel,
   onSave,
 }: {
@@ -353,6 +366,10 @@ export function BriefEditor({
   saveLabel?: string;
   /** The grey line beside the buttons. */
   hint?: string;
+  /** Replaces the yellow of the save button (e.g. teal for "Save and approve"). */
+  saveClassName?: string;
+  /** Shown between the fields and the buttons (e.g. "What changed?"). */
+  beforeFooter?: ReactNode;
   onCancel: () => void;
   onSave: (fields: Draft[]) => Promise<Problem>;
 }) {
@@ -505,6 +522,7 @@ export function BriefEditor({
         </div>
       )}
 
+      {beforeFooter}
       <div className="flex flex-wrap items-center gap-2.5 pt-1">
         <p role={problem ? "alert" : undefined} className={`flex-[1_1_240px] text-[13px] font-medium leading-snug ${problem ? "text-danger" : "text-ink-soft"}`}>
           {problem?.error ?? hint ?? `${b.emptyHint} ${b.notifyHint}`}
@@ -512,7 +530,7 @@ export function BriefEditor({
         <button type="button" onClick={onCancel} className="min-h-12 rounded-full bg-surface px-5 text-[15px] font-semibold">
           {b.cancel}
         </button>
-        <button type="button" onClick={save} disabled={pending} className="min-h-12 rounded-full bg-sun px-6 text-[15px] font-semibold text-ink disabled:opacity-60">
+        <button type="button" onClick={save} disabled={pending} className={`min-h-12 rounded-full px-6 text-[15px] font-semibold disabled:opacity-60 ${saveClassName ?? "bg-sun text-ink"}`}>
           {saveLabel ?? (isNew ? b.save : b.saveChanges)}
         </button>
       </div>
@@ -678,7 +696,7 @@ function BankPicker({ contentId, code, customer, t, onClose, onPick }: { content
         {shown.map((p, i) => (
           <li
             key={p.id}
-            className={`zk-fade-up flex items-center gap-3 rounded-[16px] [animation-fill-mode:backwards] border-[1.5px] border-transparent bg-surface px-3.5 py-3 transition-colors ${p.usedFor ? "opacity-55" : "hover:border-teal"}`}
+            className={`zk-fade-up flex items-center gap-3 rounded-[16px] [animation-fill-mode:backwards] border-[1.5px] border-transparent bg-surface px-3.5 py-3 transition-colors ${p.usedFor || !p.approved ? "opacity-55" : "hover:border-teal"}`}
             style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}
           >
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -693,6 +711,11 @@ function BankPicker({ contentId, code, customer, t, onClose, onPick }: { content
                 <span className="truncate">
                   <WithCode text={b.usedFor} code={p.usedFor} />
                 </span>
+              </span>
+            ) : !p.approved ? (
+              <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-sun-tint px-2.5 py-1 text-[12px] font-bold text-sun-ink">
+                <Icon name="lock" size={12} strokeWidth={2.2} />
+                {b.waiting}
               </span>
             ) : (
               <button type="button" onClick={() => onPick(p)} aria-label={`${b.pickOne}: ${p.title}`} className="min-h-10 shrink-0 rounded-full bg-teal px-4 text-[13.5px] font-semibold text-white hover:bg-teal-deep">

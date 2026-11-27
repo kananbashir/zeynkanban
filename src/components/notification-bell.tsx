@@ -34,6 +34,8 @@ const ICONS: Record<IconKind, string> = {
   reminder: "M12 7v5l3 2M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0",
   note: "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM8 9h8M8 13h5",
   finished: "M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3",
+  bank: "M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z",
+  bankDone: "M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z",
 };
 const TINTS: Record<IconKind, [string, string]> = {
   assigned: ["#d9f0ee", "#0a5e5b"],
@@ -46,6 +48,8 @@ const TINTS: Record<IconKind, [string, string]> = {
   reminder: ["#fff3cc", "#5c4300"],
   note: ["#e9e4fb", "#3b2f8f"],
   finished: ["#dff3e8", "#1d6b42"],
+  bank: ["#f8c83c", "#18232f"],
+  bankDone: ["#0b7f7b", "#ffffff"],
 };
 
 const svg = (d: string, size = 18) => (
@@ -266,12 +270,18 @@ export function NotificationBell({ initialUnread, locale, t }: { initialUnread: 
             </div>
 
             {view === "list" ? (
-              <div className="flex flex-col gap-0.5 overflow-y-auto px-2 pb-2.5">
+              <div className="flex flex-col gap-1 overflow-y-auto bg-mint px-3 pb-3.5">
+                {/* Each notification is its own rounded card, with room between them; unread ones are tinted. */}
                 {groups.map((g) => (
-                  <div key={g.label} className="flex flex-col gap-0.5">
-                    <span className="px-2.5 pb-1 pt-2 text-xs font-semibold text-muted">{g.label}</span>
+                  <div key={g.label} className="flex flex-col gap-3">
+                    <span className="px-1.5 pb-0 pt-3 text-xs font-semibold text-muted">{g.label}</span>
                     {g.list.map((n) => (
-                      <button key={n.id} type="button" onClick={() => openItem(n)} className={`flex items-start gap-3 rounded-2xl p-2.5 text-left transition-colors hover:bg-mint ${n.unread ? "bg-mint-soft" : ""}`}>
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() => openItem(n)}
+                        className={`flex items-start gap-3 rounded-[18px] border p-3 text-left shadow-[0_1px_0_rgba(24,35,47,0.06)] transition-[border-color,background-color] duration-200 hover:border-teal ${n.unread ? "border-[color-mix(in_oklab,var(--color-teal)_40%,transparent)] bg-[color-mix(in_oklab,var(--color-teal-tint)_55%,var(--color-surface))]" : "border-line bg-surface"}`}
+                      >
                         <span className="zk-tint flex size-10 shrink-0 items-center justify-center rounded-full" style={{ "--tint-bg": TINTS[n.icon][0], "--tint-ink": TINTS[n.icon][1] } as React.CSSProperties}>
                           {svg(ICONS[n.icon])}
                         </span>

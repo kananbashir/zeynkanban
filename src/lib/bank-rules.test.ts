@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { briefText, cleanBankTitle, copyTitle, findBriefs } from "./bank-rules";
+import { allApproved, briefText, cleanBankNote, cleanBankTitle, copyTitle, findBriefs, mayApprove, mayEditBank, mayRemoveBank } from "./bank-rules";
 import type { BriefField } from "./brief-rules";
 
 const fields = (text: string, links: string[] = []): BriefField[] => [
@@ -47,5 +47,49 @@ describe("copyTitle", () => {
     expect(copyTitle("Qış postu", ["Qış postu"], "surət")).toBe("Qış postu (surət)");
     expect(copyTitle("Qış postu", ["Qış postu", "Qış postu (surət)"], "surət")).toBe("Qış postu (surət 2)");
     expect(copyTitle("Qış postu (surət)", ["Qış postu", "Qış postu (surət)"], "surət")).toBe("Qış postu (surət 2)");
+  });
+});
+
+describe("approval", () => {
+  const admin = { id: "a", role: "admin" }, manager = { id: "m", role: "manager" }, murad = { id: "e1", role: "employee" }, leyla = { id: "e2", role: "employee" };
+  it("an admin's brief without approvers: only its author", () => {
+    const brief = { authorId: "a", authorRole: "admin", approvedAt: null, approvers: [] };
+    expect(mayApprove(admin, brief)).toBe(true);
+    expect(mayApprove(manager, brief)).toBe(false);
+    expect(mayApprove(murad, brief)).toBe(false);
+  });
+  it("an employee's brief without approvers: its author or any admin or manager", () => {
+    const brief = { authorId: "e1", authorRole: "employee", approvedAt: null, approvers: [] };
+    expect([murad, admin, manager, leyla].map((p) => mayApprove(p, brief))).toEqual([true, true, true, false]);
+  });
+  it("with approvers: each of them once, not the author or others", () => {
+    const brief = { authorId: "a", authorRole: "admin", approvedAt: null, approvers: [{ userId: "e1", approvedAt: new Date() }, { userId: "e2", approvedAt: null }] };
+    expect([admin, manager, murad, leyla].map((p) => mayApprove(p, brief))).toEqual([false, false, false, true]);
+  });
+  it("nobody once it is approved", () => {
+    expect(mayApprove(admin, { authorId: "a", authorRole: "admin", approvedAt: new Date(), approvers: [] })).toBe(false);
+  });
+  it("approved when every approver has approved", () => {
+    expect(allApproved([])).toBe(false);
+    expect(allApproved([{ approvedAt: new Date() }, { approvedAt: null }])).toBe(false);
+    expect(allApproved([{ approvedAt: new Date() }, { approvedAt: new Date() }])).toBe(true);
+  });
+  it("approvers may edit but not duplicate or delete", () => {
+    expect(mayEditBank(leyla, "a", ["e2"])).toBe(true);
+    expect(mayEditBank(leyla, "a", ["e1"])).toBe(false);
+    expect(mayRemoveBank(leyla, "a")).toBe(false);
+    expect(mayRemoveBank(murad, "e1")).toBe(true);
+    expect(mayRemoveBank(manager, "e1")).toBe(true);
+  });
+  it("notes are trimmed and capped", () => {
+    expect(cleanBankNote("  ok \r\nyes ")).toBe("ok \nyes");
+    expect(cleanBankNote("x".repeat(1200))).toHaveLength(1000);
+  });
+  it("the “waiting for my approval” filter", () => {
+    const list = [
+      { title: "A", fields: [], usedFor: null, canApprove: true },
+      { title: "B", fields: [], usedFor: null, canApprove: false },
+    ];
+    expect(findBriefs(list, "", "mine").map((b) => b.title)).toEqual(["A"]);
   });
 });
