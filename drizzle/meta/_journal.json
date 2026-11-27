@@ -169,6 +169,13 @@
       "when": 1795726863906,
       "tag": "0023_content_bank",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1795774960038,
+      "tag": "0024_bank_approval",
+      "breakpoints": true
     }
   ]
 }

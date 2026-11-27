@@ -8,7 +8,7 @@ import type { ErrorKey } from "@/i18n/dictionaries";
 import { getDictionary, getLocale } from "@/i18n/server";
 import { requireUser } from "@/lib/auth";
 import { cleanBrief, parseBrief, type BriefField, type BriefType } from "@/lib/brief-rules";
-import { mayUseBank, ownsBankBrief, peopleOn, tellAboutBrief } from "@/lib/briefs";
+import { bankChangedFromTask, mayUseBank, ownsBankBrief, peopleOn, tellAboutBrief } from "@/lib/briefs";
 import { dateInZone } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
 import { isStaff, writesBriefs } from "@/lib/roles";
@@ -34,14 +34,15 @@ export type BriefView = {
   canEdit: boolean;
   /** For writing: the starting fields from Settings, named in the reader's language. */
   template: { id: string; label: string; hint: string; type: BriefType; visible: boolean }[];
-  /** The Content bank brief it was picked from (they stay linked), if any. */
-  bank: { id: string; title: string } | null;
+  /** The Content bank brief it was picked from (they stay linked), if any; `pending`: changed since, waiting for approval again. */
+  bank: { id: string; title: string; pending: boolean } | null;
   /** Not linked to the bank yet: may pick one from the Content bank (it replaces what is there), and how many unused ones there are to pick from. */
   bankUnused: number | null;
 };
 
 /** One brief in the "Pick from the Content bank" list. */
-export type BankPick = { id: string; title: string; by: string; on: string; fields: BriefField[]; usedFor: string | null };
+/** `approved`: only approved briefs can be picked; the others show as waiting for approval. */
+export type BankPick = { id: string; title: string; by: string; on: string; fields: BriefField[]; usedFor: string | null; approved: boolean };
 
 /** Who may add (no brief yet) or change and delete (a brief there): see BriefView.canEdit. Graphic designers only read. */
 async function mayWrite(me: { id: string; role: string }, contentId: string, createdBy: string | null, exists: boolean) {
@@ -60,7 +61,7 @@ async function mayRead(me: { id: string; role: string }, contentId: string) {
 async function bankChoices(me: { id: string; role: string }, customerId: string) {
   if (!(await mayUseBank(me, customerId))) return null;
   return db
-    .select({ id: bankBriefs.id, title: bankBriefs.title, fields: bankBriefs.fields, createdBy: bankBriefs.createdBy, createdAt: bankBriefs.createdAt, by: users.name, usedFor: contents.code })
+    .select({ id: bankBriefs.id, title: bankBriefs.title, fields: bankBriefs.fields, createdBy: bankBriefs.createdBy, createdAt: bankBriefs.createdAt, approvedAt: bankBriefs.approvedAt, by: users.name, usedFor: contents.code })
     .from(bankBriefs)
     .innerJoin(users, eq(users.id, bankBriefs.createdBy))
     .leftJoin(contentBriefs, eq(contentBriefs.bankBriefId, bankBriefs.id))
@@ -99,7 +100,8 @@ export async function loadBrief(contentId: string): Promise<{ ok: true; brief: B
       }))
     : [];
   const edited = row && row.updatedBy && row.updatedAt.getTime() - row.createdAt.getTime() > 1000;
-  const bank = row?.bankBriefId ? ((await db.select({ id: bankBriefs.id, title: bankBriefs.title }).from(bankBriefs).where(eq(bankBriefs.id, row.bankBriefId)))[0] ?? null) : null;
+  const linkedBank = row?.bankBriefId ? (await db.select({ id: bankBriefs.id, title: bankBriefs.title, approvedAt: bankBriefs.approvedAt }).from(bankBriefs).where(eq(bankBriefs.id, row.bankBriefId)))[0] : undefined;
+  const bank = linkedBank ? { id: linkedBank.id, title: linkedBank.title, pending: !linkedBank.approvedAt } : null;
   // A brief not linked to the bank (none yet, written by hand, or its bank brief was deleted) can be replaced by one from the bank.
   const choices = !row?.bankBriefId && canEdit ? await bankChoices(me, customerId) : null;
   return {
@@ -116,7 +118,7 @@ export async function loadBrief(contentId: string): Promise<{ ok: true; brief: B
       canEdit,
       template,
       bank,
-      bankUnused: choices ? choices.filter((c) => !c.usedFor).length : null,
+      bankUnused: choices ? choices.filter((c) => !c.usedFor && c.approvedAt).length : null,
     },
   };
 }
@@ -131,7 +133,7 @@ export async function loadBankPicks(contentId: string): Promise<{ ok: true; pick
   const choices = await bankChoices(me, content.customerId);
   if (!choices) return { ok: false, error: "notAllowed" };
   const { t } = await getDictionary();
-  return { ok: true, picks: choices.map((c) => ({ id: c.id, title: c.title, by: c.by, on: shortDate(dateInZone(c.createdAt), t.tasks), fields: parseBrief(c.fields), usedFor: c.usedFor })) };
+  return { ok: true, picks: choices.map((c) => ({ id: c.id, title: c.title, by: c.by, on: shortDate(dateInZone(c.createdAt), t.tasks), fields: parseBrief(c.fields), usedFor: c.usedFor, approved: !!c.approvedAt })) };
 }
 
 /**
@@ -153,13 +155,18 @@ export async function saveBrief(contentId: string, fields: unknown, bankBriefId?
   // Picked from the bank: it must be one this person may pick, of the same customer, and not used yet.
   let link: string | null = null;
   if (!current?.bankBriefId && bankBriefId) {
-    const [picked] = await db.select({ id: bankBriefs.id, customerId: bankBriefs.customerId, createdBy: bankBriefs.createdBy }).from(bankBriefs).where(eq(bankBriefs.id, String(bankBriefId)));
+    const [picked] = await db.select({ id: bankBriefs.id, customerId: bankBriefs.customerId, createdBy: bankBriefs.createdBy, approvedAt: bankBriefs.approvedAt }).from(bankBriefs).where(eq(bankBriefs.id, String(bankBriefId)));
     if (!picked || picked.customerId !== content.customerId || !ownsBankBrief(me, picked.createdBy) || !(await mayUseBank(me, content.customerId))) return { ok: false, error: "notAllowed" };
+    // Only an approved brief can be picked.
+    if (!picked.approvedAt) return { ok: false, error: "bankNotApproved" };
     const [taken] = await db.select({ id: contentBriefs.contentId }).from(contentBriefs).where(eq(contentBriefs.bankBriefId, picked.id));
     if (taken) return { ok: false, error: "bankUsed" };
     link = picked.id;
   }
 
+  // A linked brief whose text changes here changes in the bank too, and waits for approval there again.
+  const linkedId = current?.bankBriefId ?? link;
+  const bankBefore = linkedId ? (await db.select({ fields: bankBriefs.fields }).from(bankBriefs).where(eq(bankBriefs.id, linkedId)))[0]?.fields : undefined;
   try {
     await db.transaction(async (tx) => {
       if (current) await tx.update(contentBriefs).set({ fields: json, updatedBy: me.id, updatedAt: new Date(), ...(link ? { bankBriefId: link } : {}) }).where(eq(contentBriefs.contentId, contentId));
@@ -173,6 +180,7 @@ export async function saveBrief(contentId: string, fields: unknown, bankBriefId?
     throw error;
   }
   await tellAboutBrief(contentId, me, current ? "updated" : "added");
+  if (linkedId && bankBefore !== undefined && bankBefore !== json) await bankChangedFromTask(linkedId, me);
   revalidatePath("/", "layout");
   return { ok: true };
 }

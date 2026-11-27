@@ -17,6 +17,15 @@ export type Release = { version: string; date: string; items: ReleaseItem[] };
 
 export const RELEASES: Release[] = [
   {
+    version: "0.20.1",
+    date: "2026-11-27",
+    items: [
+      { kind: "improved", icon: "brief", for: "staff", az: { title: "Kontent bankında təsdiq", text: "Bankdakı brif yalnız təsdiqlənəndən sonra kontent ID üçün seçilə bilər. Brifi yazanda onu təsdiq edəcək əməkdaşları seçə bilərsiniz: hamısı təsdiqləyəndə brif təsdiqlənir. Heç kim seçilməsə, brifi özünüz təsdiqləyirsiniz. Əməkdaşların yazdığı briflər də onların və ya sizin təsdiqinizi gözləyir. Təsdiq edənlər brifə qeyd yaza və onu düzəldib təsdiqləyə bilər." }, en: { title: "Approval in the Content bank", text: "A bank brief can be picked for a content ID only once it is approved. When writing a brief you can choose employees to approve it: it is approved once all of them have. If nobody is chosen, you approve it yourself. Briefs written by employees wait for their approval or yours. Approvers can write notes on a brief, or edit and approve it." } },
+      { kind: "improved", icon: "brief", for: "employees", writers: true, az: { title: "Kontent bankında təsdiq", text: "Bankdakı brif yalnız təsdiqlənəndən sonra kontent ID üçün seçilə bilər. Yazdığınız brifi özünüz və ya admin/menecer təsdiqləyir. Təsdiqinizə göndərilən briflər də bankda görünür: onlara qeyd yaza, onları düzəldib təsdiqləyə bilərsiniz." }, en: { title: "Approval in the Content bank", text: "A bank brief can be picked for a content ID only once it is approved. You, or an admin or manager, approve the briefs you write. Briefs sent for your approval show in the bank too: you can write notes on them, or edit and approve them." } },
+      { kind: "improved", icon: "bell", az: { title: "Bildirişlər daha oxunaqlıdır", text: "Hər bildiriş ayrıca kartdadır, oxunmamışlar rənglə seçilir." }, en: { title: "Easier-to-read notifications", text: "Each notification is its own card, and unread ones are tinted." } },
+    ],
+  },
+  {
     version: "0.20.0",
     date: "2026-11-27",
     items: [

@@ -331,10 +331,52 @@ export const bankBriefs = mysqlTable(
       .notNull()
       .references(() => users.id),
     updatedBy: varchar("updated_by", { length: 36 }).references(() => users.id),
+    /**
+     * Set once the brief is approved (see src/lib/bank-rules.ts): by all its approvers when it has any,
+     * otherwise by its author (or, for an employee's brief, an admin or manager). Cleared when it changes.
+     * Only approved briefs can be picked for a content ID.
+     */
+    approvedAt: datetime("approved_at", { mode: "date", fsp: 3 }),
+    approvedBy: varchar("approved_by", { length: 36 }).references(() => users.id),
     createdAt: createdAt(),
     updatedAt: now("updated_at"),
   },
   (t) => [index("bank_briefs_customer_idx").on(t.customerId, t.createdAt)],
+);
+
+/** The employees an admin or manager asked to approve a bank brief; each approves (approvedAt) on their own. */
+export const bankApprovers = mysqlTable(
+  "bank_approvers",
+  {
+    bankBriefId: varchar("bank_brief_id", { length: 36 })
+      .notNull()
+      .references(() => bankBriefs.id, { onDelete: "cascade" }),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id),
+    approvedAt: datetime("approved_at", { mode: "date", fsp: 3 }),
+    /** Approved together with an edit (the note says what changed). */
+    edited: boolean("edited").notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.bankBriefId, t.userId] }), index("bank_approvers_user_idx").on(t.userId)],
+);
+
+/** Notes on a bank brief by its approvers and its author; `edited` marks the note written with an edit. */
+export const bankNotes = mysqlTable(
+  "bank_notes",
+  {
+    id: id(),
+    bankBriefId: varchar("bank_brief_id", { length: 36 })
+      .notNull()
+      .references(() => bankBriefs.id, { onDelete: "cascade" }),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => users.id),
+    body: varchar("body", { length: 1000 }).notNull(),
+    edited: boolean("edited").notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [index("bank_notes_brief_idx").on(t.bankBriefId, t.createdAt)],
 );
 
 /** Which customers an employee may use the Content bank for (Settings → Users). Admins and managers: all. */
@@ -395,7 +437,7 @@ export const taskReminders = mysqlTable(
   (t) => [primaryKey({ columns: [t.taskId, t.daysBefore] })],
 );
 
-export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder", "note", "personal", "deadline", "brief", "finished", "contentNote", "nudge"] as const;
+export const NOTIFICATION_KINDS = ["assigned", "moved", "changed", "review", "overdue", "summary", "status", "reminder", "note", "personal", "deadline", "brief", "finished", "contentNote", "nudge", "bank"] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 
 /**
