@@ -158,10 +158,13 @@ export function useStackWhenTight(row: RefObject<HTMLElement | null>): boolean {
       const style = getComputedStyle(el);
       const room = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
       const gap = parseFloat(style.columnGap) || 0;
-      // The people at full width: every part at its natural size (a cut name counts in full).
+      // The people at full width: every part at its natural size (a cut name counts in full). A part that
+      // doesn't cut its content counts at its own width, so a name shown above an avatar (positioned
+      // outside it) doesn't make the row stack.
       const inner = getComputedStyle(second);
       const parts = [...second.children] as HTMLElement[];
-      const people = parts.reduce((sum, p) => sum + p.scrollWidth, 0) + (parseFloat(inner.columnGap) || 0) * Math.max(0, parts.length - 1);
+      const width = (p: HTMLElement) => (getComputedStyle(p).overflowX === "visible" ? p.offsetWidth : p.scrollWidth);
+      const people = parts.reduce((sum, p) => sum + width(p), 0) + (parseFloat(inner.columnGap) || 0) * Math.max(0, parts.length - 1);
       setStack(first.offsetWidth + gap + people > room + 0.5);
     };
     check();
