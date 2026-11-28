@@ -21,7 +21,6 @@ export const RELEASES: Release[] = [
     date: "2026-11-28",
     items: [
       { kind: "new", icon: "list", az: { title: "Yeni tapşırıq kartları", text: "Tamamilə yeni dizaynda tapşırıq kartları. İndi daha rahat və daha oxunaqlıdır." }, en: { title: "New task cards", text: "Task cards in a completely new design. Now easier to use and easier to read." } },
-      { kind: "improved", icon: "list", for: "staff", az: { title: "Karta toxunun, tapşırıq açılsın", text: "Kartın istənilən yerinə toxunun və “Tapşırıq açılsın?” sualını təsdiqləyin: tapşırıq açılır (əvvəlki “Tapşırığı aç” kimi)." }, en: { title: "Tap a card to open the task", text: "Tap anywhere on a card and confirm “Open task?” to open the task (like “Open task” did before)." } },
     ],
   },
   {
