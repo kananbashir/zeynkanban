@@ -48,7 +48,7 @@ export function ClampText({ text, more, less, icon, className = "" }: { text: st
     const start = from.current;
     from.current = null;
     if (!el || start === null || prefersReducedMotion()) return;
-    const end = el.offsetHeight;
+    const end = el.getBoundingClientRect().height;
     const ease = "cubic-bezier(0.65, 0, 0.35, 1)";
     if (Math.abs(end - start) >= 1) el.animate([{ height: `${start}px`, overflow: "hidden" }, { height: `${end}px`, overflow: "hidden" }], { duration: 380, easing: ease });
     // The button now shown comes in as the height settles.
@@ -59,7 +59,7 @@ export function ClampText({ text, more, less, icon, className = "" }: { text: st
     if (busy.current) return;
     const go = () => {
       busy.current = false;
-      from.current = box.current?.offsetHeight ?? null;
+      from.current = box.current?.getBoundingClientRect().height ?? null;
       setOpen((v) => !v);
     };
     const shown = button.current;
