@@ -79,6 +79,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   pending = false,
+  tone = "danger",
 }: {
   title: string;
   text: string;
@@ -87,6 +88,8 @@ export function ConfirmDialog({
   onConfirm: () => void;
   onCancel: () => void;
   pending?: boolean;
+  /** The confirm button: red for something that can't be undone, dark for a plain step forward. */
+  tone?: "danger" | "dark";
 }) {
   const box = useRef<HTMLDivElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
@@ -144,7 +147,7 @@ export function ConfirmDialog({
           <button ref={cancel} type="button" onClick={onCancel} className="min-h-12 rounded-full bg-mint px-5 text-[15px] font-semibold hover:bg-teal-tint">
             {cancelLabel}
           </button>
-          <button type="button" onClick={onConfirm} disabled={pending} className="min-h-12 rounded-full bg-danger px-5 text-[15px] font-semibold text-white disabled:opacity-60">
+          <button type="button" onClick={onConfirm} disabled={pending} className={`min-h-12 rounded-full px-5 text-[15px] font-semibold disabled:opacity-60 ${tone === "danger" ? "bg-danger text-white" : "bg-ink text-surface"}`}>
             {confirmLabel}
           </button>
         </div>

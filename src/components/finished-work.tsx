@@ -59,7 +59,7 @@ export function AddFinishedButton({ label, onOpen, className = "" }: { label: st
  * The panel in a card just moved to a finished status: "Done! Add the finished work?" with named
  * links, Save and Not now. Saving puts it on the content ID, so every task of it shows the tag.
  */
-export function FinishedAsk({ contentId, code, taskId, t, onClose, onError }: { contentId: string; code: string; taskId: string; t: T; onClose: () => void; onError?: (message: string) => void }) {
+export function FinishedAsk({ contentId, code, taskId, t, onClose, onError, bare = false }: { contentId: string; code: string; taskId: string; t: T; onClose: () => void; onError?: (message: string) => void; bare?: boolean }) {
   const f = t.finished;
   const router = useRouter();
   const [rows, setRows] = useState<Row[]>(() => [blank()]);
@@ -77,7 +77,9 @@ export function FinishedAsk({ contentId, code, taskId, t, onClose, onError }: { 
       onClose();
     });
   return (
-    <section aria-label={f.askTitle} className="flex flex-col gap-3 rounded-[18px] bg-surface p-3 sm:p-3.5">
+    <section aria-label={f.askTitle} className={bare ? "flex flex-col gap-3 pb-1" : "flex flex-col gap-3 rounded-[18px] bg-surface p-3 sm:p-3.5"}>
+      {/* In a window, its title is in the window's header. */}
+      {!bare && (
       <div className="flex items-start gap-2.5">
         <span className="flex size-[34px] shrink-0 items-center justify-center rounded-[11px] bg-leaf-tint text-leaf-ink">
           <Check size={18} />
@@ -87,6 +89,7 @@ export function FinishedAsk({ contentId, code, taskId, t, onClose, onError }: { 
           <span className="text-[12.5px] text-muted">{fill(f.askText, { code })}</span>
         </div>
       </div>
+      )}
       <LinksEditor rows={rows} setRows={setRows} problem={problem} clearProblem={() => setProblem(null)} f={f} />
       <div className="flex flex-wrap items-center justify-end gap-2">
         <button type="button" onClick={onClose} className="min-h-11 rounded-full bg-mint px-4 text-[13px] font-semibold">

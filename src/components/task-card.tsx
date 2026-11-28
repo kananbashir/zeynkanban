@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useOptimistic, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
+import { useCallback, useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import { addTaskNote, deleteTaskNote, loadTaskNotes, type TaskNote } from "@/app/actions/task-notes";
 import { setTaskStatus } from "@/app/actions/tasks";
 import type { Dictionary } from "@/i18n/dictionaries";
@@ -12,14 +14,17 @@ import { MAX_NOTES, NOTE_LENGTH } from "@/lib/note-rules";
 import { ARCHIVED_BACKGROUND, cardBackground, taskEnd } from "@/lib/task-rules";
 import type { TaskView } from "@/lib/tasks";
 import { useMe } from "./me";
-import { Collapse } from "./motion";
+import { Collapse, useIsWide } from "./motion";
 import { AvatarGroup, personColor } from "./avatar-group";
-import { AddBriefButton, BriefTag, BriefWindow } from "./content-brief";
-import { ContentNoteStrip } from "./content-note";
+import { BriefWindow } from "./content-brief";
+import { PinIcon } from "./content-note";
+import { CloseButton, ConfirmDialog } from "./dialog";
+import { Sheet, useSheetClose } from "./sheet";
+import { ActionButtons, cardButtonClass, ClampText, useIsNarrow, useStackWhenTight } from "./task-card-parts";
 import { ContentWindow } from "./content-window";
 import { DeadlineStrip } from "./deadline-strip";
 import { NudgeButton } from "./nudge-button";
-import { AddFinishedButton, FinishedAsk, FinishedTag, FinishedWindow } from "./finished-work";
+import { FinishedAsk, FinishedWindow } from "./finished-work";
 import { askForFinished } from "./held-day";
 import { TaskTypeIcon } from "./task-type-icon";
 import { initials } from "./top-bar";
@@ -38,6 +43,13 @@ function Icon({ d, size = 16 }: { d: string; size?: number }) {
   );
 }
 const CAL = "M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zM16 2v4M8 2v4M3 10h18";
+const ALERT = "M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M12 8v5M12 16.5v.01";
+/** The task's own note: a sheet of paper with lines. */
+const NOTE_SHEET = "M16 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8zM15 3v4a2 2 0 0 0 2 2h4M7 13h6M7 17h4";
+const BRIEF = "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h5";
+const BANK = "M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z";
+const CLOCK = "M3 12a9 9 0 1 0 18 0a9 9 0 1 0-18 0M12 7v5l3 2";
+const DONE = "M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4 12 14l-3-3";
 const NOTE = "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z";
 
 /** A full-width task card: content ID, customer, status (changeable from the card), type, description, the people on it, date, note. */
@@ -93,7 +105,6 @@ export function TaskCard({
   const closeContent = useCallback(() => setContentOpen(false), []);
   // A card that just moved to its "finished" group is a new card: it picks the question up again.
   const [asking, setAsking] = useState(() => askForFinished.has(task.id) && !task.hasFinishedWork);
-  const [askAppear] = useState(asking);
   // Answered (Save or Not now): the question folds away first, then the card goes on to its new group.
   const stopAsking = useCallback(() => {
     setAsking(false);
@@ -101,9 +112,8 @@ export function TaskCard({
   }, [task.id]);
   // Notes: loaded the first time they are opened (before opening, so nothing jumps), then kept and
   // refreshed whenever the task's note count changes, e.g. after someone else adds one.
-  const [notesOpen, setNotesOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(notesInitiallyOpen);
   const [notes, setNotes] = useState<ShownNote[] | null>(null);
-  const [loadingNotes, setLoadingNotes] = useState(notesInitiallyOpen);
   const [seenCount, setSeenCount] = useState(task.notesCount);
   if (seenCount !== task.notesCount) {
     setSeenCount(task.notesCount);
@@ -111,25 +121,15 @@ export function TaskCard({
   }
   const fetchNotes = async () => {
     const result = await loadTaskNotes(task.id);
-    if (!result.ok) {
-      onError?.(result.error);
-      return false;
-    }
+    if (!result.ok) return onError?.(result.error);
     setNotes((shown) => mergeNotes(shown, result.notes));
-    return true;
   };
-  const toggleNotes = async () => {
-    if (notesOpen) return setNotesOpen(false);
-    if (notes) {
-      setNotesOpen(true);
-      fetchNotes();
-      return;
-    }
-    setLoadingNotes(true);
-    const loaded = await fetchNotes();
-    setLoadingNotes(false);
-    if (loaded) setNotesOpen(true);
+  // The notes open in a window over the page (loading there the first time).
+  const openNotes = () => {
+    setNotesOpen(true);
+    fetchNotes();
   };
+  const closeNotes = useCallback(() => setNotesOpen(false), []);
   // Open: someone else added or deleted a note, so show the current list.
   useEffect(() => {
     if (!notesOpen) return;
@@ -142,16 +142,14 @@ export function TaskCard({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [task.notesCount]);
-  // Opened from a note notification: show the notes straight away.
+  // Opened from a note notification: the notes window is open from the start; load them.
   useEffect(() => {
     if (!notesInitiallyOpen) return;
     let alive = true;
     loadTaskNotes(task.id).then((result) => {
       if (!alive) return;
-      setLoadingNotes(false);
       if (!result.ok) return onError?.(result.error);
       setNotes(mergeNotes(null, result.notes));
-      setNotesOpen(true);
     });
     return () => {
       alive = false;
@@ -160,6 +158,9 @@ export function TaskCard({
   }, []);
   const notesCount = notes ? notes.filter((x) => !x.leaving).length : task.notesCount;
   const [, startTransition] = useTransition();
+  const router = useRouter();
+  const narrow = useIsNarrow();
+  const wide = useIsWide();
   // The new status shows at once; the card moves to its new group when the page refreshes.
   const [statusId, setStatusId] = useOptimistic(task.statusId);
   const chosen = statusId !== task.statusId ? statuses.find((s) => s.id === statusId) : undefined;
@@ -202,185 +203,278 @@ export function TaskCard({
     });
   }
 
-  const editButton = (
-    <>
-      <Icon d={editHref ? "M7 17 17 7M7 7h10v10" : "M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"} />
-      {editHref ? t.openTask : t.edit}
-    </>
-  );
+  // Clicking the card asks admins and managers whether to open the task (the edit window on the customer
+  // page); for others it does nothing. Buttons, links and the windows opened from the card keep their own clicks.
+  const openTask = editHref ? () => router.push(editHref) : onEdit;
+  const [askOpen, setAskOpen] = useState(false);
+  const stopAskOpen = () => setAskOpen(false);
+  const onCardClick = (e: React.MouseEvent<HTMLElement>) => {
+    if (!openTask) return;
+    const target = e.target as HTMLElement;
+    if (!e.currentTarget.contains(target) || target.closest("button, a, input, textarea, select, label, [data-avatar]")) return;
+    if (window.getSelection()?.toString()) return; // selecting text, not clicking
+    setAskOpen(true);
+  };
+  // Without a deadline after its day, the task is due on its day: lateness shows as a bar on top.
+  const hasSpan = !!task.deadline && task.deadline !== task.dueDate;
+  const showPeople = showAssignee || task.assignees.length > 1;
+  const panel = "zk-panel rounded-[16px] max-sm:rounded-[13px]";
+  const box = `${panel} px-4 py-3.5 max-sm:px-[9px] max-sm:py-2`;
+  // Notes and the people: side by side, or stacked when the people would not fit beside Notes.
+  const peopleRow = useRef<HTMLDivElement>(null);
+  const stackPeople = useStackWhenTight(peopleRow);
+  const fit = "inline-flex items-center gap-1.5 whitespace-nowrap max-sm:gap-1";
+  const smallChip = "flex h-[30px] items-center rounded-[10px] bg-surface px-2.5 text-xs font-semibold leading-none text-ink-soft max-sm:h-[17px] max-sm:rounded-[5px] max-sm:px-1 max-sm:text-[8.5px]";
 
   return (
     <article
       data-task={task.id}
       data-flip={task.id}
-      className={`zk-card relative flex flex-col gap-2.5 rounded-[22px] border-[1.5px] p-3.5 transition-[background-color] duration-500 sm:gap-3 sm:px-5 sm:py-[18px] ${task.contentArchived ? "border-dashed border-subtle" : "border-transparent"} ${open || nudgeOpen ? "z-20" : "z-0"}`}
+      onClick={onCardClick}
+      className={`zk-card relative flex flex-col gap-2.5 rounded-[26px] p-2.5 transition-[background-color] duration-500 max-sm:gap-[5px] max-sm:rounded-[18px] max-sm:p-[5px] ${openTask ? "cursor-pointer" : ""} ${task.contentArchived ? "outline-dashed outline-[1.5px] -outline-offset-[1.5px] outline-subtle" : ""} ${open || nudgeOpen ? "z-20" : "z-0"}`}
       style={{ "--card": background, "--tint": task.contentArchived || closed ? "var(--color-subtle)" : status.deleted ? "var(--color-subtle)" : status.color } as React.CSSProperties}
     >
-      <div className="flex flex-col gap-2 border-b border-ink/12 pb-3">
-      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-2">
-        {/* On a phone the content ID and its tags are a row of their own; customer, bell and status share the next. */}
-        <div className={`contents ${showCustomer ? "max-sm:flex max-sm:basis-full max-sm:flex-wrap max-sm:items-center max-sm:gap-2" : ""}`}>
-        {contentWindow ? (
-          <button
-            type="button"
-            onClick={() => setContentOpen(true)}
-            aria-label={fill(t.contentWindow.open, { code: task.contentCode })}
-            title={t.contentWindow.hint}
-            className="flex items-center gap-1 rounded-lg bg-surface py-1 pl-2 pr-1.5 font-mono text-xs font-medium transition-shadow hover:shadow-[0_0_0_2px_var(--color-teal)] focus-visible:shadow-[0_0_0_2px_var(--color-teal)]"
-          >
-            {task.contentCode}
-            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="text-teal-deep">
-              <path d="M7 17 17 7M8 7h9v9" />
-            </svg>
-          </button>
-        ) : (
-          <span className="rounded-lg bg-surface px-2 py-1 font-mono text-xs font-medium">{task.contentCode}</span>
-        )}
-        {task.hasBrief && <BriefTag label={t.brief.tag} fromBank={task.briefFromBank ? t.brief.fromBank : undefined} pending={task.briefBankPending ? t.brief.bankPending : undefined} onOpen={() => setBriefOpen(true)} />}
-        {task.hasFinishedWork && <FinishedTag f={t.finished} onOpen={() => setFinishedOpen(true)} />}
-        {task.contentArchived && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.archivedContent}</span>}
-        {!task.assignees.length && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-ink-soft">{t.draft}</span>}
+      {!hasSpan && lateDays > 0 && (
+        <div className="flex h-[42px] items-center gap-2 rounded-[16px] bg-[color-mix(in_oklab,var(--color-danger)_22%,var(--card-bg))] px-4 text-[13.5px] font-bold leading-none text-danger max-sm:h-6 max-sm:gap-1 max-sm:rounded-[13px] max-sm:px-[9px] max-sm:text-[9.5px]">
+          <Icon d={ALERT} size={narrow ? 11 : 16} />
+          {lateLabel}
         </div>
-        {showCustomer && (
-          <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold max-sm:flex-1">
-            <span className="size-2.5 shrink-0 rounded-full border-[1.5px] border-black/25" style={{ background: task.customerColor }} />
-            <span className="truncate">{task.customerName}</span>
-          </span>
-        )}
-        {/* On a phone lateness goes with the date (or the deadline strip, which says it too). */}
-        {lateDays > 0 && <span className="rounded-full bg-surface px-2.5 py-1 text-xs font-bold text-danger max-sm:hidden">{lateLabel}</span>}
-        <div className="relative ml-auto flex shrink-0 items-center gap-2">
-        {/* Admins and managers can remind the people on the task with the bell. */}
-        {canWriteBrief && !task.archived && <NudgeButton task={task} meId={me?.id} t={t} onError={onError} onOpenChange={setNudgeOpen} />}
-        <div className="relative">
+      )}
+
+      {/* Four panels: content ID | customer, bell and status; task type | notes and the people on it. */}
+      <div className="grid grid-cols-2 gap-2.5 max-sm:gap-[5px]">
+        <div className={`${box} flex min-w-0 flex-col justify-center`}>
+          <div className="flex flex-wrap items-center gap-1.5 max-sm:gap-1">
+            {contentWindow ? (
+              <button
+                type="button"
+                onClick={() => setContentOpen(true)}
+                aria-label={fill(t.contentWindow.open, { code: task.contentCode })}
+                title={t.contentWindow.hint}
+                className="flex h-[30px] items-center gap-1.5 rounded-[10px] bg-surface px-2.5 font-mono text-[13px] font-semibold leading-none transition-shadow hover:shadow-[0_0_0_2px_var(--color-teal)] focus-visible:shadow-[0_0_0_2px_var(--color-teal)] max-sm:h-[17px] max-sm:gap-0.5 max-sm:rounded-[5px] max-sm:px-1 max-sm:text-[8.5px]"
+              >
+                {task.contentCode}
+                <svg viewBox="0 0 24 24" width={narrow ? 8 : 13} height={narrow ? 8 : 13} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0 text-teal-deep">
+                  <path d="M7 17 17 7M8 7h9v9" />
+                </svg>
+              </button>
+            ) : (
+              <span className="flex h-[30px] items-center rounded-[10px] bg-surface px-2.5 font-mono text-[13px] font-semibold leading-none max-sm:h-[17px] max-sm:rounded-[5px] max-sm:px-1 max-sm:text-[8.5px]">{task.contentCode}</span>
+            )}
+            {task.contentArchived && <span className={smallChip}>{t.archivedContent}</span>}
+            {!task.assignees.length && <span className={smallChip}>{t.draft}</span>}
+          </div>
+        </div>
+        {/* On a computer one row (customer left, bell and status right); on a phone stacked on the right. */}
+        <div className={`${box} flex min-w-0 items-center gap-3 max-sm:flex-col max-sm:items-end max-sm:gap-[5px] ${showCustomer ? "justify-between" : "justify-end max-sm:justify-center"}`}>
+          {showCustomer && (
+            <span className="flex min-w-0 max-w-full flex-row-reverse items-center gap-2 text-[15px] font-semibold leading-tight max-sm:flex-row max-sm:gap-1 max-sm:text-[9px]">
+              <span className="truncate">{task.customerName}</span>
+              <span className="size-[11px] shrink-0 rounded-full border-[1.5px] border-black/25 max-sm:size-[7px] max-sm:border" style={{ background: task.customerColor }} />
+            </span>
+          )}
+          <div className="relative flex min-w-0 max-w-full items-center gap-2 max-sm:gap-[3px]">
+            {/* Admins and managers can remind the people on the task with the bell. */}
+            {canWriteBrief && !task.archived && <NudgeButton task={task} meId={me?.id} t={t} onError={onError} onOpenChange={setNudgeOpen} />}
+            <div className="relative min-w-0">
+              <button
+                type="button"
+                disabled={!canChange}
+                aria-haspopup="true"
+                aria-expanded={open}
+                aria-label={fill(t.statusAria, { name: statusLabel })}
+                title={locked ? t.statusLocked : undefined}
+                onClick={() => setOpen((v) => !v)}
+                className="flex h-10 min-w-0 max-w-full items-center gap-2 rounded-full bg-surface pl-3.5 pr-3 text-[13.5px] font-semibold leading-none disabled:cursor-default max-sm:h-[22px] max-sm:gap-[3px] max-sm:pl-[7px] max-sm:pr-1.5 max-sm:text-[9.5px]"
+              >
+                <span className="size-[9px] shrink-0 rounded-full transition-colors duration-500 max-sm:size-[5px]" style={{ background: status.deleted ? "var(--color-subtle)" : status.color }} />
+                <span className="truncate leading-tight">{statusLabel}</span>
+                {canChange && <Icon d="m6 9 6 6 6-6" size={narrow ? 9 : 14} />}
+              </button>
+              {open && (
+                <>
+                  <button data-no-press type="button" aria-label={t.form.close} tabIndex={-1} className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
+                  <div className="absolute right-0 top-[calc(100%+6px)] z-20 flex min-w-[190px] flex-col gap-0.5 rounded-[18px] bg-surface p-1.5 shadow-[0_12px_32px_rgba(24,35,47,0.18)] sm:min-w-[210px]">
+                    {choices.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => choose(s.id)}
+                        className={`flex min-h-10 items-center gap-2.5 rounded-xl px-2.5 text-left text-[13px] font-medium sm:min-h-11 sm:px-3 sm:text-sm ${s.id === statusId ? "bg-mint" : "hover:bg-mint-soft"}`}
+                      >
+                        <span className="size-[9px] shrink-0 rounded-full" style={{ background: s.color }} />
+                        <span className="flex-1">{s.name}</span>
+                        {s.id === statusId && <Icon d="m5 12 5 5L20 7" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className={`${box} flex min-w-0 flex-col justify-center`}>
+          <h3 className="flex min-w-0 items-center gap-2.5 text-[19px] font-semibold leading-tight max-sm:gap-[5px] max-sm:text-[11.5px]">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-[11px] bg-surface text-teal-deep max-sm:size-5 max-sm:rounded-[6px]">
+              <TaskTypeIcon name={task.typeIcon} size={narrow ? 11 : 18} />
+            </span>
+            {editHref ? (
+              <Link href={editHref} aria-label={`${t.openTask}: ${typeLabel}`} className="min-w-0 break-words">
+                {typeLabel}
+              </Link>
+            ) : onEdit ? (
+              <button type="button" onClick={onEdit} aria-label={`${t.edit}: ${typeLabel}`} className="min-w-0 break-words text-left">
+                {typeLabel}
+              </button>
+            ) : (
+              <span className="min-w-0 break-words">{typeLabel}</span>
+            )}
+          </h3>
+        </div>
+        {/* Side by side when they fit; otherwise the people go under Notes, both on the right. */}
+        <div ref={peopleRow} className={`${box} flex min-w-0 gap-x-3 gap-y-2 max-sm:gap-x-1.5 max-sm:gap-y-[5px] ${stackPeople ? "flex-col items-end justify-center" : "items-center justify-between"}`}>
           <button
             type="button"
-            disabled={!canChange}
-            aria-haspopup="true"
-            aria-expanded={open}
-            aria-label={fill(t.statusAria, { name: statusLabel })}
-            title={locked ? t.statusLocked : undefined}
-            onClick={() => setOpen((v) => !v)}
-            className="flex min-h-8 items-center gap-1.5 whitespace-nowrap rounded-full bg-surface pl-2.5 pr-2 text-xs font-semibold disabled:cursor-default sm:min-h-11 sm:gap-2 sm:pl-3.5 sm:pr-3 sm:text-[13px]"
+            aria-haspopup="dialog"
+            aria-expanded={notesOpen}
+            onClick={openNotes}
+            className="flex h-9 items-center gap-1.5 rounded-full pl-2.5 pr-1 text-[13.5px] font-semibold leading-none text-ink transition-colors hover:bg-surface/60 max-sm:h-[18px] max-sm:gap-[3px] max-sm:pl-0 max-sm:pr-0 max-sm:text-[9.5px]"
           >
-            <span className="size-[9px] rounded-full transition-colors duration-500" style={{ background: status.deleted ? "var(--color-subtle)" : status.color }} />
-            <span>{statusLabel}</span>
-            {canChange && <Icon d="m6 9 6 6 6-6" />}
+            <Icon d={NOTE} size={narrow ? 10 : 16} />
+            {t.notes.button}
+            {notesCount > 0 && (
+              <span key={notesCount} className="zk-pop flex h-[22px] min-w-[22px] items-center justify-center rounded-full bg-surface px-1.5 text-[11px] font-bold leading-none tabular-nums max-sm:h-3.5 max-sm:min-w-3.5 max-sm:px-1 max-sm:text-[8px]">
+                {notesCount}
+              </span>
+            )}
           </button>
-          {open && (
-            <>
-              <button data-no-press type="button" aria-label={t.form.close} tabIndex={-1} className="fixed inset-0 z-10 cursor-default" onClick={() => setOpen(false)} />
-              <div className="absolute right-0 top-[38px] z-20 flex min-w-[190px] flex-col gap-0.5 rounded-[18px] bg-surface p-1.5 shadow-[0_12px_32px_rgba(24,35,47,0.18)] sm:top-[50px] sm:min-w-[210px]">
-                {choices.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => choose(s.id)}
-                    className={`flex min-h-10 items-center gap-2.5 rounded-xl px-2.5 text-left text-[13px] font-medium sm:min-h-11 sm:px-3 sm:text-sm ${s.id === statusId ? "bg-mint" : "hover:bg-mint-soft"}`}
-                  >
-                    <span className="size-[9px] shrink-0 rounded-full" style={{ background: s.color }} />
-                    <span className="flex-1">{s.name}</span>
-                    {s.id === statusId && <Icon d="m5 12 5 5L20 7" />}
-                  </button>
-                ))}
-              </div>
-            </>
+          {showPeople && (
+            <span className="flex min-w-0 max-w-full items-center gap-2 text-[13px] font-semibold leading-tight max-sm:gap-[3px] max-sm:text-[9.5px]">
+              {task.assignees.length ? (
+                <>
+                  <span className="min-w-0 truncate">
+                    {task.assignees.length === 1 ? task.assignees[0].name : fill(t.peopleFirstMore, { name: task.assignees[0].name, n: task.assignees.length - 1 })}
+                  </span>
+                  <AvatarGroup size={narrow ? 17 : 30} people={task.assignees} label={fill(t.peopleOn, { names: task.assignees.map((p) => p.name).join(", ") })} more={(n) => (n ? fill(t.peopleMore, { n }) : "")} />
+                </>
+              ) : (
+                <span className="text-ink-soft">{t.noAssignee}</span>
+              )}
+            </span>
           )}
         </div>
+      </div>
+
+      {task.contentNote && (
+        <div className={`${box} py-3 max-sm:py-2`}>
+          <ClampText
+            text={task.contentNote}
+            more={t.contents.more}
+            less={t.contents.less}
+            icon={<PinIcon size={narrow ? 9 : 14} className="mr-[7px] mt-[3px] text-sun-ink max-sm:mr-[3px] max-sm:mt-0.5" />}
+            className="text-[13px] leading-[1.45] text-ink-body max-sm:text-[9.5px] max-sm:leading-[1.4]"
+          />
         </div>
-      </div>
-      {task.contentNote && <ContentNoteStrip note={task.contentNote} label={fill(t.contents.noteOf, { code: task.contentCode })} more={t.contents.more} less={t.contents.less} />}
-      </div>
-      <h3 className="flex items-center gap-2.5 text-[17px] font-semibold sm:text-xl">
-        <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-surface/75 text-teal-deep sm:size-9">
-          <TaskTypeIcon name={task.typeIcon} size={18} />
-        </span>
-        <span className="min-w-0">{typeLabel}</span>
-      </h3>
-      {task.description && <p className="max-w-[70ch] whitespace-pre-line text-sm leading-normal text-ink-body">{task.description}</p>}
-      {task.deadline && (
-        // A status just picked as finished has no finish day from the server yet: that is today.
-        <DeadlineStrip start={task.dueDate} end={task.deadline} today={today} finished={status.finished} cancelled={status.cancelled} postponed={status.postponed} finishedOn={task.finished ? task.finishedOn : status.finished ? today : null} t={t} />
       )}
-      <Collapse open={asking && !task.hasFinishedWork} appear={askAppear}>
-        <FinishedAsk contentId={task.contentId} code={task.contentCode} taskId={task.id} t={t} onClose={stopAsking} onError={onError} />
-      </Collapse>
-      <div className="flex flex-wrap items-center gap-x-[18px] gap-y-1.5 border-t border-ink/12 pt-2 text-[13px] text-ink-soft max-sm:flex-col max-sm:items-stretch max-sm:gap-y-2.5 max-sm:pt-3">
-        {(showAssignee || task.assignees.length > 1) && (
-          <span className="flex min-w-0 items-center gap-2">
-            {task.assignees.length ? (
-              <>
-                <AvatarGroup people={task.assignees} label={fill(t.peopleOn, { names: task.assignees.map((p) => p.name).join(", ") })} more={(n) => (n ? fill(t.peopleMore, { n }) : "")} />
-                <span className="min-w-0 truncate font-medium text-ink">
-                  {task.assignees.length === 1 ? task.assignees[0].name : fill(t.peopleFirstMore, { name: task.assignees[0].name, n: task.assignees.length - 1 })}
+      {(task.description || task.note) && (
+        <div className={`${box} flex flex-col gap-2 max-sm:gap-[5px]`}>
+          {task.description && <ClampText text={task.description} more={t.contents.more} less={t.contents.less} className="text-sm leading-normal text-ink-body max-sm:text-[10.5px] max-sm:leading-[1.45]" />}
+          {task.note && (
+            <span className="flex min-w-0 items-center gap-1.5 text-[12.5px] leading-snug text-ink-soft max-sm:gap-[3px] max-sm:text-[9px]">
+              <Icon d={NOTE_SHEET} size={narrow ? 9 : 14} />
+              <span className="min-w-0 [overflow-wrap:anywhere]">{task.note}</span>
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Brief, finished work, and adding them. Hidden when there is none of these. */}
+      <ActionButtons grid={!wide}>
+        {task.hasBrief && (
+          <button type="button" onClick={() => setBriefOpen(true)} aria-label={task.briefFromBank ? [t.brief.tag, t.brief.fromBank, task.briefBankPending ? t.brief.bankPending : ""].filter(Boolean).join(" · ") : undefined} className={cardButtonClass("dark")}>
+            <span data-fit className={fit}>
+              <Icon d={BRIEF} size={narrow ? 11 : 15} />
+              {t.brief.tag}
+              {task.briefFromBank && (
+                <span title={t.brief.fromBank} className="flex size-[17px] items-center justify-center rounded-full bg-teal text-white max-sm:size-3">
+                  <Icon d={BANK} size={narrow ? 8 : 11} />
                 </span>
-              </>
-            ) : (
-              <span className="font-medium">{t.noAssignee}</span>
-            )}
-          </span>
+              )}
+              {task.briefBankPending && (
+                <span title={t.brief.bankPending} className="flex size-[17px] items-center justify-center rounded-full bg-sun text-on-pastel max-sm:size-3">
+                  <Icon d={CLOCK} size={narrow ? 8 : 11} />
+                </span>
+              )}
+            </span>
+          </button>
         )}
-        {!task.deadline && (
-          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-            <Icon d={CAL} />
-            {fill(closed ? t.wasDue : t.due, { date: shortDate(end, t) })}
-            {lateDays > 0 && <span className="ml-1 rounded-full bg-surface px-2 py-0.5 text-xs font-bold text-danger sm:hidden">{lateLabel}</span>}
-          </span>
-        )}
-        {task.note && (
-          <span className="flex min-w-0 items-center gap-1.5">
-            <Icon d={NOTE} />
-            {task.note}
-          </span>
+        {task.hasFinishedWork && (
+          <button type="button" onClick={() => setFinishedOpen(true)} aria-label={t.finished.tag} className={cardButtonClass("leaf")}>
+            <span data-fit className={fit}>
+              <Icon d={DONE} size={narrow ? 11 : 15} />
+              {t.finished.tag}
+            </span>
+          </button>
         )}
         {addBrief && (
-          <span className="ml-auto max-sm:ml-0">
-            <AddBriefButton label={t.brief.add} onOpen={() => setBriefOpen(true)} className="max-sm:min-h-11 max-sm:w-full" />
-          </span>
+          <button type="button" onClick={() => setBriefOpen(true)} className={cardButtonClass("dashed")}>
+            <span data-fit className={fit}>
+              <span aria-hidden="true">+</span>
+              {t.brief.add}
+            </span>
+          </button>
         )}
         {addFinished && (
-          <span className={addBrief ? "" : "ml-auto max-sm:ml-0"}>
-            <AddFinishedButton label={t.finished.add} onOpen={() => setFinishedOpen(true)} className="max-sm:min-h-11 max-sm:w-full" />
-          </span>
-        )}
-        {/* On a phone Notes and Open task are two equal halves along the bottom of the card. */}
-        <div className={`contents max-sm:-mx-3.5 max-sm:mt-0.5 max-sm:grid max-sm:border-t max-sm:border-ink/12 ${editHref || onEdit ? "max-sm:grid-cols-2" : "max-sm:grid-cols-1"} ${addBrief || addFinished ? "" : "sm:[&>*:first-child]:ml-auto"}`}>
-        <button
-          type="button"
-          aria-expanded={notesOpen}
-          aria-busy={loadingNotes}
-          onClick={toggleNotes}
-          className={`flex min-h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] font-semibold transition-colors max-sm:min-h-12 max-sm:justify-center max-sm:rounded-none sm:min-h-10 ${editHref || onEdit ? "max-sm:border-r max-sm:border-ink/12" : ""} ${notesOpen ? "bg-surface text-ink" : "text-ink hover:bg-surface/60"}`}
-        >
-          {loadingNotes ? (
-            <span className="size-4 shrink-0 animate-spin rounded-full border-2 border-ink/20 border-t-ink" aria-hidden="true" />
-          ) : (
-            <Icon d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2zM8 9h8M8 13h5" />
-          )}
-          {t.notes.button}
-          {notesCount > 0 && <span key={notesCount} className="zk-pop flex h-5 min-w-5 items-center justify-center rounded-full bg-surface px-1.5 text-[11px] font-bold tabular-nums">{notesCount}</span>}
-        </button>
-        {editHref ? (
-          <Link href={editHref} className="flex min-h-9 items-center gap-1.5 rounded-full py-0 pl-3 pr-1.5 text-[13px] font-semibold text-ink max-sm:min-h-12 max-sm:justify-center max-sm:rounded-none max-sm:px-2 sm:min-h-11">
-            {editButton}
-          </Link>
-        ) : onEdit ? (
-          <button type="button" onClick={onEdit} className="flex min-h-9 items-center gap-1.5 rounded-full pl-3 pr-1.5 text-[13px] font-semibold text-ink max-sm:min-h-12 max-sm:justify-center max-sm:rounded-none max-sm:px-2 sm:min-h-11">
-            {editButton}
+          <button type="button" onClick={() => setFinishedOpen(true)} className={cardButtonClass("dashed")}>
+            <span data-fit className={fit}>
+              <span aria-hidden="true">+</span>
+              {t.finished.add}
+            </span>
           </button>
-        ) : null}
-        </div>
-      </div>
-      <Collapse open={notesOpen && !!notes} className="-mt-1 sm:-mt-1.5">
-        {notes && (
-          <div className="pt-1">
-            <NotesPanel notes={notes} setNotes={setNotes} taskId={task.id} t={t} onError={onError} />
-          </div>
         )}
-      </Collapse>
+      </ActionButtons>
+
+      {hasSpan ? (
+        // A status just picked as finished has no finish day from the server yet: that is today.
+        <DeadlineStrip start={task.dueDate} end={task.deadline!} today={today} finished={status.finished} cancelled={status.cancelled} postponed={status.postponed} finishedOn={task.finished ? task.finishedOn : status.finished ? today : null} t={t} />
+      ) : (
+        <div className={`${panel} flex h-12 items-center gap-2 px-4 text-[13.5px] leading-none text-ink-soft max-sm:h-[26px] max-sm:gap-1 max-sm:px-[9px] max-sm:text-[9.5px]`}>
+          <Icon d={CAL} size={narrow ? 11 : 16} />
+          {fill(closed ? t.wasDue : t.due, { date: shortDate(end, t) })}
+        </div>
+      )}
+
+      {notesOpen && (
+        <Sheet label={t.notes.title} onClose={closeNotes} width="sm:max-w-[560px]" header={<SheetHeading eyebrow={`${t.notes.title} · ${task.contentCode}`} title={typeLabel} close={t.form.close} />}>
+          {notes ? <NotesPanel notes={notes} setNotes={setNotes} taskId={task.id} t={t} onError={onError} /> : <p className="py-6 text-center text-sm text-muted">{t.brief.loading}</p>}
+        </Sheet>
+      )}
+      {asking && !task.hasFinishedWork && (
+        <Sheet label={t.finished.askTitle} onClose={stopAsking} width="sm:max-w-[600px]" header={<SheetHeading title={t.finished.askTitle} text={fill(t.finished.askText, { code: task.contentCode })} close={t.form.close} icon={<Icon d={DONE} size={19} />} />}>
+          <AskBody contentId={task.contentId} code={task.contentCode} taskId={task.id} t={t} onError={onError} />
+        </Sheet>
+      )}
       {contentOpen && <ContentWindow contentId={task.contentId} fromTask={task.id} onClose={closeContent} t={t} />}
       {finishedOpen && <FinishedWindow contentId={task.contentId} taskId={task.id} onClose={closeFinished} t={t} />}
       {briefOpen && <BriefWindow contentId={task.contentId} startEditing={!task.hasBrief} onClose={closeBrief} t={t} />}
+      {askOpen &&
+        openTask &&
+        createPortal(
+          <ConfirmDialog
+            title={t.askOpen.title}
+            text={`${task.contentCode} · ${typeLabel}`}
+            confirmLabel={t.openTask}
+            cancelLabel={t.askOpen.cancel}
+            tone="dark"
+            onCancel={stopAskOpen}
+            onConfirm={() => {
+              setAskOpen(false);
+              openTask();
+            }}
+          />,
+          document.body,
+        )}
     </article>
   );
 }
@@ -519,4 +613,26 @@ function NotesPanel({
       </Collapse>
     </section>
   );
+}
+
+/** The top of a window opened from the card: a small line above, its title (or a line under it), and ✕. */
+function SheetHeading({ eyebrow, title, text, icon, close }: { eyebrow?: string; title: string; text?: string; icon?: ReactNode; close: string }) {
+  const done = useSheetClose();
+  return (
+    <div className="flex items-start gap-3">
+      {icon && <span className="flex size-[38px] shrink-0 items-center justify-center rounded-xl bg-leaf-tint text-leaf-ink">{icon}</span>}
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        {eyebrow && <span className="text-[13px] font-semibold text-teal-deep">{eyebrow}</span>}
+        <h2 className="text-lg font-semibold leading-snug sm:text-xl">{title}</h2>
+        {text && <span className="text-[12.5px] leading-snug text-muted">{text}</span>}
+      </div>
+      <CloseButton label={close} onClick={done} />
+    </div>
+  );
+}
+
+/** "Done! Add the finished work?" in its window: Save or Not now close the window (with its movement). */
+function AskBody({ contentId, code, taskId, t, onError }: { contentId: string; code: string; taskId: string; t: Dictionary["tasks"]; onError?: (message: string) => void }) {
+  const close = useSheetClose();
+  return <FinishedAsk bare contentId={contentId} code={code} taskId={taskId} t={t} onClose={close} onError={onError} />;
 }

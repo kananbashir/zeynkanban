@@ -103,10 +103,22 @@ html[data-dark] .bg-danger {
 }
 /* Task cards: a dark tint of the status colour instead of the light pastel. */
 .zk-card {
-  background: var(--card);
+  --card-bg: var(--card);
+  background: var(--card-bg);
 }
 html[data-dark] .zk-card {
-  background: color-mix(in oklab, var(--tint) 22%, var(--color-surface));
+  --card-bg: color-mix(in oklab, var(--tint) 22%, var(--color-surface));
+}
+/* The panels inside a task card: a lighter shade of the card's own colour, no border
+   (in the dark theme, a brighter tint of the status colour). */
+.zk-card {
+  --panel: color-mix(in oklab, var(--card-bg) 60%, var(--color-surface));
+}
+html[data-dark] .zk-card {
+  --panel: color-mix(in oklab, var(--tint) 34%, var(--color-surface));
+}
+.zk-panel {
+  background: var(--panel);
 }
 /* Notification icons: pastel circle in light; in dark, a dim circle with the pastel as the icon colour. */
 .zk-tint {

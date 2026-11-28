@@ -1,10 +1,10 @@
 import type { Dictionary } from "@/i18n/dictionaries";
 import { fill } from "@/i18n/format";
-import { daysBetween, weekdayIndex } from "@/lib/dates";
+import { daysBetween } from "@/lib/dates";
 import { shortDate } from "@/lib/format-date";
 import { deadlineState } from "@/lib/task-rules";
 
-type T = Pick<Dictionary["tasks"], "weekdays" | "monthsShort" | "today" | "strip">;
+type T = Pick<Dictionary["tasks"], "monthsShort" | "today" | "strip">;
 
 /** Colours of the bar, its "today" marker and the chip, by where the task stands. */
 const LOOK = {
@@ -21,7 +21,8 @@ const LOOK = {
 /**
  * A task's span from its start day to its deadline, as a bar that fills up to today, with a chip
  * saying what matters now: starts in n days, n days left, due today, n days late, or done (early,
- * on time or late). On a narrow card the chip moves under the bar.
+ * on time or late). The start and deadline are day tiles; while running with room to spare the
+ * chip sits on the bar, otherwise after the deadline (on a phone, on its own row under the bar).
  */
 export function DeadlineStrip({
   start,
@@ -68,36 +69,47 @@ export function DeadlineStrip({
                   : s.done;
   const showToday = !cancelled && (state.kind === "running" || state.kind === "lastDay");
   const pct = state.progress * 100;
-  // The "Today" word stays inside the bar's ends instead of spilling over the dates.
-  const labelAt = pct < 15 ? "left-[-4px]" : pct > 85 ? "right-[-4px]" : "left-1/2 -translate-x-1/2";
-  const day = (iso: string) => t.weekdays[weekdayIndex(iso)].slice(0, 3);
-  const end1 = (label: string, iso: string, right = false) => (
-    <span className={`flex shrink-0 flex-col leading-tight ${right ? "items-end text-right" : ""}`}>
-      <span className="text-[10px] font-bold uppercase tracking-wider text-muted">{label}</span>
-      <span className="whitespace-nowrap text-[15px] font-bold text-ink">{shortDate(iso, t)}</span>
-      <span className="text-[11px] text-muted">{day(iso)}</span>
+
+  // Running with room to spare: the chip sits on the bar, between today and the deadline; otherwise after the deadline.
+  const onBar = showToday && state.kind === "running" && pct <= 40;
+  const late = state.kind === "late" && !cancelled && !postponed;
+  const tile = (iso: string, ring = false) => (
+    <span className={`flex size-[52px] shrink-0 flex-col items-center justify-center rounded-xl bg-surface leading-[1.1] max-sm:size-[29px] max-sm:rounded-[7px] ${ring ? "shadow-[inset_0_0_0_1.5px_var(--color-danger)]" : ""}`}>
+      <b className="text-[17px] max-sm:text-[10.5px]">{Number(iso.slice(8))}</b>
+      <span className="text-[11px] font-semibold text-muted max-sm:text-[7.5px]">{t.monthsShort[Number(iso.slice(5, 7)) - 1]}</span>
     </span>
+  );
+  const chipEl = (extra = "") => (
+    <span className={`flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-full px-3 text-[13px] font-bold leading-none max-sm:h-5 max-sm:px-2 max-sm:text-[9.5px] ${look.chip} ${extra}`}>{chip}</span>
   );
 
   return (
     <div
       role="group"
       aria-label={`${s.start} ${shortDate(start, t)}, ${s.deadline} ${shortDate(end, t)}: ${chip}`}
-      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-[16px] bg-surface/70 px-3.5 py-2.5"
+      className="zk-panel flex flex-wrap items-center gap-3 rounded-[16px] px-3 py-2.5 max-sm:gap-[5px] max-sm:rounded-[13px] max-sm:p-[5px]"
     >
-      <div aria-hidden="true" className="flex min-w-0 flex-[1_1_240px] items-center gap-3">
-        {end1(s.start, start)}
-        <span className="relative h-1.5 min-w-12 flex-1 rounded-full bg-ink/12">
-          <span className={`absolute inset-y-0 left-0 rounded-full ${look.fill}`} style={{ width: `${pct}%` }} />
+      <div aria-hidden="true" className="flex min-w-0 flex-[1_1_200px] items-center gap-3 max-sm:gap-[5px]">
+        {tile(start)}
+        <span className="relative h-1.5 min-w-12 flex-1 rounded-full bg-ink/14 max-sm:h-[3px]">
+          <span className={`absolute inset-y-0 left-0 rounded-full ${late ? "bg-danger" : look.fill}`} style={{ width: `${pct}%` }} />
           {showToday && (
-            <span className={`absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] bg-surface shadow-[0_1px_4px_rgba(0,0,0,0.18)] ${look.ring}`} style={{ left: `${pct}%` }}>
-              <span className={`absolute bottom-[calc(100%+3px)] whitespace-nowrap text-[10px] font-bold ${labelAt} ${look.label}`}>{t.today}</span>
+            <span
+              className={`absolute top-1/2 flex h-6 -translate-x-1/2 -translate-y-1/2 items-center whitespace-nowrap rounded-full border-[1.5px] bg-surface px-2.5 text-[11.5px] font-bold leading-none max-sm:h-[15px] max-sm:px-[5px] max-sm:text-[8px] ${look.ring} ${look.label}`}
+              style={{ left: `clamp(28px, ${pct}%, calc(100% - 28px))` }}
+            >
+              {t.today}
+            </span>
+          )}
+          {onBar && (
+            <span className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ left: `${(pct + 100) / 2 + 4}%` }}>
+              {chipEl("h-6 max-sm:h-[15px] max-sm:text-[8px]")}
             </span>
           )}
         </span>
-        {end1(s.deadline, end, true)}
+        {tile(end, late)}
       </div>
-      <span className={`ml-auto whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold ${look.chip}`}>{chip}</span>
+      {!onBar && chipEl("max-sm:basis-full max-sm:order-last")}
     </div>
   );
 }

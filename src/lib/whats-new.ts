@@ -17,6 +17,13 @@ export type Release = { version: string; date: string; items: ReleaseItem[] };
 
 export const RELEASES: Release[] = [
   {
+    version: "0.21.0",
+    date: "2026-11-28",
+    items: [
+      { kind: "new", icon: "list", az: { title: "Yeni tapşırıq kartları", text: "Tamamilə yeni dizaynda tapşırıq kartları. İndi daha rahat və daha oxunaqlıdır." }, en: { title: "New task cards", text: "Task cards in a completely new design. Now easier to use and easier to read." } },
+    ],
+  },
+  {
     version: "0.20.1",
     date: "2026-11-27",
     items: [
