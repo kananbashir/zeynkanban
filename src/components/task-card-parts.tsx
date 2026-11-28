@@ -21,13 +21,16 @@ export function useIsNarrow(): boolean {
 
 /**
  * Text shown on two lines; when it is longer, "… more" at the end of the second line opens the rest
- * (the height eases open), and "Less" after the text folds it again.
+ * and "Less" after the text folds it again. The button fades out, the height eases open or shut, and
+ * the other button fades in at its place as the height settles.
  */
 export function ClampText({ text, more, less, icon, className = "" }: { text: string; more: string; less: string; icon?: ReactNode; className?: string }) {
   const [open, setOpen] = useState(false);
   const [long, setLong] = useState(false);
   const box = useRef<HTMLParagraphElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
   const from = useRef<number | null>(null);
+  const busy = useRef(false);
 
   // Whether the text needs more than two lines (checked again when the card's width changes).
   useLayoutEffect(() => {
@@ -46,13 +49,24 @@ export function ClampText({ text, more, less, icon, className = "" }: { text: st
     from.current = null;
     if (!el || start === null || prefersReducedMotion()) return;
     const end = el.offsetHeight;
-    if (Math.abs(end - start) < 1) return;
-    el.animate([{ height: `${start}px`, overflow: "hidden" }, { height: `${end}px`, overflow: "hidden" }], { duration: 380, easing: "cubic-bezier(0.65, 0, 0.35, 1)" });
+    const ease = "cubic-bezier(0.65, 0, 0.35, 1)";
+    if (Math.abs(end - start) >= 1) el.animate([{ height: `${start}px`, overflow: "hidden" }, { height: `${end}px`, overflow: "hidden" }], { duration: 380, easing: ease });
+    // The button now shown comes in as the height settles.
+    button.current?.animate([{ opacity: 0, transform: "translateY(4px)" }, { opacity: 1, transform: "none" }], { duration: 240, delay: 300, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "backwards" });
   }, [open]);
 
   const toggle = () => {
-    from.current = box.current?.offsetHeight ?? null;
-    setOpen((v) => !v);
+    if (busy.current) return;
+    const go = () => {
+      busy.current = false;
+      from.current = box.current?.offsetHeight ?? null;
+      setOpen((v) => !v);
+    };
+    const shown = button.current;
+    if (!shown || prefersReducedMotion()) return go();
+    // First the button fades out where it is, then the text opens or folds.
+    busy.current = true;
+    shown.animate([{ opacity: 1, transform: "none" }, { opacity: 0, transform: "translateY(3px)" }], { duration: 140, easing: "ease-in", fill: "forwards" }).finished.then(go, go);
   };
 
   return (
@@ -63,13 +77,13 @@ export function ClampText({ text, more, less, icon, className = "" }: { text: st
         {open ? (
           <>
             {" "}
-            <button type="button" aria-expanded onClick={toggle} className="inline font-bold text-teal-deep">
+            <button ref={button} type="button" aria-expanded onClick={toggle} className="inline-block font-bold text-teal-deep">
               {less} <span aria-hidden="true">⌃</span>
             </button>
           </>
         ) : (
           long && (
-            <button type="button" aria-expanded={false} onClick={toggle} className="absolute bottom-0 right-0 bg-[linear-gradient(to_right,transparent,var(--panel)_28px)] pl-7 font-bold text-teal-deep max-sm:pl-[18px]">
+            <button ref={button} type="button" aria-expanded={false} onClick={toggle} className="absolute bottom-0 right-0 bg-[linear-gradient(to_right,transparent,var(--panel)_28px)] pl-7 font-bold text-teal-deep max-sm:pl-[18px]">
               … {more.toLocaleLowerCase("az")}
             </button>
           )

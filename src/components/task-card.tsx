@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import { addTaskNote, deleteTaskNote, loadTaskNotes, type TaskNote } from "@/app/actions/task-notes";
 import { setTaskStatus } from "@/app/actions/tasks";
@@ -17,7 +18,7 @@ import { Collapse, useIsWide } from "./motion";
 import { AvatarGroup, personColor } from "./avatar-group";
 import { BriefWindow } from "./content-brief";
 import { PinIcon } from "./content-note";
-import { CloseButton } from "./dialog";
+import { CloseButton, ConfirmDialog } from "./dialog";
 import { Sheet, useSheetClose } from "./sheet";
 import { ActionButtons, cardButtonClass, ClampText, useIsNarrow, useStackWhenTight } from "./task-card-parts";
 import { ContentWindow } from "./content-window";
@@ -202,15 +203,17 @@ export function TaskCard({
     });
   }
 
-  // Clicking the card opens the task for admins and managers (the edit window on the customer page);
-  // for others it does nothing. Buttons, links and the windows opened from the card keep their own clicks.
+  // Clicking the card asks admins and managers whether to open the task (the edit window on the customer
+  // page); for others it does nothing. Buttons, links and the windows opened from the card keep their own clicks.
   const openTask = editHref ? () => router.push(editHref) : onEdit;
+  const [askOpen, setAskOpen] = useState(false);
+  const stopAskOpen = () => setAskOpen(false);
   const onCardClick = (e: React.MouseEvent<HTMLElement>) => {
     if (!openTask) return;
     const target = e.target as HTMLElement;
     if (!e.currentTarget.contains(target) || target.closest("button, a, input, textarea, select, label, [data-avatar]")) return;
     if (window.getSelection()?.toString()) return; // selecting text, not clicking
-    openTask();
+    setAskOpen(true);
   };
   // Without a deadline after its day, the task is due on its day: lateness shows as a bar on top.
   const hasSpan = !!task.deadline && task.deadline !== task.dueDate;
@@ -455,6 +458,23 @@ export function TaskCard({
       {contentOpen && <ContentWindow contentId={task.contentId} fromTask={task.id} onClose={closeContent} t={t} />}
       {finishedOpen && <FinishedWindow contentId={task.contentId} taskId={task.id} onClose={closeFinished} t={t} />}
       {briefOpen && <BriefWindow contentId={task.contentId} startEditing={!task.hasBrief} onClose={closeBrief} t={t} />}
+      {askOpen &&
+        openTask &&
+        createPortal(
+          <ConfirmDialog
+            title={t.askOpen.title}
+            text={`${task.contentCode} · ${typeLabel}`}
+            confirmLabel={t.openTask}
+            cancelLabel={t.askOpen.cancel}
+            tone="dark"
+            onCancel={stopAskOpen}
+            onConfirm={() => {
+              setAskOpen(false);
+              openTask();
+            }}
+          />,
+          document.body,
+        )}
     </article>
   );
 }
