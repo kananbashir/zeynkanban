@@ -367,7 +367,7 @@ export function TaskCard({
       </div>
 
       {task.contentNote && (
-        <div className={`${box} py-3 max-sm:py-2`}>
+        <div role="note" aria-label={fill(t.contents.noteOf, { code: task.contentCode })} className={`${box} py-3 max-sm:py-2`}>
           <ClampText
             text={task.contentNote}
             more={t.contents.more}
