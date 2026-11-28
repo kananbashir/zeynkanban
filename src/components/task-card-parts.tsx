@@ -1,6 +1,6 @@
 "use client";
 
-import { Children, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { Children, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import { prefersReducedMotion } from "@/lib/spring";
 
 // Pieces of the task card: text cut to two lines with "… more", and the row of action buttons.
@@ -127,4 +127,33 @@ export function cardButtonClass(kind: "dark" | "leaf" | "dashed") {
         ? "bg-leaf text-white"
         : "border-[1.5px] border-dashed border-ink/35 bg-surface/50 font-semibold text-ink hover:bg-surface";
   return `flex min-h-[42px] min-w-0 items-center justify-center rounded-xl px-4 text-center text-[13.5px] font-bold leading-tight max-sm:min-h-7 max-sm:rounded-lg max-sm:px-1.5 max-sm:text-[10px] ${look}`;
+}
+
+/**
+ * Whether a row of two parts (Notes, then the people: a name and avatars) should stack because the
+ * people would not fit beside Notes at their full width. Measured again when the row's width changes.
+ */
+export function useStackWhenTight(row: RefObject<HTMLElement | null>): boolean {
+  const [stack, setStack] = useState(false);
+  useLayoutEffect(() => {
+    const el = row.current;
+    if (!el) return;
+    const check = () => {
+      const [first, second] = [...el.children] as HTMLElement[];
+      if (!first || !second) return setStack(false);
+      const style = getComputedStyle(el);
+      const room = el.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+      const gap = parseFloat(style.columnGap) || 0;
+      // The people at full width: every part at its natural size (a cut name counts in full).
+      const inner = getComputedStyle(second);
+      const parts = [...second.children] as HTMLElement[];
+      const people = parts.reduce((sum, p) => sum + p.scrollWidth, 0) + (parseFloat(inner.columnGap) || 0) * Math.max(0, parts.length - 1);
+      setStack(first.offsetWidth + gap + people > room + 0.5);
+    };
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [row]);
+  return stack;
 }

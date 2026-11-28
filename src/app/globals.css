@@ -109,9 +109,12 @@ html[data-dark] .bg-danger {
 html[data-dark] .zk-card {
   --card-bg: color-mix(in oklab, var(--tint) 22%, var(--color-surface));
 }
-/* The panels inside a task card: a lighter layer of the card's own colour, no border. */
+/* The panels inside a task card: a lighter shade of the card's own colour, no border. */
 .zk-card {
   --panel: color-mix(in oklab, var(--card-bg) 60%, var(--color-surface));
+}
+html[data-dark] .zk-card {
+  --panel: color-mix(in oklab, var(--card-bg), white 8%);
 }
 .zk-panel {
   background: var(--panel);

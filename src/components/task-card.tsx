@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useOptimistic, useState, useTransition, type ReactNode } from "react";
+import { useCallback, useEffect, useOptimistic, useRef, useState, useTransition, type ReactNode } from "react";
 import { addTaskNote, deleteTaskNote, loadTaskNotes, type TaskNote } from "@/app/actions/task-notes";
 import { setTaskStatus } from "@/app/actions/tasks";
 import type { Dictionary } from "@/i18n/dictionaries";
@@ -19,7 +19,7 @@ import { BriefWindow } from "./content-brief";
 import { PinIcon } from "./content-note";
 import { CloseButton } from "./dialog";
 import { Sheet, useSheetClose } from "./sheet";
-import { ActionButtons, cardButtonClass, ClampText, useIsNarrow } from "./task-card-parts";
+import { ActionButtons, cardButtonClass, ClampText, useIsNarrow, useStackWhenTight } from "./task-card-parts";
 import { ContentWindow } from "./content-window";
 import { DeadlineStrip } from "./deadline-strip";
 import { NudgeButton } from "./nudge-button";
@@ -214,10 +214,12 @@ export function TaskCard({
   };
   // Without a deadline after its day, the task is due on its day: lateness shows as a bar on top.
   const hasSpan = !!task.deadline && task.deadline !== task.dueDate;
-  const plainBody = !task.description && !task.note;
   const showPeople = showAssignee || task.assignees.length > 1;
   const panel = "zk-panel rounded-[16px] max-sm:rounded-[13px]";
-  const split = `${panel} grid grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] gap-4 px-4 py-3.5 max-sm:gap-[7px] max-sm:px-[9px] max-sm:py-2`;
+  const box = `${panel} px-4 py-3.5 max-sm:px-[9px] max-sm:py-2`;
+  // Notes and the people: side by side, or stacked when the people would not fit beside Notes.
+  const peopleRow = useRef<HTMLDivElement>(null);
+  const stackPeople = useStackWhenTight(peopleRow);
   const fit = "inline-flex items-center gap-1.5 whitespace-nowrap max-sm:gap-1";
   const smallChip = "flex h-[30px] items-center rounded-[10px] bg-surface px-2.5 text-xs font-semibold leading-none text-ink-soft max-sm:h-[17px] max-sm:rounded-[5px] max-sm:px-1 max-sm:text-[8.5px]";
 
@@ -236,9 +238,9 @@ export function TaskCard({
         </div>
       )}
 
-      {/* Content ID (and its note) | customer, bell and status. The divider is in the exact middle. */}
-      <div className={split}>
-        <div className="flex min-w-0 flex-col justify-center gap-2 max-sm:gap-[5px]">
+      {/* Four panels: content ID | customer, bell and status; task type | notes and the people on it. */}
+      <div className="grid grid-cols-2 gap-2.5 max-sm:gap-[5px]">
+        <div className={`${box} flex min-w-0 flex-col justify-center`}>
           <div className="flex flex-wrap items-center gap-1.5 max-sm:gap-1">
             {contentWindow ? (
               <button
@@ -259,20 +261,11 @@ export function TaskCard({
             {task.contentArchived && <span className={smallChip}>{t.archivedContent}</span>}
             {!task.assignees.length && <span className={smallChip}>{t.draft}</span>}
           </div>
-          {task.contentNote && (
-            <ClampText
-              text={task.contentNote}
-              more={t.contents.more}
-              less={t.contents.less}
-              icon={<PinIcon size={narrow ? 9 : 14} className="mr-[7px] mt-[3px] text-sun-ink max-sm:mr-[3px] max-sm:mt-0.5" />}
-              className="text-[13px] leading-[1.45] text-ink-body max-sm:text-[9.5px] max-sm:leading-[1.4]"
-            />
-          )}
         </div>
-        <span aria-hidden="true" className="bg-ink/14" />
-        <div className={`flex min-w-0 flex-col items-end gap-2 max-sm:gap-[5px] ${showCustomer ? "justify-between" : "justify-center"}`}>
+        {/* On a computer one row (customer left, bell and status right); on a phone stacked on the right. */}
+        <div className={`${box} flex min-w-0 items-center gap-3 max-sm:flex-col max-sm:items-end max-sm:gap-[5px] ${showCustomer ? "justify-between" : "justify-end max-sm:justify-center"}`}>
           {showCustomer && (
-            <span className="flex min-w-0 max-w-full items-center gap-2 text-[15px] font-semibold leading-tight max-sm:gap-1 max-sm:text-[10.5px]">
+            <span className="flex min-w-0 max-w-full flex-row-reverse items-center gap-2 text-[15px] font-semibold leading-tight max-sm:flex-row max-sm:gap-1 max-sm:text-[9px]">
               <span className="truncate">{task.customerName}</span>
               <span className="size-[11px] shrink-0 rounded-full border-[1.5px] border-black/25 max-sm:size-[7px] max-sm:border" style={{ background: task.customerColor }} />
             </span>
@@ -317,11 +310,8 @@ export function TaskCard({
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Task type, description and note | notes and the people on it. */}
-      <div className={split}>
-        <div className="flex min-w-0 flex-col justify-center gap-2 max-sm:gap-[5px]">
+        <div className={`${box} flex min-w-0 flex-col justify-center`}>
           <h3 className="flex min-w-0 items-center gap-2.5 text-[19px] font-semibold leading-tight max-sm:gap-[5px] max-sm:text-[11.5px]">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-[11px] bg-surface text-teal-deep max-sm:size-5 max-sm:rounded-[6px]">
               <TaskTypeIcon name={task.typeIcon} size={narrow ? 11 : 18} />
@@ -338,16 +328,9 @@ export function TaskCard({
               <span className="min-w-0 break-words">{typeLabel}</span>
             )}
           </h3>
-          {task.description && <ClampText text={task.description} more={t.contents.more} less={t.contents.less} className="text-sm leading-normal text-ink-body max-sm:text-[10.5px] max-sm:leading-[1.45]" />}
-          {task.note && (
-            <span className="flex min-w-0 items-center gap-1.5 text-[12.5px] leading-snug text-ink-soft max-sm:gap-[3px] max-sm:text-[9px]">
-              <Icon d={NOTE_SHEET} size={narrow ? 9 : 14} />
-              <span className="min-w-0 [overflow-wrap:anywhere]">{task.note}</span>
-            </span>
-          )}
         </div>
-        <span aria-hidden="true" className="bg-ink/14" />
-        <div className={`flex min-w-0 flex-col items-end gap-2 max-sm:gap-[5px] ${plainBody ? "justify-center" : "justify-between"}`}>
+        {/* Side by side when they fit; otherwise the people go under Notes, both on the right. */}
+        <div ref={peopleRow} className={`${box} flex min-w-0 gap-x-3 gap-y-2 max-sm:gap-x-1.5 max-sm:gap-y-[5px] ${stackPeople ? "flex-col items-end justify-center" : "items-center justify-between"}`}>
           <button
             type="button"
             aria-haspopup="dialog"
@@ -379,6 +362,29 @@ export function TaskCard({
           )}
         </div>
       </div>
+
+      {task.contentNote && (
+        <div className={`${box} py-3 max-sm:py-2`}>
+          <ClampText
+            text={task.contentNote}
+            more={t.contents.more}
+            less={t.contents.less}
+            icon={<PinIcon size={narrow ? 9 : 14} className="mr-[7px] mt-[3px] text-sun-ink max-sm:mr-[3px] max-sm:mt-0.5" />}
+            className="text-[13px] leading-[1.45] text-ink-body max-sm:text-[9.5px] max-sm:leading-[1.4]"
+          />
+        </div>
+      )}
+      {(task.description || task.note) && (
+        <div className={`${box} flex flex-col gap-2 max-sm:gap-[5px]`}>
+          {task.description && <ClampText text={task.description} more={t.contents.more} less={t.contents.less} className="text-sm leading-normal text-ink-body max-sm:text-[10.5px] max-sm:leading-[1.45]" />}
+          {task.note && (
+            <span className="flex min-w-0 items-center gap-1.5 text-[12.5px] leading-snug text-ink-soft max-sm:gap-[3px] max-sm:text-[9px]">
+              <Icon d={NOTE_SHEET} size={narrow ? 9 : 14} />
+              <span className="min-w-0 [overflow-wrap:anywhere]">{task.note}</span>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Brief, finished work, and adding them. Hidden when there is none of these. */}
       <ActionButtons grid={!wide}>
